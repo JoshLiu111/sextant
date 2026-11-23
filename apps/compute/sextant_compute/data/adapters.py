@@ -132,6 +132,28 @@ class EconomicSeriesAdapter(Adapter, Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class SeriesSummary:
+    """One search hit: enough to pick a series before fetching it. ``last_updated``
+    is ISO 8601 with the provider's UTC offset, ``observation_end`` an ISO date."""
+
+    id: str
+    title: str
+    units: str
+    frequency: str
+    seasonal_adjustment: str
+    last_updated: str
+    observation_end: str
+
+
+class SeriesSearchAdapter(Adapter, Protocol):
+    def search_series(self, ctx: RequestContext, query: str, limit: int) -> list[SeriesSummary]:
+        """Series matching ``query`` (name, keyword or id), best match first, at most
+        ``limit``. Only series ``economic_series`` may serve are offered (FRED:
+        public-domain, no copyright notice). No match is an empty list."""
+        ...
+
+
 Curve = dict[float, float]
 """One day's yield curve: maturity in months (1, 1.5, ..., 360) -> yield in percent.
 Maturities not published that day are absent."""
