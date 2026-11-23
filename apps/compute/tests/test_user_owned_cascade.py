@@ -43,11 +43,19 @@ def _portfolio_holding_row(conn: psycopg.Connection, user_id) -> None:
     )
 
 
+def _ai_usage_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO ai_usage (user_id, tool, input_tokens, output_tokens) VALUES (%s, 'options', 1000, 200)",
+        (user_id,),
+    )
+
+
 # table name -> inserts one row owned by user_id. Order matters: parents first.
 USER_OWNED_ROWS: dict[str, RowFactory] = {
     "sessions": _session_row,
     "portfolios": _portfolio_row,
     "portfolio_holdings": _portfolio_holding_row,
+    "ai_usage": _ai_usage_row,
 }
 
 
