@@ -23,6 +23,7 @@ from sextant_compute.portfolio.imports import router as portfolio_transactions_r
 from sextant_compute.portfolio.saved import router as saved_portfolios_router
 from sextant_compute.risk.api import router as risk_router
 from sextant_compute.screener.api import router as screener_router
+from sextant_compute.screener.calendar import router as screener_calendar_router
 from sextant_compute.valuation.api import router as valuation_router
 
 API_PREFIX = "/api/compute"
@@ -63,5 +64,6 @@ def create_app() -> FastAPI:
     app.include_router(macro_router, prefix=f"{API_PREFIX}/macro")
     app.include_router(valuation_router, prefix=f"{API_PREFIX}/valuation")
     app.include_router(screener_router, prefix=f"{API_PREFIX}/screener")
+    app.include_router(screener_calendar_router, prefix=f"{API_PREFIX}/screener")
     app.include_router(auth_router, prefix=API_PREFIX)
     return app

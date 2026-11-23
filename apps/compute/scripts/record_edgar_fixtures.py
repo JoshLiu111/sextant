@@ -16,13 +16,15 @@ Trimming keeps the files small but real (values are never edited):
   and ``SCREEN_TICKERS``.
 - companyfacts: ``cik``, ``entityName``, and for every tag named in
   ``line_items.toml`` only annual-report facts (10-K family) filed since
-  ``SINCE``. ``description`` texts are dropped.
+  ``SINCE``; for the per-share dividend tags (``DIVIDEND_TAGS``) the 10-Q
+  family too. ``description`` texts are dropped.
 - frames (screener): ``frames/<taxonomy>/<Tag>/<unit>/<period>.json``, one per tag
   the screener metrics need, for ``FRAME_YEARS``, keeping only the rows of
   ``SCREEN_TICKERS`` companies. A tag without a frame (404) gets no file.
 - latest filings: ``getcurrent/<form or all>.atom`` for ``FEED_FORMS`` (kept
   whole), and ``submissions/CIK##########.json`` for ``SUBMISSION_TICKERS`` (the
-  company header plus the newest ``SUBMISSIONS_KEEP`` filings).
+  company header plus the newest ``SUBMISSIONS_KEEP`` filings and every
+  earnings 8-K, Item 2.02, for the earnings calendar).
 """
 
 from __future__ import annotations
@@ -34,14 +36,17 @@ from pathlib import Path
 
 from sextant_compute.analytics.screener import METRICS, items_for
 from sextant_compute.data.edgar.client import DATA_URL, WWW_URL, EdgarClient, NotFound
+from sextant_compute.data.edgar.dividends import DIVIDEND_TAGS
 from sextant_compute.data.edgar.feeds import getcurrent_path
 from sextant_compute.data.edgar.frames import FrameKey, frame_keys, frame_path, specs_needed
 from sextant_compute.data.edgar.mapping import Tag, line_items
+from sextant_compute.screener.calendar import CALENDAR_TICKERS, EARNINGS_ITEM
 
 OUT = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "edgar"
 # AAPL/MSFT: different revenue tags. JPM: a bank (no COGS, no current assets).
 # WMT: no GrossProfit or Liabilities tags (derived), custom EPS tags.
-TICKERS = ["AAPL", "MSFT", "JPM", "WMT"]
+# AMZN: pays no dividend (dividend history says so).
+TICKERS = ["AAPL", "MSFT", "JPM", "WMT", "AMZN"]
 EXTRA_TICKER_ROWS = ["GOOGL", "GOOG", "BRK-B"]  # ticker-map shapes only, no companyfacts
 # The screener's fixture universe: large caps across sectors, incl. a bank (JPM)
 # and companies with negative equity or no GrossProfit tag.
@@ -52,9 +57,10 @@ SCREEN_TICKERS = (
 FRAME_YEARS = [2025, 2024]
 FEED_FORMS = ["", "10-K"]
 FEED_COUNT = 40
-SUBMISSION_TICKERS = ["AAPL", "MSFT"]
+SUBMISSION_TICKERS = sorted({"AAPL", "MSFT", *CALENDAR_TICKERS})
 SUBMISSIONS_KEEP = 60
 ANNUAL_FORMS = {"10-K", "10-K/A", "10-KT", "20-F", "40-F"}
+QUARTERLY_FORMS = {"10-Q", "10-Q/A"}
 SINCE = "2016-01-01"
 
 
@@ -69,15 +75,19 @@ def trim_companyfacts(raw: dict) -> dict:
     for spec in line_items():
         for tag in spec.tags:
             wanted.setdefault(tag.taxonomy, set()).add(tag.name)
+    quarterly = {tuple(tag.split(":")) for tag, _ in DIVIDEND_TAGS}
+    for taxonomy, name in quarterly:
+        wanted.setdefault(taxonomy, set()).add(name)
     facts: dict[str, dict] = {}
     for taxonomy, names in wanted.items():
         for name in sorted(names):
             concept = raw.get("facts", {}).get(taxonomy, {}).get(name)
             if concept is None:
                 continue
+            forms = ANNUAL_FORMS | QUARTERLY_FORMS if (taxonomy, name) in quarterly else ANNUAL_FORMS
             units = {}
             for unit, rows in concept["units"].items():
-                kept = [r for r in rows if r.get("form") in ANNUAL_FORMS and r.get("filed", "") >= SINCE]
+                kept = [r for r in rows if r.get("form") in forms and r.get("filed", "") >= SINCE]
                 if kept:
                     units[unit] = kept
             if units:
@@ -92,7 +102,13 @@ def trim_frame(raw: dict, ciks: set[int]) -> dict:
 
 
 def trim_submissions(raw: dict) -> dict:
-    recent = {k: v[:SUBMISSIONS_KEEP] for k, v in raw["filings"]["recent"].items()}
+    columns = raw["filings"]["recent"]
+    keep = [
+        i
+        for i, (form, items) in enumerate(zip(columns["form"], columns["items"], strict=True))
+        if i < SUBMISSIONS_KEEP or (form.split("/")[0] == "8-K" and EARNINGS_ITEM in items.split(","))
+    ]
+    recent = {k: [v[i] for i in keep] for k, v in columns.items()}
     head = {k: raw[k] for k in ("cik", "name", "tickers", "exchanges", "sic", "sicDescription", "fiscalYearEnd")}
     return {**head, "filings": {"recent": recent}}
 

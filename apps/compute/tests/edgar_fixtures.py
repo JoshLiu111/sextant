@@ -3,9 +3,10 @@
 ``tests/fixtures/edgar/`` holds trimmed real responses, recorded with
 ``scripts/record_edgar_fixtures.py``: the ticker map (AAPL, MSFT, JPM, WMT,
 GOOGL/GOOG, BRK-B, plus the screener's 37-company universe), companyfacts for
-AAPL, MSFT, JPM and WMT, frames (``frames/``, CY2024/CY2025, universe rows only),
+AAPL, MSFT, JPM, WMT and AMZN (per-share dividend tags include 10-Q facts), frames (``frames/``, CY2024/CY2025, universe rows only),
 the getcurrent Atom feed (``getcurrent/all.atom``, ``getcurrent/10-K.atom``) and
-submissions for AAPL and MSFT (``submissions/``).
+submissions (``submissions/``) for AAPL, MSFT and the earnings calendar's
+companies (newest 60 filings plus every Item 2.02 8-K, recorded 2026-11-22).
 
     adapter = edgar_adapter()                       # serves the fixtures
     adapter = edgar_adapter(edgar_transport(status=503))  # EDGAR is down
@@ -27,7 +28,7 @@ from sextant_compute.data.edgar.client import EdgarClient, RateLimiter
 
 FIXTURES = Path(__file__).parent / "fixtures" / "edgar"
 TEST_USER_AGENT = "Sextant test admin@example.com"
-CIKS = {"AAPL": 320193, "MSFT": 789019, "JPM": 19617, "WMT": 104169}
+CIKS = {"AAPL": 320193, "MSFT": 789019, "JPM": 19617, "WMT": 104169, "AMZN": 1018724}
 
 
 def load_facts(ticker: str) -> dict[str, Any]:

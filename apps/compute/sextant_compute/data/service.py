@@ -29,6 +29,7 @@ from sextant_compute.data.adapters import (
     Adapter,
     CrossSectionsAdapter,
     DailyPricesAdapter,
+    DividendsAdapter,
     EconomicSeries,
     EconomicSeriesAdapter,
     FilingsAdapter,
@@ -40,6 +41,7 @@ from sextant_compute.data.adapters import (
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
+from sextant_compute.data.dividends import DividendHistory
 from sextant_compute.data.edgar import EdgarAdapter
 from sextant_compute.data.filings import FilingList
 from sextant_compute.data.fred import FredAdapter
@@ -236,6 +238,19 @@ class DataService:
             lambda: adapter.company_filings(ctx, ticker),
             FilingList.to_json,
             FilingList.from_json,
+        )
+
+    def dividends(self, ctx: RequestContext, ticker: str, *, source: str) -> DividendHistory:
+        """One company's per-share dividends by period, newest first; see ``DividendsAdapter``."""
+        adapter = cast(DividendsAdapter, self._adapter(source))
+        return self._cached(
+            ctx,
+            adapter,
+            "dividends",
+            {"ticker": ticker.strip().upper()},
+            lambda: adapter.dividends(ctx, ticker),
+            DividendHistory.to_json,
+            DividendHistory.from_json,
         )
 
     def economic_series(
