@@ -3,6 +3,11 @@
 Kept apart from ``risk_metric_set`` (which My Portfolio shares) because these are
 heavier, per-ticker diagnostics. Metric ids (suffix ``:<ticker>`` added by the router):
 
+- ``backtest_var``, ``backtest_parametric_var``, ``backtest_cornish_fisher_var``:
+  a rolling backtest of the historical, parametric and Cornish-Fisher VaR at the
+  request's confidence. Value: breaches (unit ``count``); details: ``window``,
+  ``observations``, ``expected_breaches``, ``breach_rate``, ``kupiec_statistic``,
+  ``p_value``, ``significance`` and ``result`` (``"accept"`` | ``"reject"``).
 - ``garch_volatility``: next-day conditional volatility, annualized; details carry
   the fitted ``omega`` (daily), ``alpha``, ``beta``, ``persistence``,
   ``long_run_volatility`` (annualized), ``log_likelihood`` and ``observations``.
@@ -13,11 +18,33 @@ from __future__ import annotations
 
 import pandas as pd
 
-from sextant_compute.analytics import garch
+from sextant_compute.analytics import backtest, garch
 from sextant_compute.envelope import Detailed, MetricResult, SeriesResult, metric
 from sextant_compute.risk.metrics import date_series
 
 GARCH_ID = "garch_volatility"
+BACKTEST_IDS: dict[str, backtest.VarMethod] = {
+    "backtest_var": "historical",
+    "backtest_parametric_var": "parametric",
+    "backtest_cornish_fisher_var": "cornish_fisher",
+}
+
+
+def _backtest_metric(returns: pd.Series, method: backtest.VarMethod, confidence: float) -> Detailed:
+    bt = backtest.backtest_var(returns, method, confidence)
+    return Detailed(
+        bt.breaches,
+        {
+            "window": bt.window,
+            "observations": bt.observations,
+            "expected_breaches": bt.expected_breaches,
+            "breach_rate": bt.breach_rate,
+            "kupiec_statistic": bt.kupiec_statistic,
+            "p_value": bt.p_value,
+            "significance": bt.significance,
+            "result": "reject" if bt.rejected else "accept",
+        },
+    )
 
 
 def _garch_metric(fit: garch.GarchFit) -> Detailed:
@@ -35,7 +62,9 @@ def _garch_metric(fit: garch.GarchFit) -> Detailed:
     )
 
 
-def model_check_set(returns: pd.Series, *, confidence: float) -> tuple[dict[str, MetricResult], dict[str, SeriesResult]]:
+def model_check_set(
+    returns: pd.Series, *, confidence: float
+) -> tuple[dict[str, MetricResult], dict[str, SeriesResult]]:
     """The backtest and GARCH metrics and series for one return series, keyed without the ticker."""
     fits: dict[str, garch.GarchFit] = {}
 
@@ -44,6 +73,10 @@ def model_check_set(returns: pd.Series, *, confidence: float) -> tuple[dict[str,
             fits["fit"] = garch.fit_garch(returns)
         return fits["fit"]
 
-    metrics = {GARCH_ID: metric(lambda: _garch_metric(fitted()), unit="decimal")}
+    metrics = {
+        metric_id: metric(lambda method=method: _backtest_metric(returns, method, confidence), unit="count")
+        for metric_id, method in BACKTEST_IDS.items()
+    }
+    metrics[GARCH_ID] = metric(lambda: _garch_metric(fitted()), unit="decimal")
     series = {GARCH_ID: date_series(lambda: garch.annualized_volatility(fitted().conditional_variance))}
     return metrics, series
