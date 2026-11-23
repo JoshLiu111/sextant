@@ -1224,6 +1224,8 @@ export const en = {
         "Price criteria (52-week change, distance from the 52-week high) use your own price data: sign in and add a price data key in Settings. Market cap is not offered.",
       myData: (provider: string, max: number) =>
         `Price criteria use real prices from ${provider}, fetched with your own key and shown only to you. They are checked on at most ${max} companies passing the other criteria.`,
+      /** Shown when the user has keys for several price providers. */
+      provider: "Price provider",
     },
     pricesInfo: (provider: string, asOf: string) => `Prices: ${provider}, as of ${asOf}. Shown only to you.`,
     priceExplainer: {
