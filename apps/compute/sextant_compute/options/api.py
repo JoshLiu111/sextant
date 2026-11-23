@@ -8,9 +8,10 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 from pydantic_core import PydanticCustomError
 
+from sextant_compute.analytics import binomial
 from sextant_compute.analytics import options as bs
 from sextant_compute.analytics import strategies as st
-from sextant_compute.envelope import ResultEnvelope, envelope, metric, series
+from sextant_compute.envelope import MetricError, MetricResult, ResultEnvelope, envelope, metric, series
 from sextant_compute.errors import INPUT_ERROR, check
 
 router = APIRouter(tags=["options"])
@@ -158,3 +159,56 @@ def strategy(req: StrategyRequest) -> ResultEnvelope:
         curves[f"{g}_vs_spot"] = series(lambda g=g: st.greek_vs_spot(g, legs, market), x_unit="currency", y_unit=unit)
         curves[f"{g}_vs_time"] = series(lambda g=g: st.greek_vs_time(g, legs, market), x_unit="years", y_unit=unit)
     return envelope(tool=TOOL, request=req, metrics=metrics, series=curves)
+
+
+MAX_STEPS = 5000
+
+
+class AmericanRequest(MarketInputs):
+    strike: Strike
+    steps: Annotated[
+        int,
+        check(lambda v: v >= 1, "Steps must be at least 1."),
+        check(lambda v: v <= MAX_STEPS, f"Steps must be at most {MAX_STEPS:,}."),
+    ] = 500
+
+
+@router.post("/american")
+def american(req: AmericanRequest) -> ResultEnvelope:
+    args = (req.spot, req.strike, req.time_to_expiry, req.volatility, req.risk_free_rate, req.dividend_yield)
+    metrics = {}
+    curves = {}
+    for kind in ("call", "put"):
+        amer = metric(lambda kind=kind: binomial.tree_price(kind, *args, req.steps, american=True), unit="currency")
+        euro_tree = metric(
+            lambda kind=kind: binomial.tree_price(kind, *args, req.steps, american=False), unit="currency"
+        )
+        metrics[f"american_{kind}"] = amer
+        metrics[f"european_{kind}_tree"] = euro_tree
+        metrics[f"european_{kind}"] = metric(lambda kind=kind: bs.bs_price(kind, *args), unit="currency")
+        metrics[f"{kind}_early_exercise_premium"] = metric(
+            lambda a=amer, e=euro_tree: _difference(a, e), unit="currency"
+        )
+        for name, is_american in ((f"american_{kind}_by_steps", True), (f"european_{kind}_tree_by_steps", False)):
+            curves[name] = series(
+                lambda kind=kind, is_american=is_american: [
+                    (n, _tree_or_none(kind, args, n, is_american)) for n in binomial.steps_grid(req.steps)
+                ],
+                x_unit="steps",
+                y_unit="currency",
+            )
+    return envelope(tool=TOOL, request=req, metrics=metrics, series=curves)
+
+
+def _difference(a: MetricResult, b: MetricResult) -> float:
+    if a.value is None or b.value is None:
+        raise MetricError(a.reason or b.reason or "The tree price is unavailable.")
+    return a.value - b.value
+
+
+def _tree_or_none(kind: bs.OptionType, args: tuple[float, ...], steps: int, american: bool) -> float | None:
+    """A convergence-chart point; a step count too coarse for a valid tree leaves a gap."""
+    try:
+        return binomial.tree_price(kind, *args, steps, american=american)
+    except MetricError:
+        return None
