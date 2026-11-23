@@ -109,3 +109,75 @@ def test_an_unknown_period_is_a_field_error():
 
     assert response.status_code == 422
     assert response.json()["error"]["fields"]["period"] == "Choose one of the listed options."
+
+
+# --- Rolling metrics ---
+
+YEAR = 252
+
+
+def zigzag_frames():
+    """Daily returns alternating exactly +1% and -1%, starting 2024-01-01."""
+    closes = [100.0]
+    for i in range(YEAR):
+        closes.append(closes[-1] * (1.01 if i % 2 == 0 else 0.99))
+    return {"ZIG": price_frame("2024-01-01", closes)}
+
+
+def test_rolling_volatility_sharpe_and_beta_over_the_chosen_window():
+    with serving(FixtureAdapter(zigzag_frames())):
+        body = metrics(tickers=["ZIG"], benchmark="ZIG", start="2024-01-01", end="2025-12-31", rolling_window=20)
+
+    vol = body["series"]["rolling_volatility:ZIG"]
+    assert vol["status"] == "ok" and vol["x_unit"] == "date" and vol["y_unit"] == "decimal"
+    # Every 20-day window holds ten +1% and ten -1% days: std = 0.01 * sqrt(20 / 19).
+    assert len(vol["points"]) == YEAR - 20 + 1
+    assert vol["points"][0]["x"] == pd.bdate_range("2024-01-02", periods=20)[-1].date().isoformat()
+    assert all(p["y"] == pytest.approx(0.01 * math.sqrt(20 / 19) * math.sqrt(YEAR)) for p in vol["points"])
+    assert vol["details"]["window"] == 20
+    sharpe = body["series"]["rolling_sharpe:ZIG"]
+    assert sharpe["y_unit"] == "ratio"
+    assert all(p["y"] == pytest.approx(0.0, abs=1e-9) for p in sharpe["points"])
+    beta = body["series"]["rolling_beta:ZIG"]
+    assert all(p["y"] == pytest.approx(1.0) for p in beta["points"])
+
+
+def test_a_longer_window_gives_fewer_rolling_points():
+    short = metrics(tickers=["DEMO-B"], start="2021-01-01", end="2025-12-31", rolling_window=21)
+    long = metrics(tickers=["DEMO-B"], start="2021-01-01", end="2025-12-31", rolling_window=126)
+
+    assert len(short["series"]["rolling_volatility:DEMO-B"]["points"]) - 105 == len(
+        long["series"]["rolling_volatility:DEMO-B"]["points"]
+    )
+
+
+def test_rolling_beta_tracks_the_configured_beta():
+    body = metrics(tickers=["DEMO-B"], rolling_window=252)
+
+    ys = [p["y"] for p in body["series"]["rolling_beta:DEMO-B"]["points"]]
+    assert sum(ys) / len(ys) == pytest.approx(PERSONALITIES["DEMO-B"].beta, abs=0.1)
+
+
+def test_the_rolling_window_defaults_to_63_trading_days():
+    body = metrics(tickers=["DEMO-A"], start="2021-01-01", end="2025-12-31")
+
+    assert body["meta"]["parameters"]["rolling_window"] == 63
+    assert body["series"]["rolling_volatility:DEMO-A"]["details"]["window"] == 63
+
+
+def test_a_window_longer_than_the_range_is_missing_data_for_the_rolling_curves_only():
+    body = metrics(tickers=["DEMO-A"], start="2025-01-01", end="2025-03-31", rolling_window=252)
+
+    for name in ("rolling_volatility", "rolling_sharpe", "rolling_beta"):
+        result = body["series"][f"{name}:DEMO-A"]
+        assert result["status"] == "missing_data"
+        assert "252-day rolling window" in result["reason"]
+    assert body["metrics"]["annualized_volatility:DEMO-A"]["status"] == "ok"
+
+
+@pytest.mark.parametrize("window", [1, 19, 757])
+def test_an_out_of_range_window_is_a_field_error(window):
+    response = post(tickers=["DEMO-A"], rolling_window=window)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["fields"]["rolling_window"] == "Enter a window between 20 and 756 trading days."
