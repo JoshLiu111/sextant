@@ -16,6 +16,7 @@ from sextant_compute.data.service import Ctx, Data
 from sextant_compute.envelope import MetricResult, ResultEnvelope, SeriesResult, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
 from sextant_compute.risk.metrics import date_series, risk_metric_set
+from sextant_compute.risk.model_checks import model_check_set
 
 router = APIRouter(tags=["risk"])
 
@@ -100,6 +101,9 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
         )
         metrics.update({f"{name}:{ticker}": result for name, result in ticker_metrics.items()})
         charts[f"drawdown:{ticker}"] = date_series(lambda: risk.drawdown(wealth))
+        check_metrics, check_series = model_check_set(returns_of(ticker), confidence=req.confidence)
+        metrics.update({f"{name}:{ticker}": result for name, result in check_metrics.items()})
+        charts.update({f"{name}:{ticker}": result for name, result in check_series.items()})
     return envelope(
         tool=TOOL,
         request=req,
