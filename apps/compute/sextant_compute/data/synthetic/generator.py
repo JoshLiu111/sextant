@@ -10,11 +10,23 @@ Model (per trading day t, log total return):
     market:  m_t = drift_m/252 + eps_m,t
     ticker:  r_t = drift/252 + beta * eps_m,t + eps_i,t + (jumps_t - E[jumps])
 
+A ticker may also load on the long-short factors SMB, HML and MOM (see below):
+``r_t += smb * eps_smb,t + hml * eps_hml,t + mom * eps_mom,t``.
+
 ``eps`` are GARCH(1,1) shocks (volatility clustering) whose unconditional daily
 variance is set so each ticker's *total* annualized volatility (market part +
 idiosyncratic part + jumps) equals its configured ``annual_vol``. Correlation
 with the benchmark follows from the one-factor structure:
 ``corr = beta * vol_market / annual_vol``.
+
+Factors (``generate_factors``): daily decimal returns Mkt-RF, SMB, HML, MOM and RF,
+the Fama-French / Carhart layout. RF is a deterministic smooth path (no randomness).
+Mkt-RF is DEMO-MKT's simple daily total return minus RF. SMB, HML and MOM are
+``premium/252 + eps`` with GARCH shocks drawn from their own generator
+(``default_rng([seed, 1])``), so they never shift the price stream. Tickers load on
+the zero-mean shocks only, so ``drift`` stays a ticker's whole expected log return
+and the loadings (``smb``/``hml``/``mom``, with ``beta`` on Mkt-RF) are what a
+factor regression recovers.
 
 A ``Crash`` replaces the returns in its window with a deterministic straight-line
 fall (in log terms) of ``depth``, then a straight-line climb back to the pre-crash
@@ -40,7 +52,9 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-GENERATOR_VERSION = 2
+from sextant_compute.data.adapters import FACTOR_COLUMNS
+
+GENERATOR_VERSION = 3
 DEFAULT_SEED = 17
 HISTORY_START = date(2016, 1, 4)
 HISTORY_END = date(2025, 12, 31)
@@ -81,6 +95,12 @@ class Personality:
     jump_mean: float = 0.0
     jump_std: float = 0.0
     crash: Crash | None = None
+    smb: float = 0.0
+    """Loading on the SMB (size) factor; positive is a small-cap tilt."""
+    hml: float = 0.0
+    """Loading on the HML (value) factor; positive is a value tilt."""
+    mom: float = 0.0
+    """Loading on the MOM (momentum) factor."""
 
     @property
     def alpha(self) -> float:
@@ -171,10 +191,46 @@ PERSONALITIES: dict[str, Personality] = {
         beta=1.2,
         dividend_yield=0.01,
     ),
+    "DEMO-H": Personality(
+        name="Small-Cap Value Co.",
+        description="A small, cheap company: market beta 1.05 with a strong size tilt (SMB 0.9) and a value tilt (HML 0.6).",
+        start_price=25.0,
+        drift=0.09,
+        annual_vol=0.22,
+        beta=1.05,
+        dividend_yield=0.02,
+        smb=0.9,
+        hml=0.6,
+    ),
+    "DEMO-I": Personality(
+        name="Momentum Growth Ltd.",
+        description="A large growth stock that rides trends: beta 1.15, momentum 0.8, a large-cap (SMB -0.3) and growth (HML -0.5) tilt.",
+        start_price=70.0,
+        drift=0.11,
+        annual_vol=0.24,
+        beta=1.15,
+        smb=-0.3,
+        hml=-0.5,
+        mom=0.8,
+    ),
+}
+
+
+@dataclass(frozen=True)
+class Factor:
+    premium: float
+    """Expected annual return of the long-short portfolio."""
+    annual_vol: float
+
+
+FACTORS: dict[str, Factor] = {
+    "SMB": Factor(premium=0.02, annual_vol=0.10),
+    "HML": Factor(premium=0.03, annual_vol=0.11),
+    "MOM": Factor(premium=0.06, annual_vol=0.15),
 }
 
 # Generation order is fixed: never reorder, only append (or bump GENERATOR_VERSION).
-_ORDER = ["DEMO-MKT", "DEMO-A", "DEMO-B", "DEMO-C", "DEMO-D", "DEMO-E", "DEMO-F", "DEMO-G"]
+_ORDER = ["DEMO-MKT", "DEMO-A", "DEMO-B", "DEMO-C", "DEMO-D", "DEMO-E", "DEMO-F", "DEMO-G", "DEMO-H", "DEMO-I"]
 
 
 def trading_days() -> pd.DatetimeIndex:
@@ -205,8 +261,29 @@ def _jump_daily_var(p: Personality) -> float:
     return p.jumps_per_year / TRADING_DAYS * (p.jump_mean**2 + p.jump_std**2)
 
 
+def _factor_shocks(seed: int, n: int) -> dict[str, np.ndarray]:
+    """Zero-mean daily shocks of SMB, HML and MOM, from their own generator."""
+    rng = np.random.default_rng([seed, 1])
+    return {name: _garch_shocks(rng, n, f.annual_vol**2 / TRADING_DAYS) for name, f in FACTORS.items()}
+
+
+def _loadings(p: Personality) -> dict[str, float]:
+    return {"SMB": p.smb, "HML": p.hml, "MOM": p.mom}
+
+
+def _risk_free(dates: pd.DatetimeIndex) -> np.ndarray:
+    """Daily risk-free rate: an annual rate that drifts smoothly between 0.5% and 4.5%."""
+    years = (dates - dates[0]).days / 365.25
+    annual = 0.025 - 0.02 * np.cos(2 * np.pi * years / 8)
+    return (1 + annual) ** (1 / TRADING_DAYS) - 1
+
+
 def _log_returns(
-    rng: np.random.Generator, dates: pd.DatetimeIndex, p: Personality, market_shocks: np.ndarray | None
+    rng: np.random.Generator,
+    dates: pd.DatetimeIndex,
+    p: Personality,
+    market_shocks: np.ndarray | None,
+    factor_shocks: dict[str, np.ndarray] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Daily log total returns; also returns this series' own shocks (the market's are reused)."""
     n = len(dates)
@@ -216,11 +293,16 @@ def _log_returns(
         systematic = np.zeros(n)
     else:
         market_var = PERSONALITIES[BENCHMARK].annual_vol ** 2 / TRADING_DAYS
-        idio_var = total_var - p.beta**2 * market_var - _jump_daily_var(p)
+        tilts = {name: w for name, w in _loadings(p).items() if w != 0}
+        factor_var = sum(w**2 * FACTORS[name].annual_vol ** 2 / TRADING_DAYS for name, w in tilts.items())
+        idio_var = total_var - p.beta**2 * market_var - factor_var - _jump_daily_var(p)
         if idio_var <= 0:
-            raise ValueError("personality is inconsistent: beta * market vol exceeds total vol")
+            raise ValueError("personality is inconsistent: market and factor vol exceed total vol")
         own = _garch_shocks(rng, n, idio_var)
         systematic = p.beta * market_shocks
+        for name, w in tilts.items():
+            assert factor_shocks is not None
+            systematic = systematic + w * factor_shocks[name]
     returns = p.drift / TRADING_DAYS + systematic + own + _jumps(rng, n, p)
     if p.crash is not None:
         start = dates.searchsorted(pd.Timestamp(p.crash.start))
@@ -277,10 +359,32 @@ def generate_universe(seed: int = DEFAULT_SEED) -> dict[str, pd.DataFrame]:
     """Daily OHLCV + dividend frames (DatetimeIndex ``date``) for every demo ticker."""
     rng = np.random.default_rng(seed)
     dates = trading_days()
+    factor_shocks = _factor_shocks(seed, len(dates))
     market_returns, market_shocks = _log_returns(rng, dates, PERSONALITIES[BENCHMARK], None)
     out = {BENCHMARK: _frame(rng, dates, PERSONALITIES[BENCHMARK], market_returns)}
     for ticker in _ORDER[1:]:
         p = PERSONALITIES[ticker]
-        log_r, _ = _log_returns(rng, dates, p, market_shocks)
+        log_r, _ = _log_returns(rng, dates, p, market_shocks, factor_shocks)
         out[ticker] = _frame(rng, dates, p, log_r)
     return out
+
+
+def generate_factors(seed: int = DEFAULT_SEED, *, universe: dict[str, pd.DataFrame] | None = None) -> pd.DataFrame:
+    """Daily factor returns (decimals) with ``FACTOR_COLUMNS``, on every trading day
+    after the first (the first day has no market return). Same seed, same factors
+    as the ones ``generate_universe(seed)`` built the tickers from; pass that
+    ``universe`` to skip regenerating it."""
+    dates = trading_days()
+    shocks = _factor_shocks(seed, len(dates))
+    market = (universe if universe is not None else generate_universe(seed))[BENCHMARK]
+    total = (market["close"] + market["dividend"]) / market["close"].shift(1) - 1
+    rf = pd.Series(_risk_free(dates), index=dates)
+    frame = pd.DataFrame(
+        {
+            "Mkt-RF": total - rf,
+            **{name: f.premium / TRADING_DAYS + shocks[name] for name, f in FACTORS.items()},
+            "RF": rf,
+        },
+        index=dates,
+    )
+    return frame.iloc[1:][FACTOR_COLUMNS]

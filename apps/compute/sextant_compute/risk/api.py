@@ -14,9 +14,15 @@ from sextant_compute.analytics import performance, risk
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
 from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
-from sextant_compute.envelope import MetricResult, ResultEnvelope, SeriesResult, envelope
+from sextant_compute.envelope import MetricResult, MissingData, ResultEnvelope, SeriesResult, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
-from sextant_compute.risk.metrics import date_series, missing_metric_set, missing_series, risk_metric_set
+from sextant_compute.risk.metrics import (
+    date_series,
+    factor_metric_set,
+    missing_metric_set,
+    missing_series,
+    risk_metric_set,
+)
 
 router = APIRouter(tags=["risk"])
 
@@ -90,10 +96,19 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
         message = prices.missing[req.benchmark]
         raise ApiError(422, "no_such_data", message, {"benchmark": message})
 
+    factors: pd.DataFrame | MissingData
+    try:
+        history = data.daily_factors(ctx, req.start, req.end, source=req.source)
+        factors, factor_source = history.frame, history.source.id
+    except NoSuchData as exc:
+        factors, factor_source = MissingData(exc.message), None
+
     metrics: dict[str, MetricResult] = {}
     charts: dict[str, SeriesResult] = {}
     for ticker, reason in prices.missing.items():
-        metrics.update({f"{name}:{ticker}": result for name, result in missing_metric_set(reason).items()})
+        missing = missing_metric_set(reason)
+        missing.update(factor_metric_set(pd.Series(dtype=float), MissingData(reason), factor_source=None))
+        metrics.update({f"{name}:{ticker}": result for name, result in missing.items()})
         charts[f"drawdown:{ticker}"] = missing_series(reason)
 
     def returns_of(ticker: str) -> pd.Series:
@@ -111,6 +126,7 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
             confidence=req.confidence,
             risk_free_rate=req.risk_free_rate,
         )
+        ticker_metrics.update(factor_metric_set(returns_of(ticker), factors, factor_source=factor_source))
         metrics.update({f"{name}:{ticker}": result for name, result in ticker_metrics.items()})
         charts[f"drawdown:{ticker}"] = date_series(lambda: risk.drawdown(wealth))
     return envelope(

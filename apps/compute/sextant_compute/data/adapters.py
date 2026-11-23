@@ -56,6 +56,18 @@ class DailyPricesAdapter(Adapter, Protocol):
         ...
 
 
+FACTOR_COLUMNS = ["Mkt-RF", "SMB", "HML", "MOM", "RF"]
+
+
+class DailyFactorsAdapter(Adapter, Protocol):
+    def daily_factors(self, ctx: RequestContext, start: date, end: date) -> pd.DataFrame:
+        """Daily factor returns in [start, end]: DatetimeIndex ``date`` and
+        ``FACTOR_COLUMNS`` as decimals (Fama-French / Carhart layout). Raises
+        ``NoSuchData`` for an empty range. Only the synthetic demo source serves
+        factors (ADR 0003): Sextant fetches and caches no real factor data."""
+        ...
+
+
 class FinancialStatementsAdapter(Adapter, Protocol):
     def financial_statements(self, ctx: RequestContext, ticker: str) -> FinancialStatements:
         """Standardized annual statements, every fiscal period available, oldest
