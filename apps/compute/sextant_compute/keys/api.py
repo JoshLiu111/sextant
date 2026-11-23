@@ -7,7 +7,8 @@ Endpoints (all ``CurrentUser``: 401 when signed out), under ``/api/compute/keys`
   saves it encrypted (replacing any earlier key). A rejected key answers 422
   ``invalid_key`` (field ``key``) and stores nothing; a provider outage answers
   503 ``source_unavailable`` and stores nothing.
-- ``DELETE /{provider}``: removes the key (204, also when there was none).
+- ``DELETE /{provider}``: removes the key and everything cached with it for
+  this user (204, also when there was none).
 
 The plaintext key is never returned: responses carry only ``hint``, its last
 four characters. ``get_request_context`` (data/service.py) decrypts the keys
@@ -25,6 +26,7 @@ from pydantic import BaseModel, BeforeValidator
 
 from sextant_compute.auth import CurrentUser
 from sextant_compute.auth.deps import get_db
+from sextant_compute.data import user_cache
 from sextant_compute.data.tiingo import TiingoAdapter
 from sextant_compute.db import Database
 from sextant_compute.errors import ApiError, check
@@ -107,4 +109,6 @@ def save_key(
 def delete_key(provider: Provider, user: CurrentUser, db: Db) -> Response:
     with db.connection() as conn:
         store.delete(conn, user.id, provider)
+        # Without the key the user may no longer see that provider's data.
+        user_cache.delete_for(conn, user.id, provider)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

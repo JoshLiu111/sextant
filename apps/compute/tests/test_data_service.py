@@ -9,7 +9,7 @@ import pytest
 from data_fixtures import DownAdapter, FixtureAdapter, price_frame
 from sextant_compute.data.cache import InMemoryCache
 from sextant_compute.data.context import RequestContext
-from sextant_compute.data.errors import NoSuchData, SourceUnavailable
+from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
 from sextant_compute.data.service import DataService
 from sextant_compute.envelope import DataSource
 
@@ -111,10 +111,33 @@ def test_user_keyed_data_never_enters_the_shared_cache():
 
     service.daily_prices(alice, ["AAA"], START, END, source="src")
     service.daily_prices(bob, ["AAA"], START, END, source="src")
-    service.daily_prices(ANON, ["AAA"], START, END, source="src")
 
-    assert adapter.calls == 3
+    assert adapter.calls == 2
     assert len(shared) == 0
+
+
+def test_user_keyed_sources_need_the_visitors_own_key_even_on_a_cached_entry():
+    adapter = FixtureAdapter(FRAMES, source=USER_KEYED, scope="user")
+    service, _ = service_with(adapter, user_cache=InMemoryCache(clock=Clock()))
+    user_id = uuid.uuid4()
+
+    service.daily_prices(RequestContext(user_id=user_id, keys={"tiingo": "k"}), ["AAA"], START, END, source="src")
+    for ctx in (ANON, RequestContext(user_id=user_id)):  # anonymous; the same user after deleting the key
+        with pytest.raises(KeyRequired):
+            service.daily_prices(ctx, ["AAA"], START, END, source="src")
+    assert adapter.calls == 1
+
+
+def test_partial_prices_report_unknown_tickers_and_cache_the_rest_per_ticker():
+    adapter = FixtureAdapter(FRAMES)
+    service, _ = service_with(adapter)
+
+    prices = service.daily_prices(ANON, ["AAA", "ZZZ", "BBB"], START, END, source="src", partial=True)
+
+    assert list(prices.frames) == ["AAA", "BBB"]
+    assert prices.missing == {"ZZZ": "Unknown ticker ZZZ."}
+    service.daily_prices(ANON, ["BBB"], START, END, source="src")
+    assert adapter.calls == 3  # one per ticker; the plain BBB request reused the partial one's entry
 
 
 def test_user_keyed_data_is_cached_per_user_when_a_user_cache_is_configured():
@@ -129,8 +152,7 @@ def test_user_keyed_data_is_cached_per_user_when_a_user_cache_is_configured():
     assert adapter.calls == 1
 
     service.daily_prices(bob, ["AAA"], START, END, source="src")
-    service.daily_prices(ANON, ["AAA"], START, END, source="src")
-    assert adapter.calls == 3
+    assert adapter.calls == 2
     assert len(shared) == 0
 
 

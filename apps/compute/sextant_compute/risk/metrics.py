@@ -12,7 +12,7 @@ from datetime import date
 import pandas as pd
 
 from sextant_compute.analytics import performance, risk
-from sextant_compute.envelope import Detailed, MetricResult, SeriesResult, metric, series
+from sextant_compute.envelope import Detailed, MetricResult, MetricStatus, SeriesResult, metric, series
 
 METRIC_NAMES = (
     "annualized_return",
@@ -24,6 +24,17 @@ METRIC_NAMES = (
     "cvar",
     "beta",
 )
+
+METRIC_UNITS: dict[str, str] = {
+    "annualized_return": "decimal",
+    "annualized_volatility": "decimal",
+    "max_drawdown": "decimal",
+    "sharpe": "ratio",
+    "sortino": "ratio",
+    "var": "decimal",
+    "cvar": "decimal",
+    "beta": "ratio",
+}
 
 
 def _iso(d: date | None) -> str | None:
@@ -48,16 +59,31 @@ def risk_metric_set(
     ``returns`` are simple daily returns; ``wealth`` is the matching wealth series
     (1.0 on the day before the first return).
     """
-    return {
-        "annualized_return": metric(lambda: performance.annualized_return(returns), unit="decimal"),
-        "annualized_volatility": metric(lambda: performance.annualized_volatility(returns), unit="decimal"),
-        "max_drawdown": metric(lambda: _max_drawdown(wealth), unit="decimal"),
-        "sharpe": metric(lambda: performance.sharpe_ratio(returns, risk_free_rate), unit="ratio"),
-        "sortino": metric(lambda: performance.sortino_ratio(returns, risk_free_rate), unit="ratio"),
-        "var": metric(lambda: risk.historical_var(returns, confidence), unit="decimal"),
-        "cvar": metric(lambda: risk.historical_cvar(returns, confidence), unit="decimal"),
-        "beta": metric(lambda: risk.beta(returns, benchmark_returns), unit="ratio"),
+    computations: dict[str, Callable[[], float | Detailed]] = {
+        "annualized_return": lambda: performance.annualized_return(returns),
+        "annualized_volatility": lambda: performance.annualized_volatility(returns),
+        "max_drawdown": lambda: _max_drawdown(wealth),
+        "sharpe": lambda: performance.sharpe_ratio(returns, risk_free_rate),
+        "sortino": lambda: performance.sortino_ratio(returns, risk_free_rate),
+        "var": lambda: risk.historical_var(returns, confidence),
+        "cvar": lambda: risk.historical_cvar(returns, confidence),
+        "beta": lambda: risk.beta(returns, benchmark_returns),
     }
+    return {name: metric(computations[name], unit=METRIC_UNITS[name]) for name in METRIC_NAMES}
+
+
+def missing_metric_set(reason: str) -> dict[str, MetricResult]:
+    """Every P3 metric as ``missing_data`` with ``reason``, e.g. for a ticker the
+    user's provider has no prices for."""
+    return {
+        name: MetricResult(value=None, status=MetricStatus.MISSING_DATA, reason=reason, unit=METRIC_UNITS[name])
+        for name in METRIC_NAMES
+    }
+
+
+def missing_series(reason: str, *, y_unit: str = "decimal") -> SeriesResult:
+    """A date series that could not be built, with ``reason``."""
+    return SeriesResult(status=MetricStatus.MISSING_DATA, reason=reason, x_unit="date", y_unit=y_unit)
 
 
 def date_series(compute_values: Callable[[], pd.Series], *, y_unit: str = "decimal") -> SeriesResult:
