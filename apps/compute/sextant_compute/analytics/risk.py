@@ -66,7 +66,7 @@ def aligned(returns: pd.Series, benchmark_returns: pd.Series) -> tuple[pd.Series
     """The two return series on the dates where both have a value (at least 2 of them)."""
     both = pd.concat([returns, benchmark_returns], axis=1, join="inner").dropna()
     if len(both) < 2:
-        raise MissingData(f"needs at least 2 daily returns on dates shared with the benchmark, got {len(both)}")
+        raise MissingData(f"needs at least 2 returns on dates shared with the benchmark, got {len(both)}")
     return both.iloc[:, 0], both.iloc[:, 1]
 
 
@@ -158,7 +158,7 @@ def information_ratio(
     return float(active.mean()) / tracking_error * math.sqrt(periods_per_year)
 
 
-def _tail(returns: pd.Series, confidence: float) -> pd.Series:
+def _tail(returns: pd.Series, confidence: float, period: str) -> pd.Series:
     """The ``k = ceil(n * (1 - confidence))`` worst returns, worst first."""
     if not 0 < confidence < 1:
         raise ValueError(f"confidence must be between 0 and 1, got {confidence}")
@@ -168,13 +168,13 @@ def _tail(returns: pd.Series, confidence: float) -> pd.Series:
     needed = math.ceil(round(1 / tail_probability, 9))
     if len(clean) < needed:
         raise MissingData(
-            f"needs at least {needed} daily returns for a {confidence:.1%} VaR, got {len(clean)}"
+            f"needs at least {needed} {period} returns for a {confidence:.1%} VaR, got {len(clean)}"
         )
     k = math.ceil(round(len(clean) * tail_probability, 9))
     return clean.sort_values().iloc[:k]
 
 
-def historical_var(returns: pd.Series, confidence: float = 0.95) -> float:
+def historical_var(returns: pd.Series, confidence: float = 0.95, *, period: str = "daily") -> float:
     """Historical Value at Risk over one period, as a positive loss (0.03 = a 3% loss).
 
     The empirical (1 - confidence) quantile without interpolation: with n returns
@@ -182,15 +182,15 @@ def historical_var(returns: pd.Series, confidence: float = 0.95) -> float:
     k >= 1, i.e. at least 1 / (1 - confidence) returns. Negative if even the
     tail return is a gain.
     """
-    return -float(_tail(returns, confidence).iloc[-1])
+    return -float(_tail(returns, confidence, period).iloc[-1])
 
 
-def historical_cvar(returns: pd.Series, confidence: float = 0.95) -> float:
+def historical_cvar(returns: pd.Series, confidence: float = 0.95, *, period: str = "daily") -> float:
     """Historical CVaR (expected shortfall): minus the mean of the k worst returns.
 
     Same k and sign convention as ``historical_var``, so CVaR >= VaR always.
     """
-    return -float(_tail(returns, confidence).mean())
+    return -float(_tail(returns, confidence, period).mean())
 
 
 _NORMAL = NormalDist()
@@ -207,11 +207,11 @@ class _Moments:
     """Population excess kurtosis m4 / m2^2 - 3."""
 
 
-def _moments(returns: pd.Series, *, higher: bool) -> _Moments:
+def _moments(returns: pd.Series, *, higher: bool, period: str) -> _Moments:
     clean = returns.dropna()
     needed = 4 if higher else 2
     if len(clean) < needed:
-        raise MissingData(f"needs at least {needed} daily returns, got {len(clean)}")
+        raise MissingData(f"needs at least {needed} {period} returns, got {len(clean)}")
     mean = float(clean.mean())
     std = float(clean.std(ddof=1))
     if not higher:
@@ -240,42 +240,42 @@ def _cornish_fisher(x: float, m: _Moments) -> float:
     return x + (x**2 - 1) * s / 6 + (x**3 - 3 * x) * k / 24 - (2 * x**3 - 5 * x) * s**2 / 36
 
 
-def parametric_var(returns: pd.Series, confidence: float = 0.95) -> float:
+def parametric_var(returns: pd.Series, confidence: float = 0.95, *, period: str = "daily") -> float:
     """Normal (variance-covariance) VaR as a positive loss: ``-(mean + z * std)``, z = Phi^-1(1 - confidence).
 
     Sample mean and standard deviation (ddof=1) of the returns.
     """
-    m = _moments(returns, higher=False)
+    m = _moments(returns, higher=False, period=period)
     z, _, _ = _tail_z(confidence)
     return -(m.mean + z * m.std)
 
 
-def parametric_cvar(returns: pd.Series, confidence: float = 0.95) -> float:
+def parametric_cvar(returns: pd.Series, confidence: float = 0.95, *, period: str = "daily") -> float:
     """Normal expected shortfall as a positive loss: ``-(mean - std * phi(z) / (1 - confidence))``."""
-    m = _moments(returns, higher=False)
+    m = _moments(returns, higher=False, period=period)
     z, density, alpha = _tail_z(confidence)
     return -(m.mean - m.std * density / alpha)
 
 
-def cornish_fisher_var(returns: pd.Series, confidence: float = 0.95) -> float:
+def cornish_fisher_var(returns: pd.Series, confidence: float = 0.95, *, period: str = "daily") -> float:
     """Modified VaR: the normal quantile adjusted for sample skewness S and excess kurtosis K.
 
     ``z_cf = z + (z^2 - 1) S / 6 + (z^3 - 3z) K / 24 - (2z^3 - 5z) S^2 / 36``;
     VaR = ``-(mean + z_cf * std)``. Equal to ``parametric_var`` when S = K = 0.
     """
-    m = _moments(returns, higher=True)
+    m = _moments(returns, higher=True, period=period)
     z, _, _ = _tail_z(confidence)
     return -(m.mean + _cornish_fisher(z, m) * m.std)
 
 
-def cornish_fisher_cvar(returns: pd.Series, confidence: float = 0.95) -> float:
+def cornish_fisher_cvar(returns: pd.Series, confidence: float = 0.95, *, period: str = "daily") -> float:
     """Modified expected shortfall: the mean of the Cornish-Fisher quantile over the lower tail.
 
     ``E[z_cf(Z) | Z < z]`` for a standard normal Z, from the truncated normal moments
     ``E[Z | Z < z] = -phi/alpha``, ``E[Z^2 | .] = 1 - z phi/alpha``, ``E[Z^3 | .] = -(z^2 + 2) phi/alpha``.
     CVaR = ``-(mean + E[z_cf] * std)``. Equal to ``parametric_cvar`` when S = K = 0.
     """
-    m = _moments(returns, higher=True)
+    m = _moments(returns, higher=True, period=period)
     z, density, alpha = _tail_z(confidence)
     m1 = -density / alpha
     m2 = 1 - z * density / alpha

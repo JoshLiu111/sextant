@@ -146,6 +146,27 @@ def test_an_unknown_ticker_gets_a_missing_data_reason_and_the_rest_still_compute
         assert result["reason"] == "Tiingo has no ticker ZZZZ."
     assert body["series"]["drawdown:ZZZZ"]["status"] == "missing_data"
     assert body["metrics"]["max_drawdown:AAPL"]["status"] == "ok"
+    # The time-scale views (#24) mark the unknown ticker too, rather than leaving its ids out.
+    for metric in ("skewness", "excess_kurtosis"):
+        assert body["metrics"][f"{metric}:ZZZZ"] == {
+            "value": None,
+            "status": "missing_data",
+            "reason": "Tiingo has no ticker ZZZZ.",
+            "unit": "ratio",
+            "details": {},
+        }
+    for chart in ("rolling_volatility", "rolling_sharpe", "rolling_beta", "return_distribution"):
+        assert body["series"][f"{chart}:ZZZZ"]["status"] == "missing_data"
+        assert body["series"][f"{chart}:ZZZZ"]["reason"] == "Tiingo has no ticker ZZZZ."
+
+
+def test_my_data_follows_the_return_period(client, alice):
+    response = risk(client, alice, period="weekly", rolling_window=20)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["meta"]["parameters"]["period"] == "weekly"
+    assert body["metrics"]["annualized_volatility:AAPL"]["status"] == "ok"
 
 
 def test_a_range_without_benchmark_prices_is_shown_next_to_the_benchmark_input(client, alice):

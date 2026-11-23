@@ -23,6 +23,7 @@ import pandas as pd
 
 from sextant_compute.analytics.errors import MissingData
 from sextant_compute.analytics.performance import TRADING_DAYS
+from sextant_compute.analytics.periods import ReturnPeriod, period_name, period_returns
 
 RISK_FREE = "RF"
 FF3: tuple[str, ...] = ("Mkt-RF", "SMB", "HML")
@@ -33,8 +34,6 @@ MIN_OBSERVATIONS = 24
 
 _EXACT_FIT = 1e-16
 """Residual share of variance below which the fit counts as exact (rounding noise only)."""
-
-_PERIOD = {TRADING_DAYS: "daily", 12: "monthly"}
 
 
 @dataclass(frozen=True)
@@ -64,7 +63,7 @@ def factor_regression(
         raise MissingData(f"the factor data has no {', '.join(absent)} column")
     data = pd.concat([returns.rename("__r"), factors[[*columns, RISK_FREE]]], axis=1, join="inner").dropna()
     n = len(data)
-    period = _PERIOD.get(periods_per_year, "periodic")
+    period = period_name(periods_per_year)
     if n < MIN_OBSERVATIONS:
         raise MissingData(f"needs at least {MIN_OBSERVATIONS} {period} returns that overlap the factor data, got {n}")
     y = (data["__r"] - data[RISK_FREE]).to_numpy()
@@ -90,3 +89,22 @@ def factor_regression(
         r_squared=1 - ssr / total,
         observations=n,
     )
+
+
+def period_factors(daily_factors: pd.DataFrame, period: ReturnPeriod) -> pd.DataFrame:
+    """Compound daily factor returns into ``period`` ones, aligned with
+    ``periods.period_returns`` (same period-end index), so a weekly or monthly
+    regression pairs each period's stock return with that period's factors.
+
+    RF compounds as a return. Mkt-RF is rebuilt as the compounded market return
+    (Mkt-RF + RF) minus the compounded RF, so ``r - RF`` stays an excess return over
+    the period. The long-short factors (SMB, HML, MOM) compound as returns.
+    Daily factors come back unchanged.
+    """
+    if period == "daily":
+        return daily_factors
+    out = {column: period_returns(daily_factors[column], period) for column in daily_factors.columns}
+    if "Mkt-RF" in daily_factors.columns and RISK_FREE in daily_factors.columns:
+        market = period_returns(daily_factors["Mkt-RF"] + daily_factors[RISK_FREE], period)
+        out["Mkt-RF"] = market - out[RISK_FREE]
+    return pd.DataFrame(out)[list(daily_factors.columns)]

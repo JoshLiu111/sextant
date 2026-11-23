@@ -417,7 +417,8 @@ export const en = {
       },
       tStat: "t =",
       exactFit: "t: undefined (exact fit)",
-      observations: "days",
+      /** Under R²: how many returns of the chosen period the regression used, e.g. "1,303 days". */
+      observations: (count: string, noun: string, n: number) => `${count} ${noun}${n === 1 ? "" : "s"}`,
     },
     sections: {
       metrics: "Return and risk",
@@ -439,6 +440,73 @@ export const en = {
       to: "to",
       recovered: "recovered",
       notRecovered: "not recovered by the end of the range",
+      recovery: "Recovered",
+      band: "Max drawdown",
+    },
+    // Time-scale views (#24): return period, rolling curves, return distribution.
+    timescale: {
+      inputs: {
+        period: {
+          label: "Return period",
+          hint: "Volatility, the ratios, every VaR and CVaR, the benchmark statistics, the factor regressions and the distribution use returns of this length.",
+        },
+        rolling_window: {
+          label: "Rolling window (trading days)",
+          hint: "For the rolling curves, on daily returns. 20 to 756; 63 is about three months.",
+        },
+      },
+      periods: {
+        daily: { label: "Daily", noun: "day", perYear: 252 },
+        weekly: { label: "Weekly", noun: "week", perYear: 52 },
+        monthly: { label: "Monthly", noun: "month", perYear: 12 },
+        quarterly: { label: "Quarterly", noun: "quarter", perYear: 4 },
+        yearly: { label: "Yearly", noun: "year", perYear: 1 },
+      },
+      periodNote: (adjective: string, perYear: number, noun: string) =>
+        `Statistics use ${adjective} returns, annualized with ${perYear} period${perYear === 1 ? "" : "s"} a year. VaR and CVaR are one-${noun} losses; the factor regressions use ${adjective} returns and factors. Annualized return and max drawdown use the daily prices whatever the period.`,
+      rolling: {
+        heading: "Rolling metrics",
+        windowNote: (days: number) =>
+          `Each point covers the previous ${days} trading days of daily returns, up to that date.`,
+        x: "Date",
+        charts: {
+          rolling_volatility: {
+            name: "Rolling volatility",
+            label: "Rolling volatility chart: annualized volatility over the rolling window, per ticker",
+          },
+          rolling_sharpe: {
+            name: "Rolling Sharpe ratio",
+            label: "Rolling Sharpe ratio chart: annualized Sharpe ratio over the rolling window, per ticker",
+          },
+          rolling_beta: {
+            name: "Rolling Beta",
+            label: "Rolling Beta chart: Beta against the benchmark over the rolling window, per ticker",
+          },
+        },
+      },
+      distribution: {
+        heading: "Return distribution",
+        select: "Distribution for",
+        label: "Histogram of returns for the selected ticker",
+        x: "Return",
+        count: (n: number, adjective: string) => `${n} ${adjective} returns`,
+        summary: (n: number, adjective: string, width: string) =>
+          `${n} ${adjective} returns in bins ${width} wide.`,
+        metrics: {
+          skewness: {
+            name: "Skewness",
+            what: "How lopsided the distribution of returns is around its average.",
+            how: "Adjusted Fisher-Pearson sample skewness G1 of the period returns (the same as Excel's SKEW): the average cubed deviation from the mean, divided by the cubed standard deviation, with a small-sample correction.",
+            read: "0 means symmetric. Negative means a longer left tail: losses are rarer but bigger than gains, the common case for stocks. Positive means occasional large gains.",
+          },
+          excess_kurtosis: {
+            name: "Excess kurtosis",
+            what: "How fat the tails of the distribution are compared with a normal distribution.",
+            how: "Bias-corrected sample excess kurtosis G2 of the period returns (the same as Excel's KURT): the average fourth-power deviation over the squared variance, minus 3, with a small-sample correction.",
+            read: "0 matches a normal distribution. Positive means fat tails: extreme days happen more often than a bell curve predicts, so volatility-based risk measures understate the tail. Daily stock returns are usually well above 0.",
+          },
+        },
+      },
     },
     metrics: {
       annualized_return: {

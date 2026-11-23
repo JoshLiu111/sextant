@@ -71,7 +71,8 @@ test("the underwater chart marks the start and end of the max drawdown", async (
   const chart = main.getByRole("img", { name: /underwater/i });
   await expect(chart).toBeVisible();
   // DEMO-D's injected crash bottoms on 2022-04-11, the deepest point in the default range.
-  await expect(chart.getByTestId("chart-marker")).toHaveCount(2);
+  // The third marker is its recovery (see risk-timescale.spec.ts).
+  await expect(chart.getByTestId("chart-marker")).toHaveCount(3);
   await expect(chart.getByText("Max drawdown start")).toBeAttached();
   await expect(chart.getByText("Max drawdown end")).toBeAttached();
   await expect(main.getByTestId("drawdown-window")).toContainText("2022-04-11");
@@ -208,9 +209,12 @@ test("every metric has an explainer", async ({ page }) => {
   const main = await openRisk(page);
   await expect(metric(main, "max_drawdown:DEMO-A")).toHaveAttribute("data-status", "ok");
 
+  for (const id of METRICS) await expect(main.locator(`[data-metric="${id}"]`)).toHaveCount(1);
+  // Every card on the page (including the distribution's skewness and kurtosis) has one explainer.
   const cards = main.locator("[data-metric]");
-  await expect(cards).toHaveCount(METRICS.length);
-  for (let i = 0; i < METRICS.length; i++) {
+  const count = await cards.count();
+  expect(count).toBeGreaterThanOrEqual(METRICS.length);
+  for (let i = 0; i < count; i++) {
     await expect(cards.nth(i).getByTestId("explainer")).toHaveCount(1);
   }
   await expect(main.locator("[data-metric-value]")).toHaveCount(
