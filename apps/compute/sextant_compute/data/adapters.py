@@ -25,6 +25,7 @@ from typing import Literal, Protocol
 import pandas as pd
 
 from sextant_compute.data.context import RequestContext
+from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.envelope import DataSource
 
 Scope = Literal["shared", "user"]
@@ -48,4 +49,13 @@ class DailyPricesAdapter(Adapter, Protocol):
         dividend with that ex-date (0 otherwise); ``close`` is not dividend-adjusted.
         Raises ``NoSuchData`` (``missing`` keyed by ticker) for unknown tickers or an
         empty range."""
+        ...
+
+
+class FinancialStatementsAdapter(Adapter, Protocol):
+    def financial_statements(self, ctx: RequestContext, ticker: str) -> FinancialStatements:
+        """Standardized annual statements, every fiscal period available, oldest
+        first (see ``data/statements.py``). Raises ``NoSuchData`` (``missing`` keyed
+        by the ticker as given) for an unknown ticker or a company without
+        financial statements."""
         ...

@@ -90,6 +90,8 @@ export const en = {
       per_vol_point: "per 1 volatility point",
       per_day: "per calendar day",
       per_rate_point: "per 1 percentage point",
+      per_share: "per share",
+      shares: "shares",
     } as Record<string, string>,
     errors: {
       heading: "Something went wrong",
@@ -235,6 +237,34 @@ export const en = {
         how: "Wealth W starts at 1 and grows by each daily total return. Drawdown = W / running peak of W − 1. Max drawdown is the size of the most negative drawdown, shown as a positive percentage; its start is the last high before the low and its end is the low.",
         read: "A max drawdown of 45% means that at the worst moment the investment was worth 45% less than at its prior peak. A 45% fall needs an 82% gain to get back. The underwater chart shows when it happened.",
       },
+    },
+  },
+  company: {
+    intro:
+      "Standardized income statement, balance sheet and cash flow statement for a US-listed company, from its annual reports (10-K) filed with the SEC. Every number links to the filing it came from.",
+    inputsHeading: "Company",
+    submit: "Show statements",
+    inputs: {
+      ticker: { label: "Ticker", hint: "A US-listed company that files with the SEC, e.g. AAPL, MSFT, WMT." },
+    },
+    statements: {
+      income: "Income statement",
+      balance: "Balance sheet",
+      cash_flow: "Cash flow statement",
+    },
+    lineItem: "Line item",
+    yearEnded: "Year ended",
+    filed: "filed",
+    sourceFiling: "Source",
+    derived: "derived",
+    notReported: "Not reported by this company",
+    unitsNote: "USD millions, except per-share amounts (USD) and share counts (millions).",
+    loading: "Loading statements…",
+    explainer: {
+      name: "standardized statements",
+      what: "Each company tags its financial statements in XBRL, the SEC's machine-readable format, often with different tags for the same thing. Sextant maps them onto one set of line items (Revenue, Total Assets, Operating Cash Flow, …) so companies and years line up.",
+      how: "For each line item and fiscal year, Sextant tries a list of candidate XBRL tags in priority order and takes the first one the company reported for that year, from its annual report (10-K). A value is shown as first reported: a later restatement doesn't replace it. A few items (for example Gross Profit = Revenue − Cost of Revenue) are derived when the company doesn't tag them directly. Hover or follow any value to see the filing it came from.",
+      read: "\"Not reported by this company\" means none of the candidate tags appears in the company's filings for that year. Banks, for example, don't report cost of revenue or current assets. It doesn't mean the value is zero.",
     },
   },
   comingSoon: {

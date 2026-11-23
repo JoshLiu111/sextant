@@ -22,9 +22,11 @@ import pandas as pd
 from fastapi import Depends
 
 from sextant_compute.auth import OptionalUser
-from sextant_compute.data.adapters import Adapter, DailyPricesAdapter
+from sextant_compute.data.adapters import Adapter, DailyPricesAdapter, FinancialStatementsAdapter
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
+from sextant_compute.data.edgar import EdgarAdapter
+from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
 from sextant_compute.envelope import DataSource
 
@@ -117,6 +119,20 @@ class DataService:
         )
         return PriceHistory(source=adapter.source, frames={t: frames[t] for t in wanted})
 
+    def financial_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
+        """Standardized annual statements for one company; see ``FinancialStatementsAdapter``.
+        Use ``.last(n)`` for the n most recent fiscal years."""
+        adapter = cast(FinancialStatementsAdapter, self._adapter(source))
+        return self._cached(
+            ctx,
+            adapter,
+            "financial_statements",
+            {"ticker": ticker.strip().upper()},
+            lambda: adapter.financial_statements(ctx, ticker),
+            FinancialStatements.to_json,
+            FinancialStatements.from_json,
+        )
+
 
 def cache_key(adapter: Adapter, dataset: str, params: Mapping[str, Any], *, user_id: object | None = None) -> str:
     """``v<CACHE_VERSION>:<shared|user:<id>>:<source>@<adapter version>:<dataset>:<params hash>``."""
@@ -146,7 +162,8 @@ def _decode_frames(raw: Mapping[str, Any]) -> dict[str, pd.DataFrame]:
 
 def default_adapters() -> dict[str, Adapter]:
     synthetic = SyntheticAdapter()
-    return {synthetic.source.id: synthetic}
+    edgar = EdgarAdapter()
+    return {synthetic.source.id: synthetic, edgar.source.id: edgar}
 
 
 _service: DataService | None = None

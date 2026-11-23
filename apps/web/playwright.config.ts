@@ -9,9 +9,18 @@ import { defineConfig, devices } from "@playwright/test";
 // OIDC_PORT (default COMPUTE_PORT + 1). The compute service uses
 // E2E_DATABASE_URL if set (CI: the postgres service container); otherwise it
 // starts a throwaway local Postgres (needs initdb/pg_ctl, e.g. Homebrew).
+//
+// SEC EDGAR: compute talks to e2e/fake-edgar.mjs on EDGAR_PORT (default
+// COMPUTE_PORT + 2), which serves the recorded fixtures; sec.gov is never hit.
 const WEB_PORT = Number(process.env.WEB_PORT || 3000);
 const COMPUTE_PORT = Number(process.env.COMPUTE_PORT || 8000);
 const OIDC_PORT = Number(process.env.OIDC_PORT || COMPUTE_PORT + 1);
+// SEC EDGAR is replaced by e2e/fake-edgar.mjs serving recorded fixtures.
+const EDGAR_PORT = Number(process.env.EDGAR_PORT || COMPUTE_PORT + 2);
+const edgar = {
+  EDGAR_BASE_URL: `http://127.0.0.1:${EDGAR_PORT}`,
+  SEC_USER_AGENT: "Sextant e2e admin@example.com",
+};
 const isCI = !!process.env.CI;
 const reuse = !isCI && process.env.PW_REUSE_SERVERS === "1";
 const computeUrl = `http://127.0.0.1:${COMPUTE_PORT}`;
@@ -45,6 +54,12 @@ export default defineConfig({
       env: { OIDC_PORT: String(OIDC_PORT), ...auth },
     },
     {
+      command: "node e2e/fake-edgar.mjs",
+      url: `${edgar.EDGAR_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { EDGAR_PORT: String(EDGAR_PORT) },
+    },
+    {
       command: e2eDatabaseUrl
         ? uvicorn
         : `uv run python scripts/ephemeral_postgres.py -- ${uvicorn}`,
@@ -55,6 +70,7 @@ export default defineConfig({
       gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
       env: {
         SESSION_SECRET: auth.SESSION_SECRET,
+        ...edgar,
         ...(e2eDatabaseUrl ? { DATABASE_URL: e2eDatabaseUrl } : {}),
       },
     },
