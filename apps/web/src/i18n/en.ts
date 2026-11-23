@@ -90,6 +90,7 @@ export const en = {
       per_vol_point: "per 1 volatility point",
       per_day: "per calendar day",
       per_rate_point: "per 1 percentage point",
+      percent: "",
       ratio: "",
     } as Record<string, string>,
     errors: {
@@ -270,6 +271,51 @@ export const en = {
         what: "How much the ticker tends to move when the benchmark moves.",
         how: "Covariance of the ticker's and the benchmark's daily total returns divided by the variance of the benchmark's returns, on the days both have data (raw returns, not excess). Unit: a ratio, no unit. The benchmark's beta to itself is 1.",
         read: "1 means it moves with the benchmark; 1.4 means it tends to move 1.4% when the benchmark moves 1%; 0.2 means it barely follows it. Beta only captures the part of the risk that comes from the benchmark.",
+      },
+    },
+  },
+  macro: {
+    intro:
+      "The latest reading and history of four headline US indicators, from public-domain series on FRED. Hover a chart to see exact values.",
+    sections: {
+      indicators: "US headline indicators",
+    },
+    meta: {
+      source: "Source",
+      via: "via FRED, series",
+      units: "Units",
+      frequency: "Frequency",
+      lastUpdated: "Last updated",
+      latestPeriod: "Latest period",
+    },
+    chart: {
+      history: "history",
+      x: "Date",
+    },
+    indicators: {
+      gdp_growth: {
+        name: "Real GDP growth",
+        what: "How fast the US economy's output of goods and services grew in the latest quarter, after removing inflation.",
+        how: "Percent change in real gross domestic product from the previous quarter, expressed as a seasonally adjusted annual rate (the quarterly change compounded over four quarters). Published by the Bureau of Economic Analysis; FRED series A191RL1Q225SBEA.",
+        read: "Shown in percent. Around 2% is typical for the US; a negative value means the economy shrank that quarter. First estimates are revised in later releases.",
+      },
+      cpi_inflation: {
+        name: "CPI inflation",
+        what: "How much consumer prices rose over the past year, measured by the Consumer Price Index for All Urban Consumers (CPI-U).",
+        how: "Percent change of the seasonally adjusted CPI-U index from the same month a year earlier, computed by FRED (units pc1) from BLS series CPIAUCSL.",
+        read: "Shown in percent. The Federal Reserve targets about 2% inflation (on a related measure, PCE); persistently higher values mean prices are rising faster than that.",
+      },
+      unemployment_rate: {
+        name: "Unemployment rate",
+        what: "The share of the labor force that is out of work and looking for a job.",
+        how: "Unemployed people as a percentage of the civilian labor force (16 and older), seasonally adjusted, from the BLS household survey; FRED series UNRATE.",
+        read: "Shown in percent. Lower means a tighter job market. A gap in the chart is a month the survey was not published.",
+      },
+      fed_funds_rate: {
+        name: "Federal funds rate",
+        what: "The overnight interest rate at which US banks lend reserves to each other, steered by the Federal Reserve's policy target.",
+        how: "Monthly average of the daily effective federal funds rate published by the Federal Reserve Board (H.15); FRED series FEDFUNDS.",
+        read: "Shown in percent per year. The Fed raises it to cool inflation and cuts it to support growth and jobs.",
       },
     },
   },

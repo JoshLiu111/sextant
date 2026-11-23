@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { getMessages } from "@/i18n";
-import { ATTRIBUTIONS } from "@/lib/attributions";
+import { ATTRIBUTIONS, type Attribution } from "@/lib/attributions";
 import { toolForPath } from "@/lib/tools";
 
 /** The footer's per-page attribution slot, filled from the tool registry. */
@@ -15,7 +15,7 @@ export function FooterAttribution() {
       {ids.length > 0 && (
         <ul aria-label={t.footer.sourcesLabel} className="flex flex-col gap-1">
           {ids.map((id) => {
-            const a: { text: string; href?: string } = ATTRIBUTIONS[id];
+            const a: Attribution = ATTRIBUTIONS[id];
             return (
               <li key={id} data-attribution={id}>
                 {a.href ? (
@@ -25,6 +25,14 @@ export function FooterAttribution() {
                 ) : (
                   a.text
                 )}
+                {a.links?.map((link) => (
+                  <span key={link.href}>
+                    {" · "}
+                    <a href={link.href} className="underline" target="_blank" rel="noreferrer">
+                      {link.label}
+                    </a>
+                  </span>
+                ))}
               </li>
             );
           })}
