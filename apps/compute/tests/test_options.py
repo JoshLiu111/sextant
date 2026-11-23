@@ -186,7 +186,7 @@ def test_response_follows_the_unified_result_envelope():
     assert datetime.fromisoformat(first["meta"]["computed_at"]).tzinfo is not None
     assert first["meta"]["data_cutoff"] is None
     for result in first["metrics"].values():
-        assert set(result) == {"value", "status", "reason", "unit"}
+        assert set(result) == {"value", "status", "reason", "unit", "details"}
 
 
 def invalid(**overrides):
