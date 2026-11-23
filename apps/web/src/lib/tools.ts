@@ -16,14 +16,18 @@ export type Tool = {
   slug: ToolSlug;
   href: `/${string}`;
   status: "live" | "coming-soon";
-  /** Data sources the page actually uses; rendered in the footer attribution slot. */
+  /**
+   * Data sources the page always uses, whatever its results show; the footer
+   * adds the sources of the results on screen (components/PageSources.tsx).
+   */
   attributions: readonly AttributionId[];
 };
 
 export const TOOLS: readonly Tool[] = [
   { slug: "options", href: "/options", status: "live", attributions: [] },
-  { slug: "risk", href: "/risk", status: "live", attributions: ["demo"] },
-  { slug: "portfolio", href: "/portfolio", status: "live", attributions: ["demo", "frankfurter"] },
+  { slug: "risk", href: "/risk", status: "live", attributions: [] },
+  // Exchange rates are not a result's `source`, so the page credits Frankfurter itself.
+  { slug: "portfolio", href: "/portfolio", status: "live", attributions: ["frankfurter"] },
   { slug: "company", href: "/company", status: "live", attributions: ["sec"] },
   { slug: "valuation", href: "/valuation", status: "live", attributions: ["sec"] },
   { slug: "macro", href: "/macro", status: "live", attributions: ["fred", "treasury", "world_bank", "ecb"] },

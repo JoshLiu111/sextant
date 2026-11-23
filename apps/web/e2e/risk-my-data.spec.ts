@@ -100,3 +100,20 @@ test("a user with a Tiingo key switches to My data and sees metrics from their o
   await expect(main.getByLabel("Tickers")).toHaveValue("DEMO-A, DEMO-B, DEMO-D");
   await expect(main.getByTestId("demo-badge")).toBeVisible();
 });
+
+test("the footer credits the data the results used: Tiingo on My data, demo data on Demo data", async ({ page }) => {
+  await signIn(page, uniqueEmail("footer"), { withKey: true });
+  const main = await openRisk(page);
+  const footer = page.getByRole("contentinfo");
+  await expect(footer.locator('[data-attribution="demo"]')).toBeVisible();
+  await expect(footer.locator('[data-attribution="tiingo"]')).toHaveCount(0);
+
+  await main.getByTestId("data-mode").getByText("My data").click();
+  await expect(metric(page, "annualized_volatility:AAPL")).toHaveAttribute("data-status", "ok");
+  await expect(footer.locator('[data-attribution="tiingo"]')).toContainText("Tiingo");
+  await expect(footer.locator('[data-attribution="demo"]')).toHaveCount(0);
+
+  await main.getByTestId("data-mode").getByText("Demo data").click();
+  await expect(footer.locator('[data-attribution="demo"]')).toBeVisible();
+  await expect(footer.locator('[data-attribution="tiingo"]')).toHaveCount(0);
+});

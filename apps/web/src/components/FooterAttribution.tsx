@@ -2,13 +2,19 @@
 
 import { usePathname } from "next/navigation";
 import { getMessages } from "@/i18n";
-import { ATTRIBUTIONS, type Attribution } from "@/lib/attributions";
+import { ATTRIBUTIONS, type Attribution, type AttributionId } from "@/lib/attributions";
 import { toolForPath } from "@/lib/tools";
+import { useCreditedSources } from "./PageSources";
 
-/** The footer's per-page attribution slot, filled from the tool registry. */
+/**
+ * The footer's per-page attribution slot: the sources of the results on the
+ * page plus those the page always uses (tool registry), in `ATTRIBUTIONS` order.
+ */
 export function FooterAttribution() {
   const t = getMessages();
-  const ids = toolForPath(usePathname())?.attributions ?? [];
+  const always = toolForPath(usePathname())?.attributions ?? [];
+  const credited = useCreditedSources();
+  const ids = (Object.keys(ATTRIBUTIONS) as AttributionId[]).filter((id) => always.includes(id) || credited.has(id));
 
   return (
     <div data-testid="attribution-slot">
