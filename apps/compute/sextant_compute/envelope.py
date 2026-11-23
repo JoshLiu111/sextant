@@ -9,7 +9,9 @@ Shape (JSON)::
                                   "reason": str | null, "unit": str | null,
                                   "details": {"<key>": str | number | null}}},
       "series":  {"<series_id>": {"status": ..., "reason": ..., "x_unit": ..., "y_unit": ...,
-                                  "points": [{"x": number | "YYYY-MM-DD", "y": number | null}]}},
+                                  "points": [{"x": number | "YYYY-MM-DD", "y": number | null}],
+                                  "details": {"<key>": str | number | null},
+                                  "bands": [{"start": x, "end": x, "label": str | null}]}},
       "source":  {"id": "user_input", "name": "User input", "is_demo": false},
       "meta":    {"parameters": {...request...}, "computed_at": ISO-8601 UTC, "data_cutoff": date | null}
     }
@@ -34,6 +36,7 @@ from pydantic import BaseModel, Field
 from sextant_compute.analytics.errors import MetricError, MissingData
 
 __all__ = [
+    "Band",
     "CalculationMeta",
     "DataSource",
     "Detailed",
@@ -43,6 +46,7 @@ __all__ = [
     "MissingData",
     "Point",
     "ResultEnvelope",
+    "SeriesData",
     "SeriesResult",
     "USER_INPUT",
     "envelope",
@@ -83,12 +87,32 @@ class Point(BaseModel):
     y: float | None
 
 
+class Band(BaseModel):
+    """A shaded x range on a chart, e.g. an inversion period (``start``..``end`` inclusive)."""
+
+    start: float | str
+    end: float | str
+    label: str | None = None
+
+
 class SeriesResult(BaseModel):
     status: MetricStatus
     reason: str | None = None
     x_unit: str | None = None
     y_unit: str | None = None
     points: list[Point] = Field(default_factory=list)
+    details: dict[str, Detail] = Field(default_factory=dict)
+    """Extra facts about the series, e.g. the date a yield curve was observed."""
+    bands: list[Band] = Field(default_factory=list)
+    """Shaded x ranges to draw with the series (in the series' x unit)."""
+
+
+class SeriesData(NamedTuple):
+    """Return this from a ``series`` computation to attach ``details`` and ``bands``."""
+
+    points: Sequence[tuple[float | str, float | None]]
+    details: dict[str, Detail] = {}
+    bands: Sequence[Band] = ()
 
 
 class DataSource(BaseModel):
@@ -129,15 +153,23 @@ def metric(compute: Callable[[], float | Detailed], *, unit: str | None = None) 
 
 
 def series(
-    compute: Callable[[], Sequence[tuple[float | str, float | None]]],
+    compute: Callable[[], Sequence[tuple[float | str, float | None]] | SeriesData],
     *,
     x_unit: str | None = None,
     y_unit: str | None = None,
 ) -> SeriesResult:
     """Run one series' computation with the same isolation rules as ``metric``."""
     try:
-        points = [Point(x=x, y=y) for x, y in compute()]
-        return SeriesResult(status=MetricStatus.OK, x_unit=x_unit, y_unit=y_unit, points=points)
+        out = compute()
+        data = out if isinstance(out, SeriesData) else SeriesData(out)
+        return SeriesResult(
+            status=MetricStatus.OK,
+            x_unit=x_unit,
+            y_unit=y_unit,
+            points=[Point(x=x, y=y) for x, y in data.points],
+            details=dict(data.details),
+            bands=list(data.bands),
+        )
     except MissingData as exc:
         return SeriesResult(status=MetricStatus.MISSING_DATA, reason=str(exc), x_unit=x_unit, y_unit=y_unit)
     except MetricError as exc:

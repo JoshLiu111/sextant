@@ -109,3 +109,27 @@ class EconomicSeriesAdapter(Adapter, Protocol):
         year ago, ...). Raises ``NoSuchData`` (``missing`` keyed by series id) for
         unknown series and for series we may not republish (copyright)."""
         ...
+
+
+Curve = dict[float, float]
+"""One day's yield curve: maturity in months (1, 1.5, ..., 360) -> yield in percent.
+Maturities not published that day are absent."""
+
+
+@dataclass(frozen=True)
+class YieldCurves:
+    """Daily yield curves, ascending by date, with the metadata a page must show.
+    ``meta.last_updated`` is when the data was fetched (the provider publishes no
+    revision timestamp)."""
+
+    source: DataSource
+    meta: SeriesMeta
+    curves: list[tuple[date, Curve]]
+
+
+class YieldCurveAdapter(Adapter, Protocol):
+    def yield_curves(self, ctx: RequestContext, year: int) -> YieldCurves:
+        """Every curve published in calendar ``year``, ascending (empty for a year
+        with no data yet). Raises ``SourceUnavailable`` when the provider is down
+        or answers something unparseable."""
+        ...

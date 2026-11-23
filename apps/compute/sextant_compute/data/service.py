@@ -30,6 +30,8 @@ from sextant_compute.data.adapters import (
     EconomicSeriesAdapter,
     FinancialStatementsAdapter,
     SeriesMeta,
+    YieldCurveAdapter,
+    YieldCurves,
 )
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
@@ -37,6 +39,7 @@ from sextant_compute.data.edgar import EdgarAdapter
 from sextant_compute.data.fred import FredAdapter
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
+from sextant_compute.data.treasury import TreasuryAdapter
 from sextant_compute.envelope import DataSource
 
 T = TypeVar("T")
@@ -161,6 +164,29 @@ class DataService:
             _decode_series,
         )
 
+    def yield_curves(self, ctx: RequestContext, *, start: date, end: date, source: str) -> YieldCurves:
+        """Daily yield curves dated within [start, end], ascending; see ``YieldCurveAdapter``.
+        Fetched and cached one calendar year at a time, so a wider range reuses the
+        years already cached. ``meta`` is the newest year's."""
+        adapter = cast(YieldCurveAdapter, self._adapter(source))
+        years = [
+            self._cached(
+                ctx,
+                adapter,
+                "yield_curves",
+                {"year": year},
+                lambda year=year: adapter.yield_curves(ctx, year),
+                _encode_curves,
+                _decode_curves,
+            )
+            for year in range(start.year, end.year + 1)
+        ]
+        return YieldCurves(
+            source=adapter.source,
+            meta=years[-1].meta,
+            curves=[(when, curve) for y in years for when, curve in y.curves if start <= when <= end],
+        )
+
 
 def cache_key(adapter: Adapter, dataset: str, params: Mapping[str, Any], *, user_id: object | None = None) -> str:
     """``v<CACHE_VERSION>:<shared|user:<id>>:<source>@<adapter version>:<dataset>:<params hash>``."""
@@ -204,11 +230,33 @@ def _decode_series(raw: Mapping[str, Any]) -> EconomicSeries:
     )
 
 
+def _encode_curves(curves: YieldCurves) -> dict[str, Any]:
+    return {
+        "source": curves.source.model_dump(),
+        "meta": dataclasses.asdict(curves.meta),
+        "curves": [[when.isoformat(), [[m, v] for m, v in curve.items()]] for when, curve in curves.curves],
+    }
+
+
+def _decode_curves(raw: Mapping[str, Any]) -> YieldCurves:
+    return YieldCurves(
+        source=DataSource(**raw["source"]),
+        meta=SeriesMeta(**raw["meta"]),
+        curves=[(date.fromisoformat(when), {float(m): v for m, v in pairs}) for when, pairs in raw["curves"]],
+    )
+
+
 def default_adapters() -> dict[str, Adapter]:
     synthetic = SyntheticAdapter()
     fred = FredAdapter.from_env()
     edgar = EdgarAdapter()
-    return {synthetic.source.id: synthetic, fred.source.id: fred, edgar.source.id: edgar}
+    treasury = TreasuryAdapter.from_env()
+    return {
+        synthetic.source.id: synthetic,
+        fred.source.id: fred,
+        edgar.source.id: edgar,
+        treasury.source.id: treasury,
+    }
 
 
 _service: DataService | None = None
