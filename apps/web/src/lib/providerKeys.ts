@@ -7,10 +7,17 @@ import { getMessages } from "@/i18n";
 import { computePath } from "./compute";
 import type { ApiErrorBody } from "./envelope";
 
-/** Every provider a user can save a key for, in the order Settings lists them. */
-export const PROVIDERS = ["tiingo", "fmp"] as const;
+/**
+ * The provider registry (mirrors `MY_DATA_SOURCES` in
+ * apps/compute/sextant_compute/data/sources.py): every provider a user can save a
+ * key for, with its display name, in the order Settings lists them. Each one
+ * backs My data (`myData.ts`); a new provider is one line here.
+ */
+export const PROVIDER_NAMES = { tiingo: "Tiingo", fmp: "FMP" } as const;
 
-export type Provider = (typeof PROVIDERS)[number];
+export type Provider = keyof typeof PROVIDER_NAMES;
+
+export const PROVIDERS = Object.keys(PROVIDER_NAMES) as Provider[];
 
 export type SavedKey = { provider: Provider; hint: string; created_at: string; updated_at: string };
 

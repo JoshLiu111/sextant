@@ -50,10 +50,8 @@ import pandas as pd
 from sextant_compute.data.adapters import PRICE_COLUMNS
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
+from sextant_compute.data.sources import TIINGO
 from sextant_compute.data.user_key_http import UserKeyHttpAdapter
-from sextant_compute.envelope import DataSource
-
-TIINGO = DataSource(id="tiingo", name="Tiingo", is_demo=False)
 
 BASE_URL = "https://api.tiingo.com"
 
