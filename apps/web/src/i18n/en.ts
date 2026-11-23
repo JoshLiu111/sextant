@@ -110,6 +110,8 @@ export const en = {
     csv: {
       export: "Export CSV",
       exportLabel: (table: string) => `Export CSV: ${table}`,
+      ticker: "Ticker",
+      metric: "Metric",
     },
     calculation: {
       id: "Calculation",

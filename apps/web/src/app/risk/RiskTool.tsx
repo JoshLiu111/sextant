@@ -4,12 +4,14 @@ import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { LineChart, type ChartMarker, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
+import { csvFilename } from "@/lib/csv";
 import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
 
@@ -191,7 +193,20 @@ export function RiskTool() {
           />
         )}
         <div>
-          <h2 className="text-lg font-semibold">{r.sections.metrics}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">{r.sections.metrics}</h2>
+            {result && params && (
+              <ExportCsvButton
+                label={r.sections.metrics}
+                filename={csvFilename("risk", "metrics", params.tickers.join("_"))}
+                demo={result.source.is_demo}
+                table={{
+                  columns: [t.common.csv.ticker, ...METRICS.map((id) => r.metrics[id].name)],
+                  rows: symbols.map((ticker) => [ticker, ...METRICS.map((id) => result.metrics[`${id}:${ticker}`])]),
+                }}
+              />
+            )}
+          </div>
           <div className="mt-2 grid gap-4 xl:grid-cols-3">
             {METRICS.map((id) => (
               <MetricCard
