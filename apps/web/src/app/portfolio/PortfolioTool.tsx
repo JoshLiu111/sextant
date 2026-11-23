@@ -6,6 +6,7 @@ import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice"
 import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { decodeRows, encodeRows, fieldsCodec, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 import { PortfolioConstruction } from "./PortfolioConstruction";
 import { PortfolioResults } from "./PortfolioResults";
@@ -28,6 +29,28 @@ const DEFAULTS: Form = {
   end: "2025-12-31",
   confidence: "95",
   risk_free_rate: "0",
+};
+
+// Shareable links: `/portfolio?holdings=DEMO-C:60,DEMO-E:40&start=2022-01-01`.
+// Only these demo inputs go in the URL; saved portfolios never do.
+const SETTINGS_CODEC = fieldsCodec({
+  benchmark: DEFAULTS.benchmark,
+  start: DEFAULTS.start,
+  end: DEFAULTS.end,
+  confidence: DEFAULTS.confidence,
+  risk_free_rate: DEFAULTS.risk_free_rate,
+});
+const URL_CODEC: UrlCodec<Form> = {
+  keys: ["holdings", ...SETTINGS_CODEC.keys],
+  read(params) {
+    const raw = params.get("holdings");
+    const rows = raw === null ? [] : decodeRows(raw, 2);
+    const holdings = rows.length ? rows.map(([ticker, weight]) => ({ ticker, weight })) : DEFAULTS.holdings;
+    return { holdings, ...SETTINGS_CODEC.read(params) };
+  },
+  write({ holdings, ...settings }) {
+    return { holdings: encodeRows(holdings.map((h) => [h.ticker, h.weight])), ...SETTINGS_CODEC.write(settings) };
+  },
 };
 
 function percentToDecimal(raw: string): number | null {
@@ -61,7 +84,8 @@ const inputClass = (error: string | undefined) =>
 export function PortfolioTool() {
   const t = getMessages();
   const p = t.portfolio;
-  const [form, setForm] = useState<Form>(DEFAULTS);
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [form, setForm] = useState<Form>(initial);
   const request = toRequest(form);
   const { result, fieldErrors, error, run } = useCompute<string, string>("/portfolio/metrics", request);
   const set = (field: Exclude<keyof Form, "holdings">) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
@@ -72,6 +96,7 @@ export function PortfolioTool() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    share(form);
     run();
   }
 

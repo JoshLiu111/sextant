@@ -2,25 +2,27 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic_core import PydanticCustomError
 
+from sextant_compute.analytics import binomial
 from sextant_compute.analytics import options as bs
-from sextant_compute.envelope import ResultEnvelope, envelope, metric, series
-from sextant_compute.errors import check
+from sextant_compute.analytics import strategies as st
+from sextant_compute.envelope import MetricError, MetricResult, ResultEnvelope, envelope, metric, series
+from sextant_compute.errors import INPUT_ERROR, check
 
 router = APIRouter(tags=["options"])
 
 TOOL = "options"
 
 
-class OptionsRequest(BaseModel):
+class MarketInputs(BaseModel):
     """Inputs in API units: rates, yields and volatility are decimals; time is in years."""
 
     spot: Annotated[float, check(lambda v: v > 0, "Spot price must be greater than 0.")]
-    strike: Annotated[float, check(lambda v: v > 0, "Strike price must be greater than 0.")]
     time_to_expiry: Annotated[
         float,
         check(lambda v: v > 0, "Time to expiry must be greater than 0: the option has already expired."),
@@ -35,6 +37,13 @@ class OptionsRequest(BaseModel):
     dividend_yield: Annotated[
         float, check(lambda v: -1 < v < 1, "Dividend yield must be between -100% and 100%.")
     ] = 0.0
+
+
+Strike = Annotated[float, check(lambda v: v > 0, "Strike price must be greater than 0.")]
+
+
+class OptionsRequest(MarketInputs):
+    strike: Strike
     option_type: bs.OptionType = "call"
     market_price: Annotated[
         float | None, check(lambda v: v > 0, "Market price must be greater than 0.")
@@ -85,3 +94,121 @@ def price(req: OptionsRequest) -> ResultEnvelope:
             ),
         },
     )
+
+
+MAX_LEGS = 8
+
+
+class StrategyLeg(BaseModel):
+    instrument: st.Instrument
+    position: Literal["long", "short"] = "long"
+    quantity: Annotated[
+        float,
+        check(lambda v: v > 0, "Quantity must be greater than 0."),
+        check(lambda v: v <= 1_000_000, "Quantity must be at most 1,000,000."),
+    ] = 1.0
+    strike: Strike | None = Field(default=None, validate_default=True)
+
+    @field_validator("strike")
+    @classmethod
+    def _options_need_a_strike(cls, v: float | None, info: ValidationInfo) -> float | None:
+        if v is None and info.data.get("instrument") in ("call", "put"):
+            raise PydanticCustomError(INPUT_ERROR, "Enter a strike price for this option.")
+        return v
+
+    def to_leg(self) -> st.Leg:
+        sign = 1.0 if self.position == "long" else -1.0
+        strike = None if self.instrument == "underlying" else self.strike
+        return st.Leg(self.instrument, sign * self.quantity, strike)
+
+
+class StrategyRequest(MarketInputs):
+    legs: Annotated[
+        list[StrategyLeg],
+        check(lambda v: len(v) >= 1, "Add at least one leg."),
+        check(lambda v: len(v) <= MAX_LEGS, f"Enter at most {MAX_LEGS} legs."),
+    ]
+
+
+GREEK_UNITS: dict[st.Greek, str] = {
+    "delta": "per_dollar",
+    "gamma": "per_dollar",
+    "vega": "per_vol_point",
+    "theta": "per_day",
+    "rho": "per_rate_point",
+}
+
+
+@router.post("/strategy")
+def strategy(req: StrategyRequest) -> ResultEnvelope:
+    legs = [leg.to_leg() for leg in req.legs]
+    market = st.Market(req.spot, req.time_to_expiry, req.volatility, req.risk_free_rate, req.dividend_yield)
+    metrics = {
+        "net_cost": metric(lambda: st.value(legs, market), unit="currency"),
+        "max_profit": metric(lambda: st.max_profit(legs, market), unit="currency"),
+        "max_loss": metric(lambda: st.max_loss(legs, market), unit="currency"),
+    }
+    curves = {
+        "profit_at_expiry": series(
+            lambda: st.profit_at_expiry_curve(legs, market), x_unit="currency", y_unit="currency"
+        ),
+        "profit_today": series(lambda: st.profit_today_curve(legs, market), x_unit="currency", y_unit="currency"),
+    }
+    for g, unit in GREEK_UNITS.items():
+        metrics[g] = metric(lambda g=g: st.greek(g, legs, market), unit=unit)
+        curves[f"{g}_vs_spot"] = series(lambda g=g: st.greek_vs_spot(g, legs, market), x_unit="currency", y_unit=unit)
+        curves[f"{g}_vs_time"] = series(lambda g=g: st.greek_vs_time(g, legs, market), x_unit="years", y_unit=unit)
+    return envelope(tool=TOOL, request=req, metrics=metrics, series=curves)
+
+
+MAX_STEPS = 5000
+
+
+class AmericanRequest(MarketInputs):
+    strike: Strike
+    steps: Annotated[
+        int,
+        check(lambda v: v >= 1, "Steps must be at least 1."),
+        check(lambda v: v <= MAX_STEPS, f"Steps must be at most {MAX_STEPS:,}."),
+    ] = 500
+
+
+@router.post("/american")
+def american(req: AmericanRequest) -> ResultEnvelope:
+    args = (req.spot, req.strike, req.time_to_expiry, req.volatility, req.risk_free_rate, req.dividend_yield)
+    metrics = {}
+    curves = {}
+    for kind in ("call", "put"):
+        amer = metric(lambda kind=kind: binomial.tree_price(kind, *args, req.steps, american=True), unit="currency")
+        euro_tree = metric(
+            lambda kind=kind: binomial.tree_price(kind, *args, req.steps, american=False), unit="currency"
+        )
+        metrics[f"american_{kind}"] = amer
+        metrics[f"european_{kind}_tree"] = euro_tree
+        metrics[f"european_{kind}"] = metric(lambda kind=kind: bs.bs_price(kind, *args), unit="currency")
+        metrics[f"{kind}_early_exercise_premium"] = metric(
+            lambda a=amer, e=euro_tree: _difference(a, e), unit="currency"
+        )
+        for name, is_american in ((f"american_{kind}_by_steps", True), (f"european_{kind}_tree_by_steps", False)):
+            curves[name] = series(
+                lambda kind=kind, is_american=is_american: [
+                    (n, _tree_or_none(kind, args, n, is_american)) for n in binomial.steps_grid(req.steps)
+                ],
+                x_unit="steps",
+                y_unit="currency",
+            )
+    return envelope(tool=TOOL, request=req, metrics=metrics, series=curves)
+
+
+def _difference(a: MetricResult, b: MetricResult) -> float:
+    if a.value is None or b.value is None:
+        raise MetricError(a.reason or b.reason or "The tree price is unavailable.")
+    return a.value - b.value
+
+
+def _tree_or_none(kind: bs.OptionType, args: tuple[float, ...], steps: int, american: bool) -> float | None:
+    """A convergence-chart point; a step count too coarse for a valid tree leaves a gap."""
+    try:
+        return binomial.tree_price(kind, *args, steps, american=american)
+    except MetricError:
+        return None

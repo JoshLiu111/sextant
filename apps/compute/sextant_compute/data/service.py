@@ -19,12 +19,14 @@ from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future
 from dataclasses import dataclass
 from datetime import date
+from types import MappingProxyType
 from typing import Annotated, Any, TypeVar, cast
 
 import pandas as pd
 from fastapi import Depends
 
 from sextant_compute.auth import OptionalUser
+from sextant_compute.auth.deps import get_db
 from sextant_compute.data.adapters import (
     Adapter,
     CrossSectionsAdapter,
@@ -46,7 +48,9 @@ from sextant_compute.data.fred import FredAdapter
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
 from sextant_compute.data.treasury import TreasuryAdapter
+from sextant_compute.db import Database
 from sextant_compute.envelope import DataSource
+from sextant_compute.keys.vault import user_keys
 
 T = TypeVar("T")
 
@@ -359,11 +363,13 @@ def get_data_service() -> DataService:
     return _service
 
 
-def get_request_context(user: OptionalUser) -> RequestContext:
+def get_request_context(user: OptionalUser, db: Annotated[Database, Depends(get_db)]) -> RequestContext:
     """FastAPI dependency building ``ctx`` for the current request: the signed-in
-    user's id (None when anonymous). The user's own provider keys get added here
-    once bring-your-own-key lands."""
-    return RequestContext(user_id=user.id) if user is not None else RequestContext.anonymous()
+    user's id (None when anonymous) and their own provider keys, decrypted fresh
+    on every request so a replaced or deleted key takes effect at once."""
+    if user is None:
+        return RequestContext.anonymous()
+    return RequestContext(user_id=user.id, keys=MappingProxyType(user_keys(db, user.id)))
 
 
 Data = Annotated[DataService, Depends(get_data_service)]
