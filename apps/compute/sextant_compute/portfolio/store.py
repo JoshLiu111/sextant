@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import psycopg
 
@@ -74,3 +74,55 @@ def get(conn: psycopg.Connection, user_id: UUID, portfolio_id: UUID) -> dict[str
         (portfolio_id,),
     ).fetchall()
     return {**portfolio, "holdings": holdings}
+
+
+def lock_holdings(conn: psycopg.Connection, user_id: UUID, portfolio_id: UUID) -> list[Holding] | None:
+    """The portfolio's holdings, row-locked until the transaction ends. None if the user has no such portfolio."""
+    row = conn.execute(
+        "SELECT id FROM portfolios WHERE id = %s AND user_id = %s FOR UPDATE", (portfolio_id, user_id)
+    ).fetchone()
+    if row is None:
+        return None
+    return conn.execute(
+        "SELECT ticker, quantity::float8 AS quantity, cost_price::float8 AS cost_price, currency"
+        " FROM portfolio_holdings WHERE portfolio_id = %s ORDER BY position",
+        (portfolio_id,),
+    ).fetchall()
+
+
+def record_import(
+    conn: psycopg.Connection,
+    portfolio_id: UUID,
+    holdings: Sequence[Holding],
+    transactions: Sequence[dict[str, Any]],
+) -> UUID:
+    """Store an import's transactions and the holdings they produced. Call after ``lock_holdings``."""
+    import_id = uuid4()
+    conn.execute("UPDATE portfolios SET updated_at = now() WHERE id = %s", (portfolio_id,))
+    conn.execute("DELETE FROM portfolio_holdings WHERE portfolio_id = %s", (portfolio_id,))
+    _insert_holdings(conn, portfolio_id, holdings)
+    with conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO portfolio_transactions"
+            " (portfolio_id, import_id, line, trade_date, ticker, side, quantity, price, fees, currency)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            [
+                (portfolio_id, import_id, t["line"], t["date"], t["ticker"], t["side"],
+                 t["quantity"], t["price"], t["fees"], t["currency"])
+                for t in transactions
+            ],
+        )
+    return import_id
+
+
+def list_transactions(conn: psycopg.Connection, user_id: UUID, portfolio_id: UUID) -> list[dict[str, Any]] | None:
+    """The portfolio's imported transactions, oldest trade first. None if the user has no such portfolio."""
+    owned = conn.execute("SELECT 1 FROM portfolios WHERE id = %s AND user_id = %s", (portfolio_id, user_id))
+    if owned.fetchone() is None:
+        return None
+    return conn.execute(
+        "SELECT import_id, line, trade_date AS date, ticker, side, quantity::float8 AS quantity,"
+        " price::float8 AS price, fees::float8 AS fees, currency"
+        " FROM portfolio_transactions WHERE portfolio_id = %s ORDER BY trade_date, id",
+        (portfolio_id,),
+    ).fetchall()
