@@ -163,3 +163,42 @@ class YieldCurveAdapter(Adapter, Protocol):
         with no data yet). Raises ``SourceUnavailable`` when the provider is down
         or answers something unparseable."""
         ...
+
+
+@dataclass(frozen=True)
+class CountrySeries:
+    """One economy's annual values of an indicator: ``(year, value)`` ascending.
+    ``None`` is a year the provider has no value for."""
+
+    country: str
+    """ISO 3166-1 alpha-3 code, or the provider's aggregate code (``EMU`` = euro area)."""
+    name: str
+    observations: list[tuple[int, float | None]]
+
+    @property
+    def latest(self) -> tuple[int, float] | None:
+        """The most recent year that has a value."""
+        for year, value in reversed(self.observations):
+            if value is not None:
+                return year, value
+        return None
+
+
+@dataclass(frozen=True)
+class CountryIndicator:
+    """One indicator across several economies, with the metadata a page must show.
+    ``meta.last_updated`` is the provider's last update date (``YYYY-MM-DD``)."""
+
+    source: DataSource
+    meta: SeriesMeta
+    countries: dict[str, CountrySeries]
+
+
+class CountryIndicatorAdapter(Adapter, Protocol):
+    def country_indicator(
+        self, ctx: RequestContext, indicator_id: str, countries: Sequence[str], start_year: int, end_year: int
+    ) -> CountryIndicator:
+        """Annual values in [start_year, end_year] for each requested economy the
+        provider knows. Raises ``NoSuchData`` (``missing`` keyed by indicator id)
+        for unknown indicators and for indicators we may not republish (license)."""
+        ...
