@@ -11,6 +11,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { FactorFiles } from "./FactorFiles";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
 import { csvFilename } from "@/lib/csv";
 import { formatChartDate, formatChartPercent, formatCount, formatValue } from "@/lib/format";
@@ -97,11 +98,11 @@ function dateMarker(result: MetricResult | undefined, key: string, label: string
 
 type FactorCopy = ReturnType<typeof getMessages>["risk"]["factors"];
 
-/** The line under a factor regression value: its t-statistic, or for R² the days used. */
+/** The line under a factor regression value: its t-statistic, or for R² the days (or months) used. */
 function factorNote(result: MetricResult | undefined, copy: FactorCopy): string | undefined {
   if (result?.status !== "ok") return undefined;
-  const { t_stat: t, observations: n } = result.details;
-  if (typeof n === "number") return `${formatCount(n)} ${copy.observations}`;
+  const { t_stat: t, observations: n, frequency } = result.details;
+  if (typeof n === "number") return `${formatCount(n)} ${copy.observations[frequency === "monthly" ? "monthly" : "daily"]}`;
   if (typeof t === "number") return `${copy.tStat} ${formatValue(t, "ratio")}`;
   return copy.exactFit;
 }
@@ -172,6 +173,7 @@ export function RiskTool() {
           {r.inputsHeading}
         </h2>
         <DataModeToggle providers={providers} value={source} onChange={setChosen} />
+        {source !== DEMO_SOURCE && <FactorFiles onChange={run} />}
         <TextField
           name="tickers"
           label={r.inputs.tickers.label}
