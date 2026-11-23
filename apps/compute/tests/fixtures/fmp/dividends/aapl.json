@@ -1,0 +1,35 @@
+[
+ {
+  "symbol": "AAPL",
+  "date": "2024-02-09",
+  "recordDate": "2024-02-12",
+  "paymentDate": "2024-02-15",
+  "declarationDate": "2024-02-01",
+  "adjDividend": 0.24,
+  "dividend": 0.24,
+  "yield": 0.74,
+  "frequency": "Quarterly"
+ },
+ {
+  "symbol": "AAPL",
+  "date": "2024-01-10",
+  "recordDate": "2024-01-11",
+  "paymentDate": "2024-01-18",
+  "declarationDate": "2024-01-02",
+  "adjDividend": 0.24,
+  "dividend": 0.96,
+  "yield": 0.76,
+  "frequency": "Quarterly"
+ },
+ {
+  "symbol": "AAPL",
+  "date": "2023-11-10",
+  "recordDate": "2023-11-13",
+  "paymentDate": "2023-11-16",
+  "declarationDate": "2023-11-02",
+  "adjDividend": 0.24,
+  "dividend": 0.96,
+  "yield": 0.8,
+  "frequency": "Quarterly"
+ }
+]
