@@ -52,6 +52,8 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
+from sextant_compute.data.adapters import FACTOR_COLUMNS
+
 GENERATOR_VERSION = 3
 DEFAULT_SEED = 17
 HISTORY_START = date(2016, 1, 4)
@@ -226,7 +228,6 @@ FACTORS: dict[str, Factor] = {
     "HML": Factor(premium=0.03, annual_vol=0.11),
     "MOM": Factor(premium=0.06, annual_vol=0.15),
 }
-FACTOR_COLUMNS = ["Mkt-RF", "SMB", "HML", "MOM", "RF"]
 
 # Generation order is fixed: never reorder, only append (or bump GENERATOR_VERSION).
 _ORDER = ["DEMO-MKT", "DEMO-A", "DEMO-B", "DEMO-C", "DEMO-D", "DEMO-E", "DEMO-F", "DEMO-G", "DEMO-H", "DEMO-I"]
@@ -368,13 +369,14 @@ def generate_universe(seed: int = DEFAULT_SEED) -> dict[str, pd.DataFrame]:
     return out
 
 
-def generate_factors(seed: int = DEFAULT_SEED) -> pd.DataFrame:
+def generate_factors(seed: int = DEFAULT_SEED, *, universe: dict[str, pd.DataFrame] | None = None) -> pd.DataFrame:
     """Daily factor returns (decimals) with ``FACTOR_COLUMNS``, on every trading day
     after the first (the first day has no market return). Same seed, same factors
-    as the ones ``generate_universe(seed)`` built the tickers from."""
+    as the ones ``generate_universe(seed)`` built the tickers from; pass that
+    ``universe`` to skip regenerating it."""
     dates = trading_days()
     shocks = _factor_shocks(seed, len(dates))
-    market = generate_universe(seed)[BENCHMARK]
+    market = (universe if universe is not None else generate_universe(seed))[BENCHMARK]
     total = (market["close"] + market["dividend"]) / market["close"].shift(1) - 1
     rf = pd.Series(_risk_free(dates), index=dates)
     frame = pd.DataFrame(

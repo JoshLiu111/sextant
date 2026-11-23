@@ -30,6 +30,7 @@ from sextant_compute.auth.deps import get_db
 from sextant_compute.data.adapters import (
     Adapter,
     CrossSectionsAdapter,
+    DailyFactorsAdapter,
     DailyPricesAdapter,
     EconomicSeries,
     EconomicSeriesAdapter,
@@ -43,6 +44,7 @@ from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCach
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.edgar import EdgarAdapter
+from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.filings import FilingList
 from sextant_compute.data.fred import FredAdapter
 from sextant_compute.data.statements import FinancialStatements
@@ -66,6 +68,14 @@ class PriceHistory:
     def last_date(self) -> date | None:
         ends = [f.index[-1].date() for f in self.frames.values() if not f.empty]
         return max(ends) if ends else None
+
+
+@dataclass(frozen=True)
+class FactorHistory:
+    """Daily factor returns (``FACTOR_COLUMNS``, decimals) and the source they came from."""
+
+    source: DataSource
+    frame: pd.DataFrame
 
 
 class DataService:
@@ -172,6 +182,25 @@ class DataService:
             _decode_frames,
         )
         return PriceHistory(source=adapter.source, frames={t: frames[t] for t in wanted})
+
+    def daily_factors(self, ctx: RequestContext, start: date, end: date, *, source: str) -> FactorHistory:
+        """Daily factor returns in [start, end]; see ``DailyFactorsAdapter``. Raises
+        ``NoSuchData`` when ``source`` serves no factors (every source but the
+        synthetic demo one, ADR 0003)."""
+        adapter = self._adapter(source)
+        if not hasattr(adapter, "daily_factors"):
+            raise NoSuchData(adapter.source.id, f"There is no factor data for {adapter.source.name}.")
+        factors = cast(DailyFactorsAdapter, adapter)
+        frames = self._cached(
+            ctx,
+            factors,
+            "daily_factors",
+            {"start": start.isoformat(), "end": end.isoformat()},
+            lambda: {"factors": factors.daily_factors(ctx, start, end)},
+            _encode_frames,
+            _decode_frames,
+        )
+        return FactorHistory(source=adapter.source, frame=frames["factors"])
 
     def financial_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
         """Standardized annual statements for one company; see ``FinancialStatementsAdapter``.
