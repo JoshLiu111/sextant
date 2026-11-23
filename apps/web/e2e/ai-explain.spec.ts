@@ -1,0 +1,73 @@
+import { expect, test, type Page } from "@playwright/test";
+
+// AI Explain on the Options Calculator. The model is e2e/fake-anthropic.mjs, which
+// answers from the result the compute service sent it; the e2e daily quota is 3
+// (AI_DAILY_QUOTA in playwright.config.ts). Each test signs in with its own email.
+
+function uniqueEmail(label: string) {
+  return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
+}
+
+async function signInOnOptions(page: Page) {
+  await page.goto("/options");
+  await page.getByRole("banner").getByRole("link", { name: "Sign in with Google" }).click();
+  await page.getByLabel("Email").fill(uniqueEmail("ai"));
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).toHaveURL(/\/options$/);
+  return page.getByRole("main").getByRole("region", { name: "AI Explain" });
+}
+
+test("visitors are told to sign in to use AI Explain", async ({ page }) => {
+  await page.goto("/options");
+  const ai = page.getByRole("main").getByRole("region", { name: "AI Explain" });
+
+  await expect(ai).toContainText("Sign in to use AI Explain");
+  await expect(ai.getByRole("link", { name: "Sign in with Google" })).toHaveAttribute(
+    "href",
+    "/auth/signin?returnTo=%2Foptions",
+  );
+  await expect(ai.getByRole("button", { name: "AI Explain" })).toHaveCount(0);
+});
+
+test("a signed-in user gets a plain-English explanation and sees the quota go down", async ({ page }) => {
+  const ai = await signInOnOptions(page);
+  await expect(ai.getByTestId("ai-quota")).toHaveText("3 of 3 AI calls left today");
+
+  await ai.getByRole("button", { name: "AI Explain" }).click();
+
+  // The fake model quotes the call price the compute service calculated (10.45).
+  await expect(ai.getByTestId("ai-explanation")).toContainText("the call is worth about 10.45");
+  await expect(ai.getByTestId("ai-advice-notice")).toHaveText(
+    "This is only a reading of the calculation, not investment advice or a recommendation to buy or sell anything.",
+  );
+  await expect(ai.getByTestId("ai-quota")).toHaveText("2 of 3 AI calls left today");
+});
+
+test("the explanation follows the result on screen", async ({ page }) => {
+  const ai = await signInOnOptions(page);
+  const main = page.getByRole("main");
+  await ai.getByRole("button", { name: "AI Explain" }).click();
+  await expect(ai.getByTestId("ai-explanation")).toBeVisible();
+
+  await main.getByRole("spinbutton", { name: "Spot price" }).fill("120");
+  await expect(main.locator('[data-metric-value="call_price"]')).not.toContainText("10.45");
+
+  await expect(ai.getByTestId("ai-explanation")).toHaveCount(0);
+  await ai.getByRole("button", { name: "AI Explain" }).click();
+  // S = 120, otherwise the defaults: BS call 26.17.
+  await expect(ai.getByTestId("ai-explanation")).toContainText("the call is worth about 26.17");
+});
+
+test("calls over the daily quota are refused with a clear message", async ({ page }) => {
+  const ai = await signInOnOptions(page);
+  const button = ai.getByRole("button", { name: "AI Explain" });
+  for (const left of [2, 1, 0]) {
+    await button.click();
+    await expect(ai.getByTestId("ai-quota")).toHaveText(`${left} of 3 AI calls left today`);
+  }
+
+  await expect(button).toBeDisabled();
+  await expect(ai.getByTestId("ai-quota-used-up")).toHaveText(
+    "You have used all of today's AI calls. Your quota resets at 00:00 UTC.",
+  );
+});

@@ -1159,6 +1159,18 @@ export const en = {
     body: "This tool is not built yet. Check back soon.",
     back: "Back to all tools",
   },
+  ai: {
+    heading: "AI Explain",
+    intro: "A plain-English reading of the result above, written by Claude from this calculation.",
+    button: "AI Explain",
+    pending: "Explaining…",
+    signInPrompt: "Sign in to use AI Explain.",
+    quota: (remaining: number, limit: number) => `${remaining} of ${limit} AI calls left today`,
+    usedUp: "You have used all of today's AI calls. Your quota resets at 00:00 UTC.",
+    generatedBy: "AI-generated from calculation",
+    errorHeading: "AI Explain failed",
+    unavailable: "AI Explain is temporarily unavailable. Please retry in a moment.",
+  },
   compute: {
     label: "Compute service",
     online: "online",

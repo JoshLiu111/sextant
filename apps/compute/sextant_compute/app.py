@@ -11,6 +11,8 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 
 from sextant_compute import SERVICE_NAME, __version__
+from sextant_compute.ai.api import router as ai_router
+from sextant_compute.ai.model import AnthropicModel
 from sextant_compute.auth.api import router as auth_router
 from sextant_compute.company.api import router as company_router
 from sextant_compute.company.ratios import router as company_ratios_router
@@ -52,6 +54,8 @@ def create_app() -> FastAPI:
     install_error_handlers(app)
     # Opened lazily on first use, so anonymous tools never need a database.
     app.state.db = Database.from_env()
+    # Claude for AI Explain; tests replace it with a stub.
+    app.state.ai_model = AnthropicModel.from_env()
     app.include_router(health_router, prefix=API_PREFIX)
     app.include_router(options_router, prefix=f"{API_PREFIX}/options")
     app.include_router(risk_router, prefix=f"{API_PREFIX}/risk")
@@ -63,5 +67,6 @@ def create_app() -> FastAPI:
     app.include_router(macro_router, prefix=f"{API_PREFIX}/macro")
     app.include_router(valuation_router, prefix=f"{API_PREFIX}/valuation")
     app.include_router(screener_router, prefix=f"{API_PREFIX}/screener")
+    app.include_router(ai_router, prefix=f"{API_PREFIX}/ai")
     app.include_router(auth_router, prefix=API_PREFIX)
     return app
