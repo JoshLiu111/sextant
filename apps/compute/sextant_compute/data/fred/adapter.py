@@ -29,6 +29,7 @@ import httpx
 from sextant_compute.data.adapters import EconomicSeries, Scope, SeriesMeta
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import NoSuchData, SourceUnavailable
+from sextant_compute.data.retry import get_with_retries, is_retryable
 from sextant_compute.envelope import DataSource
 
 FRED = DataSource(id="fred", name="FRED, Federal Reserve Bank of St. Louis", is_demo=False)
@@ -124,11 +125,15 @@ class FredAdapter:
 
     @classmethod
     def from_env(cls) -> FredAdapter:
-        """``FRED_API_KEY`` (required to fetch; the app starts without it) and
-        ``FRED_API_BASE_URL`` (optional; e2e tests point it at a fake)."""
+        """``FRED_API_KEY`` (required to fetch; the app starts without it),
+        ``FRED_API_BASE_URL`` (optional; e2e tests point it at a fake) and
+        ``FRED_MIN_INTERVAL_SECONDS`` (optional; only for a fake FRED, which has
+        no rate limit: real FRED needs the default 0.5 s)."""
+        interval = os.environ.get("FRED_MIN_INTERVAL_SECONDS")
         return cls(
             api_key=os.environ.get("FRED_API_KEY") or None,
             base_url=os.environ.get("FRED_API_BASE_URL") or BASE_URL,
+            throttle=Throttle(float(interval)) if interval else _PROCESS_THROTTLE,
         )
 
     def economic_series(
@@ -179,30 +184,30 @@ class FredAdapter:
             raise SourceUnavailable(FRED.id, "FRED_API_KEY is not configured.")
         query = {**params, "api_key": self._api_key, "file_type": "json"}
         series_id = params.get("series_id", "")
-        for attempt in range(ATTEMPTS):
-            self._throttle.wait()
-            try:
-                response = self._client.get(f"{self._base_url}{path}", params=query)
-            except httpx.HTTPError as exc:
-                # Never include the URL: it carries the API key.
-                raise SourceUnavailable(FRED.id, f"FRED request failed ({type(exc).__name__}).") from None
-            if response.status_code == 429 or response.status_code >= 500:
-                if attempt + 1 < ATTEMPTS:
-                    self._throttle.sleep(BACKOFF * 2**attempt)
-                    continue
-                raise SourceUnavailable(FRED.id, f"FRED answered HTTP {response.status_code}.")
-            try:
-                body = response.json()
-            except ValueError:
-                raise SourceUnavailable(FRED.id, "FRED returned a response that is not JSON.") from None
-            if response.status_code == 200 and isinstance(body, dict):
-                return body
-            message = str(body.get("error_message", "")) if isinstance(body, dict) else ""
-            if response.status_code in (400, 404) and "does not exist" in message.lower():
-                raise NoSuchData(FRED.id, f"FRED has no series {series_id}.", {series_id: f"Unknown series {series_id}."})
-            # Bad or missing key, bad parameters: our problem, not the visitor's.
+        try:
+            response = get_with_retries(
+                lambda: self._client.get(f"{self._base_url}{path}", params=query),
+                attempts=ATTEMPTS,
+                backoff=BACKOFF,
+                sleep=self._throttle.sleep,
+                before_attempt=self._throttle.wait,
+            )
+        except httpx.HTTPError as exc:
+            # Never include the URL: it carries the API key.
+            raise SourceUnavailable(FRED.id, f"FRED request failed ({type(exc).__name__}).") from None
+        if is_retryable(response.status_code):
             raise SourceUnavailable(FRED.id, f"FRED answered HTTP {response.status_code}.")
-        raise AssertionError("unreachable")
+        try:
+            body = response.json()
+        except ValueError:
+            raise SourceUnavailable(FRED.id, "FRED returned a response that is not JSON.") from None
+        if response.status_code == 200 and isinstance(body, dict):
+            return body
+        message = str(body.get("error_message", "")) if isinstance(body, dict) else ""
+        if response.status_code in (400, 404) and "does not exist" in message.lower():
+            raise NoSuchData(FRED.id, f"FRED has no series {series_id}.", {series_id: f"Unknown series {series_id}."})
+        # Bad or missing key, bad parameters: our problem, not the visitor's.
+        raise SourceUnavailable(FRED.id, f"FRED answered HTTP {response.status_code}.")
 
 
 def _only_series(raw: Mapping[str, Any], series_id: str) -> Mapping[str, Any]:

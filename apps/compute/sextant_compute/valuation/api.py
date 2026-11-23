@@ -1,7 +1,9 @@
 """Valuation Calculator (P2): FCF-based DCF, WACC breakdown, sensitivity table.
 
 Free cash flow = Operating Cash Flow − Capital Expenditure from the latest fiscal
-year of the company's EDGAR statements. Market-data inputs (risk-free rate, beta,
+year of the company's EDGAR statements. Equity value = enterprise value + cash +
+short-term investments − total debt; a company that reports no short-term
+investments counts them as 0 (``details.basis = "not_reported"``). Market-data inputs (risk-free rate, beta,
 equity risk premium, share price) have no public source here, so they start from
 the documented defaults below and the visitor can override them. Every WACC
 component can also be overridden directly; ``null`` means "derive it".
@@ -158,6 +160,15 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
     def fcf() -> float:
         return st.value("operating_cash_flow", pid) - st.value("capital_expenditure", pid)
 
+    def short_term_investments() -> Detailed:
+        if isinstance(st.cell("short_term_investments", pid), Missing):
+            return Detailed(0.0, {"basis": "not_reported"})
+        return item("short_term_investments")
+
+    @cache
+    def cash_and_investments() -> float:
+        return st.value("cash", pid) + short_term_investments().value
+
     @cache
     def total_debt() -> float:
         return st.value("current_debt", pid) + st.value("long_term_debt", pid)
@@ -209,7 +220,7 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
             discount_rate=discount_rate,
             years=req.forecast_years,
         )
-        equity = v.equity_value(model.enterprise_value, cash=st.value("cash", pid), total_debt=total_debt())
+        equity = v.equity_value(model.enterprise_value, cash=cash_and_investments(), total_debt=total_debt())
         return v.per_share(equity, st.value("shares_outstanding", pid))
 
     base = _Result(
@@ -222,7 +233,7 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
         )
     )
     equity = _Result(
-        lambda: v.equity_value(base.get().enterprise_value, cash=st.value("cash", pid), total_debt=total_debt())
+        lambda: v.equity_value(base.get().enterprise_value, cash=cash_and_investments(), total_debt=total_debt())
     )
 
     def sourced(compute: Callable[[], float]) -> Callable[[], Detailed]:
@@ -237,6 +248,7 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
         "operating_cash_flow": metric(lambda: item("operating_cash_flow"), unit="currency"),
         "capital_expenditure": metric(lambda: item("capital_expenditure"), unit="currency"),
         "cash": metric(lambda: item("cash"), unit="currency"),
+        "short_term_investments": metric(short_term_investments, unit="currency"),
         "total_debt": metric(sourced(total_debt), unit="currency"),
         "shares_outstanding": metric(lambda: item("shares_outstanding"), unit="shares"),
         # WACC breakdown

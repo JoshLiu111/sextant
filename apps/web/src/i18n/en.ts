@@ -586,7 +586,11 @@ export const en = {
     submit: "Value company",
     loading: "Loading the valuation…",
     blankDerives: "Leave blank to derive it.",
-    basis: { override: "Your override", derived: "Derived" } as Record<string, string>,
+    basis: {
+      override: "Your override",
+      derived: "Derived",
+      not_reported: "Not reported: counted as $0",
+    } as Record<string, string>,
     baseYear: "Base year",
     filed: "10-K filed",
     sensitivityCaption:
@@ -745,7 +749,7 @@ export const en = {
       equity_value: {
         name: "Equity value",
         what: "The DCF value that belongs to shareholders, in US dollars.",
-        how: "Enterprise value + cash and cash equivalents − total debt (short-term + long-term debt).",
+        how: "Enterprise value + cash and cash equivalents + short-term investments − total debt (short-term + long-term debt).",
         read: "Negative when debt exceeds the value of the business plus cash.",
       },
       enterprise_value: {
@@ -776,7 +780,13 @@ export const en = {
         name: "Cash and cash equivalents",
         what: "Cash on the balance sheet at the end of the base year, in US dollars.",
         how: "Reported in the 10-K balance sheet. Added to enterprise value to get equity value.",
-        read: "Short-term investments are not included, which makes the result conservative for cash-rich companies.",
+        read: "Short-term investments are shown separately and added too.",
+      },
+      short_term_investments: {
+        name: "Short-term investments",
+        what: "Marketable securities the company can turn into cash within a year, at the end of the base year, in US dollars.",
+        how: "Reported in the 10-K balance sheet (short-term investments, or current marketable securities). Added to enterprise value with cash to get equity value.",
+        read: "When the company reports none, Sextant counts them as $0 and says so on the card.",
       },
       total_debt: {
         name: "Total debt",

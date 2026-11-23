@@ -43,6 +43,16 @@ def without_tags(facts: dict[str, Any], *tags: str) -> dict[str, Any]:
     return out
 
 
+def only_period_ending(facts: dict[str, Any], end: str) -> dict[str, Any]:
+    """A copy of a companyfacts body keeping only the facts for the period ending
+    ``end`` (ISO date), so that fiscal year is the only one in the data."""
+    out = copy.deepcopy(facts)
+    for concepts in out["facts"].values():
+        for concept in concepts.values():
+            concept["units"] = {u: [r for r in rows if r["end"] == end] for u, rows in concept["units"].items()}
+    return out
+
+
 class EdgarTransport(httpx.MockTransport):
     """Serves the recorded files by URL path; records every request it sees."""
 

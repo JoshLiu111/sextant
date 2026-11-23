@@ -43,6 +43,8 @@ const auth = {
 const fred = {
   FRED_API_KEY: "e2efakefredkeynotreal0000000000",
   FRED_API_BASE_URL: `http://127.0.0.1:${FRED_PORT}/fred`,
+  // The fake has no rate limit, so skip the 2 requests/second throttle real FRED needs.
+  FRED_MIN_INTERVAL_SECONDS: "0",
 };
 // Treasury: compute fetches the yield curve CSVs from a fake (e2e/fake-treasury.mjs).
 const treasury = { TREASURY_BASE_URL: `http://127.0.0.1:${TREASURY_PORT}` };

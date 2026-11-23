@@ -28,6 +28,7 @@ import httpx
 from sextant_compute.data.adapters import Curve, Scope, SeriesMeta, YieldCurves
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import SourceUnavailable
+from sextant_compute.data.retry import get_with_retries
 from sextant_compute.envelope import DataSource
 
 TREASURY = DataSource(id="treasury", name="U.S. Department of the Treasury", is_demo=False)
@@ -101,19 +102,15 @@ class TreasuryAdapter:
     def _get_csv(self, year: int) -> str:
         params = {"type": "daily_treasury_yield_curve", "field_tdr_date_value": str(year), "page": "", "_format": "csv"}
         url = f"{self._base_url}{CSV_PATH.format(year=year)}"
-        for attempt in range(ATTEMPTS):
-            try:
-                response = self._client.get(url, params=params)
-            except httpx.HTTPError as exc:
-                raise SourceUnavailable(TREASURY.id, f"Treasury request failed ({type(exc).__name__}).") from None
-            if response.status_code == 429 or response.status_code >= 500:
-                if attempt + 1 < ATTEMPTS:
-                    self._sleep(BACKOFF * 2**attempt)
-                    continue
-            if response.status_code != 200:
-                raise SourceUnavailable(TREASURY.id, f"Treasury answered HTTP {response.status_code}.")
-            return response.text
-        raise AssertionError("unreachable")
+        try:
+            response = get_with_retries(
+                lambda: self._client.get(url, params=params), attempts=ATTEMPTS, backoff=BACKOFF, sleep=self._sleep
+            )
+        except httpx.HTTPError as exc:
+            raise SourceUnavailable(TREASURY.id, f"Treasury request failed ({type(exc).__name__}).") from None
+        if response.status_code != 200:
+            raise SourceUnavailable(TREASURY.id, f"Treasury answered HTTP {response.status_code}.")
+        return response.text
 
 
 def _parse(text: str, year: int) -> list[tuple[date, Curve]]:

@@ -12,8 +12,9 @@ const INDICATORS = [
 const FRED_NOTICE =
   "This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.";
 
-// FRED allows 2 requests/second, so a cold cache takes a few seconds to fill.
-const COLD = { timeout: 30_000 };
+// A cold cache fetches 8 FRED responses (shared by concurrent tests). Kept well
+// under Playwright's 30 s test timeout so a slow fill fails with a clear message.
+const COLD = { timeout: 20_000 };
 
 async function openMacro(page: Page) {
   await page.goto("/macro");

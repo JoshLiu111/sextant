@@ -11,18 +11,19 @@ company's displayed fiscal periods. Altman Z is metric ``altman_z`` with
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, BeforeValidator, Field
 
-from sextant_compute.analytics.ratios import ALTMAN_Z, RATIOS, Ratio, Year
+from sextant_compute.analytics.ratios import ALTMAN_Z, RATIOS, PeriodValues, Ratio, WithDetails, Year
 from sextant_compute.company.api import MAX_YEARS
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
-from sextant_compute.data.statements import FinancialStatements
-from sextant_compute.envelope import MetricResult, ResultEnvelope, envelope, metric
+from sextant_compute.data.statements import FinancialStatements, FiscalPeriod, Missing
+from sextant_compute.envelope import Detailed, MetricResult, ResultEnvelope, envelope, metric
 from sextant_compute.errors import ApiError, check
 
 router = APIRouter(tags=["company"])
@@ -80,6 +81,26 @@ class RatiosEnvelope(ResultEnvelope):
     ratios: list[RatioOut]
 
 
+def _period_values(statements: FinancialStatements, period: FiscalPeriod) -> PeriodValues:
+    values: dict[str, float] = {}
+    missing: dict[str, str] = {}
+    for item_id, row in statements.cells.items():
+        cell = row[period.id]
+        if isinstance(cell, Missing):
+            missing[item_id] = cell.message
+        else:
+            values[item_id] = cell.value
+    return PeriodValues(label=period.label, values=values, missing=missing)
+
+
+def _computed(r: Ratio, year: Year) -> Callable[[], float | Detailed]:
+    def compute() -> float | Detailed:
+        out = r.compute(year)
+        return Detailed(out.value, out.details) if isinstance(out, WithDetails) else out
+
+    return compute
+
+
 def ratio_metrics(
     statements: FinancialStatements, years: int, price: float | None, ratios: tuple[Ratio, ...]
 ) -> dict[str, MetricResult]:
@@ -88,11 +109,20 @@ def ratio_metrics(
     Ratios are computed on the full history so the earliest displayed year can
     still average with the year before it."""
     out: dict[str, MetricResult] = {}
-    n = len(statements.periods)
+    periods = statements.periods
+    labels = {item.id: item.label for item in statements.items}
+    values = [_period_values(statements, p) for p in periods]
+    n = len(periods)
     for index in range(max(n - years, 0), n):
-        year = Year(statements, index, price=price)
+        year = Year(
+            values[index],
+            values[index - 1] if index > 0 else None,
+            labels,
+            is_latest=index == n - 1,
+            price=price,
+        )
         for r in ratios:
-            out[f"{r.id}:{year.period.id}"] = metric(lambda r=r, year=year: r.compute(year), unit=r.unit)
+            out[f"{r.id}:{periods[index].id}"] = metric(_computed(r, year), unit=r.unit)
     return out
 
 

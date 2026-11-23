@@ -22,6 +22,9 @@ const CURVES = [
   { key: "1m_ago", color: "#059669", dashed: true },
   { key: "1y_ago", color: "#9ca3af", dashed: true },
 ] as const;
+type CurveKey = (typeof CURVES)[number]["key"];
+type MetricId = "latest:yield_2y" | "latest:yield_10y" | "latest:spread_10y_2y";
+type SeriesId = `yield_curve:${CurveKey}` | "history:spread_10y_2y";
 
 const TREASURY_PAGE =
   "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve";
@@ -31,7 +34,7 @@ const REQUEST = {};
 
 export function TreasuryRates() {
   const t = getMessages();
-  const { result, error } = useCompute<string, string>("/macro/rates", REQUEST);
+  const { result, error } = useCompute<MetricId, SeriesId>("/macro/rates", REQUEST);
 
   return (
     <section data-testid="rates" aria-labelledby="macro-rates" className="mt-10 space-y-6">

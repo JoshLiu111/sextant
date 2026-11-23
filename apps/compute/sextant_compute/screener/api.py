@@ -21,7 +21,7 @@ from sextant_compute.analytics.screener import METRICS, items_for
 from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
-from sextant_compute.envelope import MissingData, ResultEnvelope, envelope
+from sextant_compute.envelope import MetricError, MissingData, ResultEnvelope, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
 
 router = APIRouter(tags=["screener"])
@@ -188,7 +188,7 @@ def screen(req: ScreenRequest, data: Data, ctx: Ctx) -> ScreenEnvelope:
         for col in columns:
             try:
                 values[col] = METRICS[col].compute(get)
-            except MissingData as exc:
+            except (MissingData, MetricError) as exc:
                 values[col] = None
                 reasons[col] = str(exc)
         missing = [m for m in excluded_by if values[m] is None]

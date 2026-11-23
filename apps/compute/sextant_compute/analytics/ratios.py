@@ -6,11 +6,13 @@ closing balance, so a period's ratio needs the prior fiscal year too; the
 earliest year of the data gets ``MissingData`` naming the prior year. EBITDA
 is operating income + D&A. Total debt is current debt + long-term debt.
 
-Each ratio reads line items through ``Year``, which raises ``MissingData``
-naming the item (from ``FinancialStatements.value``), so only the ratios that
-need a missing item are affected. Division by zero raises ``MissingData``
+Pure: no data sources, no envelope. Each ratio reads line items through
+``Year``, built from plain per-period values (``PeriodValues``); an item the
+period lacks raises ``MissingData`` with the caller's reason, so only the ratios
+that need a missing item are affected. Division by zero raises ``MissingData``
 naming the zero item; a ratio that isn't meaningful (P/B on negative book
-value, EV/EBITDA on negative EBITDA) raises ``MetricError``.
+value, EV/EBITDA on negative EBITDA) raises ``MetricError``. A ratio returns a
+float, or ``WithDetails`` when it has facts to show next to the value.
 
 Valuation multiples need a share price. There is no public price source, so
 the caller passes an optional price for the latest fiscal year; earlier years
@@ -20,51 +22,76 @@ required.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Literal
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from typing import Literal, NamedTuple
 
-from sextant_compute.analytics.errors import MetricError, MissingData
-from sextant_compute.data.statements import FinancialStatements, FiscalPeriod
-from sextant_compute.envelope import Detailed
+from sextant_compute.analytics.errors import MissingData
+from sextant_compute.analytics.guards import positive
 
 Category = Literal["efficiency", "liquidity", "profitability", "solvency", "valuation", "distress"]
 CATEGORIES: tuple[Category, ...] = ("efficiency", "liquidity", "profitability", "solvency", "valuation", "distress")
+RatioUnit = Literal["ratio", "decimal", "days", "currency", "per_share", "score"]  # envelope units
 DAYS = 365
+
+Detail = str | float | int | None
+
+
+class WithDetails(NamedTuple):
+    """A ratio value with facts about it, e.g. the Altman Z zone and its inputs."""
+
+    value: float
+    details: dict[str, Detail]
+
+
+@dataclass(frozen=True)
+class PeriodValues:
+    """One fiscal period's line items: ``values`` holds what was reported;
+    ``missing`` gives a reason a person can read for items that weren't."""
+
+    label: str  # "FY2025"
+    values: Mapping[str, float]
+    missing: Mapping[str, str] = field(default_factory=dict)
+
+    def get(self, item_id: str, label: str) -> float:
+        if item_id in self.values:
+            return self.values[item_id]
+        raise MissingData(self.missing.get(item_id) or f"{label} is not reported for {self.label}.")
 
 
 class Year:
-    """One fiscal period's view of the statements, with the prior period for averages."""
+    """One fiscal period, with the prior period for averages."""
 
     def __init__(
         self,
-        statements: FinancialStatements,
-        index: int,
+        current: PeriodValues,
+        prior: PeriodValues | None,
+        labels: Mapping[str, str],
         *,
+        is_latest: bool,
         price: float | None = None,
     ) -> None:
-        self.st = statements
-        self.index = index
-        self.period: FiscalPeriod = statements.periods[index]
-        self.prior: FiscalPeriod | None = statements.periods[index - 1] if index > 0 else None
-        self.is_latest = index == len(statements.periods) - 1
+        self.current = current
+        self.prior = prior
+        self.labels = labels
+        self.is_latest = is_latest
         self._price = price
 
     def __call__(self, item_id: str) -> float:
         """The period's reported value (``MissingData`` names the item if absent)."""
-        return self.st.value(item_id, self.period.id)
+        return self.current.get(item_id, self.label(item_id))
 
     def label(self, item_id: str) -> str:
-        return self.st.item(item_id).label
+        return self.labels.get(item_id, item_id)
 
     def avg(self, item_id: str) -> float:
         """Average of the opening (prior year end) and closing balance."""
         if self.prior is None:
             raise MissingData(
                 f"Needs the prior year's {self.label(item_id)} for the average balance, "
-                f"and {self.period.label} is the earliest year in the data."
+                f"and {self.current.label} is the earliest year in the data."
             )
-        return (self.st.value(item_id, self.prior.id) + self(item_id)) / 2
+        return (self.prior.get(item_id, self.label(item_id)) + self(item_id)) / 2
 
     def total_debt(self) -> float:
         return self("current_debt") + self("long_term_debt")
@@ -81,7 +108,7 @@ class Year:
     def price(self, ratio: str) -> float:
         if not self.is_latest:
             raise MissingData(
-                f"{ratio} needs the share price at the end of {self.period.label}. Sextant has no price "
+                f"{ratio} needs the share price at the end of {self.current.label}. Sextant has no price "
                 "source, so only the latest fiscal year is valued, with the price you enter."
             )
         if self._price is None:
@@ -99,18 +126,12 @@ def div(numerator: float, denominator: float, what: str) -> float:
     return numerator / denominator
 
 
-def positive(value: float, what: str, ratio: str) -> float:
-    if value <= 0:
-        raise MetricError(f"{what} is zero or negative, so {ratio} isn't meaningful.")
-    return value
-
-
 @dataclass(frozen=True)
 class Ratio:
     id: str
     category: Category
-    unit: str  # envelope unit: ratio | decimal | days | currency | per_share
-    compute: Callable[[Year], float | Detailed]
+    unit: RatioUnit
+    compute: Callable[[Year], float | WithDetails]
 
 
 def _tax_rate(y: Year) -> float:
@@ -190,7 +211,7 @@ ALTMAN_DISTRESS = 1.23
 ALTMAN_SAFE = 2.90
 
 
-def altman_z(y: Year) -> Detailed:
+def altman_z(y: Year) -> WithDetails:
     """Altman Z' (1983, book-value equity): there is no public market price, so
     X4 uses book equity instead of market capitalization (the 1968 original).
     Zones: distress below 1.23, safe above 2.90, grey in between."""
@@ -203,7 +224,7 @@ def altman_z(y: Year) -> Detailed:
     x5 = div(y("revenue"), ta, "Total Assets")
     z = 0.717 * x1 + 0.847 * x2 + 3.107 * x3 + 0.420 * x4 + 0.998 * x5
     zone = "safe" if z > ALTMAN_SAFE else "distress" if z < ALTMAN_DISTRESS else "grey"
-    return Detailed(z, {"zone": zone, "x1": x1, "x2": x2, "x3": x3, "x4": x4, "x5": x5})
+    return WithDetails(z, {"zone": zone, "x1": x1, "x2": x2, "x3": x3, "x4": x4, "x5": x5})
 
 
 RATIOS: tuple[Ratio, ...] = (

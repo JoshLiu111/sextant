@@ -1,5 +1,8 @@
 """Macro Dashboard (P5) endpoint on recorded FRED responses."""
 
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 import httpx
 from fastapi.testclient import TestClient
 
@@ -73,6 +76,18 @@ def test_unpublished_periods_are_gaps_in_the_history():
     points = {p["x"]: p["y"] for p in body["series"]["history:unemployment_rate"]["points"]}
     assert points["2025-10-01"] is None
     assert points["2020-04-01"] == 14.8
+
+
+def test_concurrent_requests_on_a_cold_cache_fetch_each_series_once():
+    # Each response takes a moment, so the four requests all miss the cache together.
+    fred = RecordedFred(override=lambda path, sid: time.sleep(0.02))
+    with serving(recorded_adapter(fred), "fred"), ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda _: client.post(ENDPOINT, json={}), range(4)))
+
+    assert all(r.status_code == 200 for r in results)
+    assert len({r.json()["metrics"]["latest:gdp_growth"]["value"] for r in results}) == 1
+    # Four indicators, each one metadata and one observations request: 8 in total.
+    assert len(fred.requests) == 8
 
 
 def test_a_fred_outage_is_a_503_asking_to_retry():

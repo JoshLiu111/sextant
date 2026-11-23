@@ -374,6 +374,17 @@ export function ValuationCalculator({ initialTicker }: { initialTicker: string }
                   values={[{ id: "free_cash_flow", result: m?.free_cash_flow }]}
                 />
                 <Card id="cash" explainer={v.metrics.cash} values={[{ id: "cash", result: m?.cash }]} />
+                <Card
+                  id="short_term_investments"
+                  explainer={v.metrics.short_term_investments}
+                  values={[
+                    {
+                      id: "short_term_investments",
+                      result: m?.short_term_investments,
+                      note: basisNote(m?.short_term_investments),
+                    },
+                  ]}
+                />
                 <Card id="total_debt" explainer={v.metrics.total_debt} values={[{ id: "total_debt", result: m?.total_debt }]} />
                 <Card
                   id="shares_outstanding"

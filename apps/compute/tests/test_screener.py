@@ -55,8 +55,8 @@ def test_only_companies_meeting_every_criterion_are_returned() -> None:
     body = screen({"criteria": [{"metric": "gross_margin", "op": "min", "value": 0.75}], "sort": "gross_margin"}).json()
 
     # GrossProfit (or Revenue - Cost of Revenue) over revenue, CY2025, from the frames by hand.
-    assert tickers(body) == ["CAT", "ADBE", "UNH", "LLY", "META"]
-    assert body["matched"] == 5
+    assert tickers(body) == ["ADBE", "UNH", "LLY", "META"]
+    assert body["matched"] == 4
     assert all(r["values"]["gross_margin"] >= 0.75 for r in body["rows"])
 
 
@@ -106,6 +106,16 @@ def test_values_map_onto_the_unified_line_items_with_fallback_tags_and_derivatio
     assert rows["AAPL"]["revenue"] == 416_161_000_000
 
 
+def test_cost_of_revenue_prefers_the_total_over_a_narrower_cost_tag() -> None:
+    body = screen({"criteria": [{"metric": "gross_margin", "op": "min", "value": -10}], "limit": 500}).json()
+    rows = {r["ticker"]: r["values"] for r in body["rows"]}
+
+    # CAT tags both CostOfRevenue 44,752M (the total) and CostOfGoodsAndServicesSold 49M
+    # (a small sub-line) for CY2025; gross margin = (Revenues 67,589M - 44,752M) / 67,589M.
+    assert abs(rows["CAT"]["gross_margin"] - (67_589 - 44_752) / 67_589) < 1e-9
+    assert abs(rows["CAT"]["gross_margin"] - 0.338) < 0.001
+
+
 def test_a_derived_item_works_without_its_preferred_tag() -> None:
     body = screen({"criteria": [{"metric": "debt_ratio", "op": "min", "value": 1}], "sort": "ticker"}).json()
     rows = {r["ticker"]: r["values"] for r in body["rows"]}
@@ -137,7 +147,7 @@ def test_companies_missing_an_input_are_excluded_and_counted_with_the_reason() -
     # MCD has negative equity; XOM has no net income in the CY2025 frame.
     assert roe["count"] == 2
     assert {r["reason"] for r in roe["reasons"]} == {
-        "Equity is zero or negative, so the ratio is not meaningful.",
+        "Equity is zero or negative, so the ratio isn't meaningful.",
         "Net Income is not reported for 2025.",
     }
     assert body["excluded"]["total"] == 9  # MCD and XOM are in both groups

@@ -5,8 +5,9 @@ import { expect, test, type Page } from "@playwright/test";
 // them: the latest curve is 2026-11-20, a month earlier 2026-10-20, a year
 // earlier 2025-11-20.
 
-// A cold cache fetches one CSV per year (2018 to today).
-const COLD = { timeout: 30_000 };
+// A cold cache fetches one CSV per year (2018 to today), shared by concurrent
+// tests. Kept under Playwright's 30 s test timeout.
+const COLD = { timeout: 20_000 };
 
 async function openRates(page: Page) {
   await page.goto("/macro");
