@@ -43,6 +43,24 @@ def dcf(base_fcf: float, *, growth: float, terminal_growth: float, discount_rate
     return Dcf(projected, pv_forecast, terminal_value, pv_terminal, pv_forecast + pv_terminal)
 
 
+def free_cash_flow_to_firm(
+    *, operating_cash_flow: float, capital_expenditure: float, after_tax_interest: float
+) -> float:
+    """FCFF = OCF + interest x (1 - tax) - CapEx.
+
+    US GAAP puts interest paid inside operating cash flow, so OCF - CapEx is cash left
+    after the lenders were paid. A DCF that discounts at the WACC and then subtracts
+    debt needs the cash available to lenders and shareholders, so the after-tax
+    interest goes back in.
+    """
+    return operating_cash_flow + after_tax_interest - capital_expenditure
+
+
+def after_tax_interest(*, interest_expense: float, tax_rate: float) -> float:
+    """Interest x (1 - tax): what the interest cost the company once its tax shield counts."""
+    return abs(interest_expense) * (1 - tax_rate)
+
+
 def equity_value(enterprise_value: float, *, cash: float, total_debt: float) -> float:
     """Equity = EV + cash (incl. short-term investments) − total debt."""
     return enterprise_value + cash - total_debt

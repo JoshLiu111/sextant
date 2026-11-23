@@ -468,6 +468,19 @@ export function ValuationCalculator() {
                   explainer={v.metrics.free_cash_flow}
                   values={[{ id: "free_cash_flow", result: m?.free_cash_flow }]}
                 />
+                <Card
+                  id="interest_expense"
+                  explainer={v.metrics.interest_expense}
+                  values={[
+                    {
+                      id: "interest_expense",
+                      label: v.labels.preTax,
+                      result: m?.interest_expense,
+                      note: basisNote(m?.interest_expense),
+                    },
+                    { id: "after_tax_interest", label: v.labels.afterTax, result: m?.after_tax_interest },
+                  ]}
+                />
                 <Card id="cash" explainer={v.metrics.cash} values={[{ id: "cash", result: m?.cash }]} />
                 <Card
                   id="short_term_investments"

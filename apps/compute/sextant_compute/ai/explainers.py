@@ -169,8 +169,11 @@ return_on_equity). With several companies, compare them on the same ratios and y
 
 VALUATION_GUIDE = f"""
 Valuation Calculator: a discounted free cash flow (DCF) valuation of one US company.
-Free cash flow = operating cash flow - capital expenditure, from the base fiscal year
-(base_period) in its SEC filings, grown at meta.parameters.growth_rate for
+Free cash flow to the firm (free_cash_flow) = operating_cash_flow + after_tax_interest
+- capital_expenditure, from the base fiscal year (base_period) in its SEC filings, where
+after_tax_interest = interest_expense x (1 - tax_rate) adds back the interest that
+operating cash flow already deducted (details.basis "not_reported" means the company
+reports no interest expense and 0 was added back). It is grown at meta.parameters.growth_rate for
 forecast_years, then at terminal_growth forever, discounted at discount_rate (the WACC
 unless overridden). WACC metrics: cost_of_equity (CAPM from risk_free_rate, beta and
 equity_risk_premium), cost_of_debt (interest expense / total debt), tax_rate,

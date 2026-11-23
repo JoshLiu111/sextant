@@ -243,16 +243,16 @@ test.describe("Options Calculator", () => {
 
 test.describe("Valuation Calculator", () => {
   test("a link with non-default inputs shows results computed from them", async ({ page }) => {
-    // MSFT with 8% growth (other assumptions default): $178.68 per share.
+    // MSFT with 8% growth (other assumptions default): $185.06 per share.
     const main = await open(page, "/valuation?ticker=msft&growth_rate=8", "Valuation Calculator");
     await expect(main.getByLabel("Ticker")).toHaveValue("MSFT");
     await expect(main.getByLabel("Growth rate (%)")).toHaveValue("8");
-    await expect(metric(main, "intrinsic_value_per_share")).toContainText("$178.68");
+    await expect(metric(main, "intrinsic_value_per_share")).toContainText("$185.06");
   });
 
   test("submitting writes the ticker and every assumption to the URL", async ({ page }) => {
     const main = await open(page, "/valuation", "Valuation Calculator");
-    await expect(metric(main, "intrinsic_value_per_share")).toContainText("$158.11");
+    await expect(metric(main, "intrinsic_value_per_share")).toContainText("$163.73");
     await main.getByLabel("Growth rate (%)").fill("8");
     await main.getByRole("button", { name: "Value company" }).click();
     await expect(page).toHaveURL(/[?&]ticker=MSFT(&|$)/);
@@ -260,7 +260,7 @@ test.describe("Valuation Calculator", () => {
     await expect(page).toHaveURL(/[?&]terminal_growth=2\.5(&|$)/);
 
     await page.reload();
-    await expect(metric(main, "intrinsic_value_per_share")).toContainText("$178.68");
+    await expect(metric(main, "intrinsic_value_per_share")).toContainText("$185.06");
   });
 
   test("an out-of-range value shows the normal validation error", async ({ page }) => {
