@@ -1165,8 +1165,22 @@ export const en = {
       roe: "Return on equity",
       debt_ratio: "Debt ratio",
       current_ratio: "Current ratio",
+      change_52w: "52-week change",
+      from_52w_high: "From 52-week high",
     } as Record<string, string>,
-    noPriceCriteria: "Market cap and other price-based criteria are not offered: Sextant's public pages use no price data.",
+    priceCriteria: {
+      signIn:
+        "Price criteria (52-week change, distance from the 52-week high) use your own price data: sign in and add a price data key in Settings. Market cap is not offered.",
+      myData: (provider: string, max: number) =>
+        `Price criteria use real prices from ${provider}, fetched with your own key and shown only to you. They are checked on at most ${max} companies passing the other criteria.`,
+    },
+    pricesInfo: (provider: string, asOf: string) => `Prices: ${provider}, as of ${asOf}. Shown only to you.`,
+    priceExplainer: {
+      name: "the price criteria",
+      what: "52-week change is the price change over the last 52 weeks. From 52-week high is how far the latest close is below the highest close of those 52 weeks (0% = at the high).",
+      how: "From your provider's daily closes, adjusted for splits but not for dividends: 52-week change = latest close ÷ the close 52 weeks earlier (or the last one before) − 1; from 52-week high = latest close ÷ the highest close since then − 1. Only companies passing the fundamental criteria are priced.",
+      read: "The price window ends today, while the fundamentals are for the chosen year. A company your provider has no prices for, or with less than 52 weeks of history, is excluded and counted in the summary.",
+    },
     resultsLabel: "Screen results",
     ticker: "Ticker",
     company: "Company",

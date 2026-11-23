@@ -136,6 +136,19 @@ class DataService:
         """The ``DataSource`` behind a source id (for the envelope when no data came back)."""
         return self._adapter(source).source
 
+    def require_key(self, ctx: RequestContext, source: str) -> None:
+        """Raise ``KeyRequired`` if ``source`` runs on the visitor's own key and
+        they have none. Every fetch checks this; call it up front when a request
+        might end without fetching (so the answer doesn't depend on the data)."""
+        self._require_key(ctx, self._adapter(source))
+
+    @staticmethod
+    def _require_key(ctx: RequestContext, adapter: Adapter) -> None:
+        if adapter.scope == "user" and not ctx.key_for(adapter.source.id):
+            raise KeyRequired(
+                adapter.source.id, f"My data needs your own {adapter.source.name} key. Add one in Settings."
+            )
+
     def _cached(
         self,
         ctx: RequestContext,
@@ -148,10 +161,7 @@ class DataService:
     ) -> T:
         ttl = adapter.ttl.get(dataset)
         if adapter.scope == "user":
-            if not ctx.key_for(adapter.source.id):
-                raise KeyRequired(
-                    adapter.source.id, f"My data needs your own {adapter.source.name} key. Add one in Settings."
-                )
+            self._require_key(ctx, adapter)
             cache = self.user_cache if ctx.user_id is not None else None
             tags = [f"user:{ctx.user_id}"]
         else:

@@ -39,6 +39,8 @@ const TIINGO_PORT = Number(process.env.TIINGO_PORT || COMPUTE_PORT + 6);
 const tiingo = {
   TIINGO_BASE_URL: `http://127.0.0.1:${TIINGO_PORT}`,
   PROVIDER_KEY_SECRET: "e2e-provider-key-secret-not-for-production-0123456789",
+  // The screener's 52-week price window ends today; pin it to the recorded prices.
+  SCREENER_PRICES_AS_OF: "2026-11-20",
 };
 const isCI = !!process.env.CI;
 const reuse = !isCI && process.env.PW_REUSE_SERVERS === "1";
