@@ -184,6 +184,8 @@ def saved_portfolio_metrics(
     currency at each date's exchange rate (``portfolio.fx``).
 
     Prices come from ``settings.source``: Demo data or the user's own provider (My data).
+    On My data a holding without prices marks only its own value, weight and P&L
+    ``missing_data``, plus the portfolio-level metrics that need it (with the reason).
     """
     saved = load(db, user.id, portfolio_id)
     with db.connection() as conn:
@@ -191,7 +193,8 @@ def saved_portfolio_metrics(
         trades = store.trade_history(conn, saved.id)
     reporting = settings.reporting_currency or saved.holdings[0].currency
     quantities = {h.ticker: h.quantity for h in saved.holdings}
-    prices, frames = load_prices(data, ctx, list(quantities), settings)
+    # On My data an unknown ticker marks only its own position missing, like Risk & Performance.
+    prices, frames = load_prices(data, ctx, list(quantities), settings, allow_missing=True)
     undated_on = saved.created_at.date()
     lot_dates = [
         date.fromisoformat(lot["date"]) for held in lots.values() for lot in held or [] if lot.get("date")
@@ -207,13 +210,20 @@ def saved_portfolio_metrics(
 
     converted: dict[str, pd.DataFrame] = {}
     problem: MissingData | None = None
+    if prices.missing:
+        problem = MissingData(f"needs prices for every holding. {' '.join(prices.missing.values())}")
     for h in saved.holdings:
+        if h.ticker in prices.missing:
+            continue
         try:
             converted[h.ticker] = fx.prices(frames[h.ticker], h.currency)
         except MissingData as exc:
             problem = problem or exc
     valued_on = frames[settings.benchmark].index[-1].date()
-    last_close = {t: float(frames[t]["close"].iloc[-1]) for t in quantities}
+    last_close: dict[str, float | MissingData] = {
+        t: MissingData(prices.missing[t]) if t in prices.missing else float(frames[t]["close"].iloc[-1])
+        for t in quantities
+    }
     extra = position_metrics(saved.holdings, lots, last_close, valued_on, trades, fx, undated_on)
     req = ScoredPortfolio(
         **settings.model_dump(exclude={"reporting_currency"}),

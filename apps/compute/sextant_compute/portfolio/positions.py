@@ -83,7 +83,7 @@ def _realized(trades: Sequence[Mapping[str, Any]], fx: Converter) -> dict[str, l
 def position_metrics(
     holdings: Sequence[SavedHolding],
     lots: Mapping[str, Sequence[Mapping[str, Any]] | None],
-    last_close: Mapping[str, float],
+    last_close: Mapping[str, float | MissingData],
     valued_on: date,
     trades: Sequence[Mapping[str, Any]],
     fx: Converter,
@@ -91,7 +91,8 @@ def position_metrics(
 ) -> dict[str, MetricResult]:
     """Per-position and portfolio value, weight and P&L metrics (see the module docstring).
 
-    ``last_close`` is in each holding's own currency, on ``valued_on``. ``lots`` are the
+    ``last_close`` is in each holding's own currency, on ``valued_on`` (or why there is
+    none: its value, weight and P&L are then ``missing_data``). ``lots`` are the
     stored open lots by ticker; a lot without a date (stored before lots were dated)
     converts at ``undated_on``. ``trades`` are ``store.trade_history`` rows.
     """
@@ -104,7 +105,7 @@ def position_metrics(
                 fx.amount(lot.quantity * lot.cost_price, p.currency, lot.date or undated_on) for lot in p.lots
             )
         )
-        value = _try(lambda h=h: fx.amount(h.quantity * last_close[h.ticker], h.currency, valued_on))
+        value = _try(lambda h=h: fx.amount(h.quantity * _ok(last_close[h.ticker]), h.currency, valued_on))
         rows[h.ticker] = {
             "quantity": h.quantity,
             "cost_basis": cost,

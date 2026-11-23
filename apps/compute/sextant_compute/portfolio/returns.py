@@ -17,6 +17,7 @@ A currency Frankfurter does not publish makes every metric ``missing_data``.
 
 When the holdings were edited by hand so that undoing the transactions would leave
 a negative quantity, every metric is ``missing_data`` with the ticker in the reason.
+On My data, so is a ticker the provider has no prices for (the request still succeeds).
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ from sextant_compute.auth import CurrentUser
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
 from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
-from sextant_compute.envelope import Detailed, ResultEnvelope, envelope, metric
+from sextant_compute.envelope import Detailed, MetricResult, MetricStatus, ResultEnvelope, envelope, metric
 from sextant_compute.errors import INPUT_ERROR, ApiError
 from sextant_compute.portfolio import store
 from sextant_compute.portfolio.api import TOOL, fetch_prices
@@ -87,9 +88,28 @@ def portfolio_returns(
     currency_of = {r["ticker"]: r["currency"] for r in rows} | {h.ticker: h.currency for h in saved.holdings}
     tickers = list(dict.fromkeys([*(h.ticker for h in saved.holdings), *(r["ticker"] for r in rows)]))
     try:
-        prices = fetch_prices(data, ctx, tickers, settings.start, settings.end, settings.source)
+        prices = fetch_prices(data, ctx, tickers, settings.start, settings.end, settings.source, allow_missing=True)
     except NoSuchData as exc:
         raise ApiError(422, "no_such_data", exc.message, {"start": exc.message}) from exc
+    req = ReturnsParameters(
+        **settings.model_dump(exclude={"reporting_currency"}),
+        reporting_currency=reporting,
+        portfolio_id=saved.id,
+        name=saved.name,
+        transactions=len(rows),
+    )
+    if prices.missing:
+        # On My data an unknown ticker doesn't fail the request (like Risk & Performance),
+        # but every return here needs the whole portfolio's prices.
+        reason = f"needs prices for every ticker in the portfolio. {' '.join(prices.missing.values())}"
+        missing = MetricResult(value=None, status=MetricStatus.MISSING_DATA, reason=reason, unit="decimal")
+        return envelope(
+            tool=TOOL,
+            request=req,
+            metrics={f"{name}:portfolio": missing for name in ("twr", "twr_annualized", "irr")},
+            source=prices.source,
+            data_cutoff=prices.last_date,
+        )
     common = prices.frames[tickers[0]].index
     for ticker in tickers[1:]:
         common = common.intersection(prices.frames[ticker].index)
@@ -123,13 +143,6 @@ def portfolio_returns(
         flows = flow_returns.cash_flows(book())
         return Detailed(flow_returns.irr(flows), {"cash_flows": len(flows)})
 
-    req = ReturnsParameters(
-        **settings.model_dump(exclude={"reporting_currency"}),
-        reporting_currency=reporting,
-        portfolio_id=saved.id,
-        name=saved.name,
-        transactions=len(rows),
-    )
     return envelope(
         tool=TOOL,
         request=req,

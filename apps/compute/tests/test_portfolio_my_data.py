@@ -87,15 +87,57 @@ def test_demo_tickers_are_rejected_on_my_data_without_asking_tiingo(client, tiin
     assert "DEMO-A is a demo ticker" in fields["holdings.1.ticker"]
     assert "Demo data" in fields["holdings.1.ticker"]
 
+    # A saved portfolio marks only the demo holding missing, like Risk & Performance does.
     portfolio_id = saved_portfolio(
-        client, alice, [{"ticker": "DEMO-A", "quantity": 1, "cost_price": 1, "currency": "USD"}]
+        client, alice, [HOLDINGS[0], {"ticker": "DEMO-A", "quantity": 1, "cost_price": 1, "currency": "USD"}]
     )
     saved = client.post(f"{SAVED}/{portfolio_id}/metrics", json=MY_DATA, headers=alice)
+    assert saved.status_code == 200, saved.text
+    demo_value = saved.json()["metrics"]["market_value:DEMO-A"]
+    assert demo_value["status"] == "missing_data"
+    assert "DEMO-A is a demo ticker" in demo_value["reason"]
+    assert saved.json()["metrics"]["market_value:AAPL"]["value"] == pytest.approx(1300)
+    assert not any("demo" in ticker for _, ticker in tiingo.price_requests)
+
+
+def test_an_unknown_ticker_in_a_saved_portfolio_marks_only_that_position_missing(client, alice):
+    portfolio_id = saved_portfolio(
+        client, alice, [HOLDINGS[0], {"ticker": "ZZZZ", "quantity": 3, "cost_price": 20, "currency": "USD"}]
+    )
+
+    response = client.post(f"{SAVED}/{portfolio_id}/metrics", json=MY_DATA, headers=alice)
+
+    assert response.status_code == 200, response.text
+    metrics = response.json()["metrics"]
+    assert metrics["market_value:AAPL"]["value"] == pytest.approx(1300)
+    assert metrics["unrealized_pnl:AAPL"]["value"] == pytest.approx(400)
+    assert metrics["quantity:ZZZZ"]["value"] == 3
+    assert metrics["cost_basis:ZZZZ"]["value"] == pytest.approx(60)
+    for name in ("market_value", "unrealized_pnl", "weight"):
+        assert metrics[f"{name}:ZZZZ"]["status"] == "missing_data"
+        assert "Tiingo has no ticker ZZZZ." in metrics[f"{name}:ZZZZ"]["reason"]
+    # The portfolio as a whole needs every holding's prices: missing, with the reason.
+    for name in ("market_value", "annualized_volatility", "max_drawdown"):
+        assert metrics[f"{name}:portfolio"]["status"] == "missing_data"
+        assert "ZZZZ" in metrics[f"{name}:portfolio"]["reason"]
+    assert response.json()["series"]["cumulative_return:portfolio"]["status"] == "missing_data"
+    assert metrics["annualized_volatility:benchmark"]["status"] == "ok"
+
     returns = client.post(f"{SAVED}/{portfolio_id}/returns", json={**RANGE, "source": "tiingo"}, headers=alice)
-    for response in (saved, returns):
-        assert response.status_code == 422
-        assert "DEMO-A is a demo ticker" in response.json()["error"]["message"]
-    assert tiingo.price_requests == {}
+    assert returns.status_code == 200, returns.text
+    for name in ("twr", "twr_annualized", "irr"):
+        result = returns.json()["metrics"][f"{name}:portfolio"]
+        assert result["status"] == "missing_data"
+        assert "Tiingo has no ticker ZZZZ." in result["reason"]
+
+
+def test_a_saved_portfolio_still_needs_a_benchmark_with_prices(client, alice):
+    portfolio_id = saved_portfolio(client, alice)
+
+    response = client.post(f"{SAVED}/{portfolio_id}/metrics", json={**MY_DATA, "benchmark": "ZZZZ"}, headers=alice)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["fields"] == {"benchmark": "Tiingo has no ticker ZZZZ."}
 
 
 def test_an_unknown_real_ticker_is_an_error_on_its_holding(client, alice):
