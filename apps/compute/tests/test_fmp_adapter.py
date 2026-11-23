@@ -104,3 +104,32 @@ def test_verify_key_raises_when_fmp_cannot_tell(fake):
 
     with pytest.raises(SourceUnavailable):
         fake.adapter().verify_key(KEY)
+
+
+def test_latest_close_is_the_newest_close_from_one_dateless_request(fake):
+    when, close = fake.adapter().latest_close(ALICE, "MSFT")
+
+    assert (when, close) == (LAST_DAY, pytest.approx(402.0))
+    (request,) = fake.requests
+    assert request.url.path == "/stable/historical-price-eod/full"
+    assert "from" not in request.url.params and "to" not in request.url.params
+    assert request.headers["apikey"] == KEY
+
+
+def test_latest_close_for_an_unknown_or_premium_symbol_is_no_such_data(fake):
+    fake.premium = {"TSLA"}
+    adapter = fake.adapter()
+
+    with pytest.raises(NoSuchData) as unknown:
+        adapter.latest_close(ALICE, "ZZZZ")
+    with pytest.raises(NoSuchData) as premium:
+        adapter.latest_close(ALICE, "TSLA")
+
+    assert unknown.value.missing == {"ZZZZ": "FMP has no recent prices for ZZZZ."}
+    assert premium.value.missing == {"TSLA": "Your FMP plan does not include TSLA."}
+
+
+def test_latest_close_without_a_key_sends_nothing(fake):
+    with pytest.raises(KeyRequired):
+        fake.adapter().latest_close(RequestContext(user_id=None, keys={}), "MSFT")
+    assert fake.requests == []

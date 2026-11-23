@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
+import { DataModeToggle } from "@/components/DataModeToggle";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { MetricCard, type MetricCardValue } from "@/components/MetricCard";
@@ -13,9 +14,12 @@ import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
 import { csvFilename } from "@/lib/csv";
 import { formatMoneyValue } from "@/lib/format";
+import { DEMO_SOURCE, PROVIDER_NAMES, useMyDataProviders, type PriceSource } from "@/lib/myData";
+import type { AssumptionSetBody, ValuationAssumptions } from "@/lib/valuationAssumptions";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 import { DEFAULT_TICKER } from "./defaults";
+import { SavedAssumptions } from "./SavedAssumptions";
 
 // Mirrors ValuationEnvelope in apps/compute/sextant_compute/valuation/api.py.
 // Sensitivity cells are metrics "sensitivity:<growth index>:<discount index>".
@@ -23,6 +27,8 @@ type ValuationResult = ResultEnvelope & {
   company: { ticker: string; cik: number; name: string };
   base_period: { id: string; label: string; filed: string; url: string };
   sensitivity: { growth_rates: number[]; discount_rates: number[] };
+  /** The My data provider the share price came from; null when typed in or absent. */
+  price_source: { id: string; name: string; is_demo: boolean } | null;
 };
 
 // Form state uses display units (percent); the request model uses decimals.
@@ -94,13 +100,35 @@ function toNumber(raw: string, percent: boolean): number | null {
   return percent ? n / 100 : n;
 }
 
-function toRequest(ticker: string, form: Form) {
-  const body: Record<string, unknown> = { ticker };
-  for (const field of NUMBER_FIELDS) body[field] = toNumber(form[field], PERCENT_FIELDS.has(field));
-  return body;
+function toAssumptions(form: Form): AssumptionSetBody["assumptions"] {
+  const out = {} as AssumptionSetBody["assumptions"];
+  for (const field of NUMBER_FIELDS) out[field] = toNumber(form[field], PERCENT_FIELDS.has(field));
+  return out;
+}
+
+/** A saved set back into form strings: percent fields in percent, without float noise (0.07 * 100). */
+function fromAssumptions(saved: ValuationAssumptions): Form {
+  const form = { ...DEFAULTS };
+  for (const field of NUMBER_FIELDS) {
+    const value = saved[field];
+    const shown = PERCENT_FIELDS.has(field) && value !== null ? value * 100 : value;
+    form[field] = shown === null ? "" : String(Number(shown.toPrecision(12)));
+  }
+  return form;
+}
+
+function toRequest(ticker: string, form: Form, priceSource: PriceSource) {
+  return { ticker, price_source: priceSource, ...toAssumptions(form) };
 }
 
 const PERCENT_AXIS = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 2 });
+
+function priceNote(result: ValuationResult): string | undefined {
+  const price = result.metrics.share_price;
+  if (price?.details.basis === "latest_close" && result.price_source)
+    return getMessages().valuation.latestClose(result.price_source.name, String(price.details.date));
+  return basisNote(price);
+}
 
 function basisNote(result: MetricResult | undefined): string | undefined {
   const basis = result?.details.basis;
@@ -245,7 +273,14 @@ export function ValuationCalculator() {
   // Only a submitted ticker is fetched (typing doesn't call EDGAR); assumptions update live.
   const [query, setQuery] = useState(initialTicker);
   const [form, setForm] = useState<Form>(initialForm);
-  const { result, fieldErrors, error, pending, run } = useCompute("/valuation/dcf", toRequest(query, form));
+  const providers = useMyDataProviders();
+  const [chosen, setChosen] = useState<PriceSource>(DEMO_SOURCE);
+  // A provider whose key is gone falls back to Demo (a typed-in price only).
+  const priceSource: PriceSource = chosen !== DEMO_SOURCE && !providers.includes(chosen) ? DEMO_SOURCE : chosen;
+  const { result, fieldErrors, error, pending, run } = useCompute(
+    "/valuation/dcf",
+    toRequest(query, form, priceSource),
+  );
   const valuation = result as ValuationResult | null;
   const m = valuation?.metrics;
   const set = (field: NumberFieldId) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
@@ -265,7 +300,11 @@ export function ValuationCalculator() {
         <NumberField
           name={name}
           label={input.label}
-          hint={input.hint}
+          hint={
+            name === "share_price" && priceSource !== DEMO_SOURCE
+              ? v.sharePriceMyDataHint(PROVIDER_NAMES[priceSource])
+              : input.hint
+          }
           value={form[name]}
           onChange={set(name)}
           error={fieldErrors[name]}
@@ -278,39 +317,47 @@ export function ValuationCalculator() {
 
   return (
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-      <form onSubmit={onSubmit} noValidate aria-labelledby="valuation-inputs" className="min-w-0 space-y-6">
-        <h2 id="valuation-inputs" className="sr-only">
-          {v.inputsHeading}
-        </h2>
-        <fieldset className="space-y-3">
-          <legend className="text-lg font-semibold">{v.sections.company}</legend>
-          <div>
-            <TextField
-              name="ticker"
-              label={v.inputs.ticker.label}
-              hint={v.inputs.ticker.hint}
-              value={ticker}
-              onChange={setTicker}
-              error={fieldErrors.ticker}
-            />
-            <MetricExplainer explainer={v.inputs.ticker.explainer} />
-          </div>
-          <button
-            type="submit"
-            className="w-full rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
-          >
-            {v.submit}
-          </button>
-        </fieldset>
-        <fieldset className="space-y-3">
-          <legend className="text-lg font-semibold">{v.sections.dcf}</legend>
-          {DCF_FIELDS.map(field)}
-        </fieldset>
-        <fieldset className="space-y-3">
-          <legend className="text-lg font-semibold">{v.sections.wacc}</legend>
-          {WACC_FIELDS.map(field)}
-        </fieldset>
-      </form>
+      <div className="min-w-0 space-y-8">
+        <form onSubmit={onSubmit} noValidate aria-labelledby="valuation-inputs" className="min-w-0 space-y-6">
+          <h2 id="valuation-inputs" className="sr-only">
+            {v.inputsHeading}
+          </h2>
+          <fieldset className="space-y-3">
+            <legend className="text-lg font-semibold">{v.sections.company}</legend>
+            <DataModeToggle providers={providers} value={priceSource} onChange={setChosen} />
+            <div>
+              <TextField
+                name="ticker"
+                label={v.inputs.ticker.label}
+                hint={v.inputs.ticker.hint}
+                value={ticker}
+                onChange={setTicker}
+                error={fieldErrors.ticker}
+              />
+              <MetricExplainer explainer={v.inputs.ticker.explainer} />
+            </div>
+            <button
+              type="submit"
+              className="w-full rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+            >
+              {v.submit}
+            </button>
+          </fieldset>
+          <fieldset className="space-y-3">
+            <legend className="text-lg font-semibold">{v.sections.dcf}</legend>
+            {DCF_FIELDS.map(field)}
+          </fieldset>
+          <fieldset className="space-y-3">
+            <legend className="text-lg font-semibold">{v.sections.wacc}</legend>
+            {WACC_FIELDS.map(field)}
+          </fieldset>
+        </form>
+        <SavedAssumptions
+          ticker={query}
+          current={() => toAssumptions(form)}
+          onLoad={(saved) => setForm(fromAssumptions(saved))}
+        />
+      </div>
 
       <section data-testid="results" aria-label="Results" aria-busy={pending} className="min-w-0 space-y-6">
         {error && (
@@ -329,6 +376,22 @@ export function ValuationCalculator() {
                   {v.filed} {valuation.base_period.filed}
                 </a>
               </p>
+            </div>
+            <div data-testid="market-comparison">
+              <h2 className="text-lg font-semibold">{v.sections.market}</h2>
+              <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                <Card
+                  id="share_price"
+                  explainer={v.metrics.share_price}
+                  values={[{ id: "share_price", result: m?.share_price, note: priceNote(valuation) }]}
+                />
+                <Card id="market_cap" explainer={v.metrics.market_cap} values={[{ id: "market_cap", result: m?.market_cap }]} />
+                <Card
+                  id="margin_of_safety"
+                  explainer={v.metrics.margin_of_safety}
+                  values={[{ id: "margin_of_safety", result: m?.margin_of_safety }]}
+                />
+              </div>
             </div>
             <div>
               <h2 className="text-lg font-semibold">{v.sections.valuation}</h2>

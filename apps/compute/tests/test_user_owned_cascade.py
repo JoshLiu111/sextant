@@ -68,6 +68,14 @@ def _provider_key_row(conn: psycopg.Connection, user_id) -> None:
     )
 
 
+def _valuation_assumptions_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO valuation_assumptions (user_id, ticker, name, assumptions)"
+        " VALUES (%s, 'MSFT', 'Cascade test', '{}'::jsonb)",
+        (user_id,),
+    )
+
+
 def _user_data_cache_row(conn: psycopg.Connection, user_id) -> None:
     conn.execute(
         "INSERT INTO user_data_cache (cache_key, user_id, source, value, expires_at)"
@@ -85,6 +93,7 @@ USER_OWNED_ROWS: dict[str, RowFactory] = {
     "ai_usage": _ai_usage_row,
     "provider_keys": _provider_key_row,
     "user_data_cache": _user_data_cache_row,
+    "valuation_assumptions": _valuation_assumptions_row,
 }
 
 

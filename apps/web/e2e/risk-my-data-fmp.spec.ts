@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 // has both an FMP and a Tiingo key. FMP is the fake in e2e/fake-fmp.mjs and
 // Tiingo the one in e2e/fake-tiingo.mjs (keys starting with "good" are valid;
 // both serve AAPL, MSFT and SPY for 30 trading days from 2024-01-02, where AAPL's
-// split-adjusted max drawdown is 10%).
+// split-adjusted max drawdown is 10%, and MSFT last closes at $402.00 on 2024-02-12).
 
 function uniqueEmail(label: string) {
   return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
@@ -72,4 +72,20 @@ test("a user with both keys picks the provider and the result names the one used
   await expect(main.getByText("Source: Tiingo")).toBeVisible();
   await expect(main.getByText("Source: FMP")).toHaveCount(0);
   await expect(metric(page, "max_drawdown:AAPL")).toContainText("10.00%");
+});
+
+test("the Valuation Calculator takes its My data price from FMP's latest close", async ({ page }) => {
+  await signInWithKeys(page, { fmp: "goodfmp000000000000000000000000fmp1" });
+  await page.goto("/valuation");
+  const main = page.getByRole("main");
+  const value = (id: string) => main.locator(`[data-metric-value="${id}"]`);
+  // EDGAR's MSFT FY2026 at the defaults (e2e/fake-edgar.mjs).
+  await expect(value("intrinsic_value_per_share")).toContainText("$158.11");
+
+  await main.getByTestId("data-mode").getByText("My data").click();
+
+  const market = main.getByTestId("market-comparison");
+  await expect(market.locator('[data-metric-value="share_price"]')).toContainText("$402.00");
+  await expect(market.locator('[data-metric-value="share_price"]')).toContainText("Latest close from FMP, 2024-02-12");
+  await expect(main.getByText("Optional. Leave blank to use the latest close from FMP.")).toBeVisible();
 });

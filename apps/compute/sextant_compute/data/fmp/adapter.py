@@ -9,6 +9,7 @@ Two jobs:
 - ``verify_key``: Settings checks a key before saving it.
 - ``daily_prices``: end-of-day prices for the My data tools, with
   ``ctx.key_for("fmp")``.
+- ``latest_close``: the newest close (the Valuation Calculator's share price).
 
 All calls go to the "stable" API with the key in the ``apikey`` header (never
 in the URL, so it can't leak into a logged URL):
@@ -24,6 +25,9 @@ in the URL, so it can't leak into a logged URL):
 - Dividends: ``GET /stable/dividends?symbol=``, the whole history newest first;
   ``date`` is the ex-date and ``adjDividend`` the split-adjusted cash amount
   (on the same scale as the prices). Filtered to the range here.
+- Latest close: the same prices URL without ``from``/``to`` (FMP then answers
+  its default recent range, newest first); the newest row's close. Split-adjusted
+  closes are in today's share count, so the newest one is the raw close.
 
 Free plans don't cover every symbol: such a symbol answers 402 and is reported
 as missing for that ticker only. Unverified (no real key at hand): an unknown
@@ -71,7 +75,7 @@ class FmpAdapter:
     source = FMP
     scope: Scope = "user"
     # Same reasoning as Tiingo: end-of-day data, and a free key has a small daily quota.
-    ttl: dict[str, int] = {"daily_prices": 12 * 3600}
+    ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600}
     version = "1"
 
     def __init__(
@@ -147,6 +151,24 @@ class FmpAdapter:
         if missing:
             raise NoSuchData(FMP.id, " ".join(missing.values()), missing)
         return frames
+
+    def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
+        """See ``LatestCloseAdapter``. One request: the prices URL without dates."""
+        key = ctx.key_for(FMP.id)
+        if not key:
+            raise KeyRequired(FMP.id, NO_KEY_MESSAGE)
+        try:
+            rows = self._list("/stable/historical-price-eod/full", key, {"symbol": ticker})
+        except _NotInPlan:
+            message = f"Your FMP plan does not include {ticker}."
+        else:
+            if rows:
+                newest = max(rows, key=lambda r: str(r.get("date", "")))
+                last = _frame([newest], [])
+                return last.index[-1].date(), float(last["close"].iloc[-1])
+            # FMP answers an unknown symbol the same way: an empty list.
+            message = f"FMP has no recent prices for {ticker}."
+        raise NoSuchData(FMP.id, message, {ticker: message})
 
     def _list(self, path: str, key: str, params: dict[str, str]) -> list[dict[str, Any]]:
         response = self._get(path, key, params)

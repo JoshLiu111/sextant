@@ -9,6 +9,9 @@ Two jobs:
 - ``verify_key``: Settings checks a key before saving it.
 - ``daily_prices``: end-of-day prices for Risk & Performance on My data (and
   every later "My data" tool), with ``ctx.key_for("tiingo")``.
+- ``latest_close``: the last close, for the Valuation Calculator's margin of
+  safety. The same URL without ``startDate``/``endDate`` answers only the latest
+  day (documented; unverified without a real key).
 
 Key check: ``GET /api/test``. Checked 2026-11-22: it answers HTTP 200 for every
 token and says in ``message`` whether the token worked:
@@ -65,7 +68,7 @@ class TiingoAdapter:
     scope: Scope = "user"
     # End-of-day data changes once a day; half a day keeps a user's repeat requests
     # off their hourly Tiingo quota without serving yesterday's close for long.
-    ttl: dict[str, int] = {"daily_prices": 12 * 3600}
+    ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600}
     version = "1"
 
     def __init__(
@@ -139,13 +142,27 @@ class TiingoAdapter:
             raise NoSuchData(TIINGO.id, " ".join(missing.values()), missing)
         return frames
 
-    def _prices(self, key: str, ticker: str, start: date, end: date) -> list[dict[str, Any]] | None:
-        """The raw rows, or None for a ticker Tiingo doesn't know."""
-        response = self._get(
-            f"/tiingo/daily/{quote(ticker.lower(), safe='')}/prices",
-            key,
-            {"startDate": start.isoformat(), "endDate": end.isoformat(), "format": "json"},
-        )
+    def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
+        """See ``LatestCloseAdapter``. Tiingo's prices URL without dates answers the latest day."""
+        key = ctx.key_for(TIINGO.id)
+        if not key:
+            raise KeyRequired(TIINGO.id, NO_KEY_MESSAGE)
+        rows = self._prices(key, ticker, None, None)
+        if rows is None:
+            message = f"Tiingo has no ticker {ticker}."
+        elif not rows:
+            message = f"Tiingo has no recent prices for {ticker}."
+        else:
+            last = _frame(rows[-1:])
+            return last.index[-1].date(), float(last["close"].iloc[-1])
+        raise NoSuchData(TIINGO.id, message, {ticker: message})
+
+    def _prices(self, key: str, ticker: str, start: date | None, end: date | None) -> list[dict[str, Any]] | None:
+        """The raw rows, or None for a ticker Tiingo doesn't know. No dates: the latest day."""
+        params = {"format": "json"}
+        if start is not None and end is not None:
+            params |= {"startDate": start.isoformat(), "endDate": end.isoformat()}
+        response = self._get(f"/tiingo/daily/{quote(ticker.lower(), safe='')}/prices", key, params)
         if response.status_code in (401, 403):
             raise KeyRequired(TIINGO.id, REJECTED_KEY_MESSAGE)
         if response.status_code == 404:
