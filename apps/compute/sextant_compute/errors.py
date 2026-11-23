@@ -16,6 +16,8 @@ Codes in use:
   input was wrong re-raise it as ``ApiError(..., fields=...)`` so it shows inline.
 - 503 ``source_unavailable``: an adapter raised ``SourceUnavailable``. The UI shows
   "data source temporarily unavailable, please retry".
+- 403 ``key_required``: a source that runs on the visitor's own key (Tiingo) was
+  asked for without a working key (``KeyRequired``). The message points to Settings.
 
 Validation messages are written for people: attach them to request-model
 fields with ``check(...)`` so pydantic reports them verbatim.
@@ -32,7 +34,7 @@ from fastapi.responses import JSONResponse
 from pydantic import AfterValidator
 from pydantic_core import PydanticCustomError
 
-from sextant_compute.data.errors import NoSuchData, SourceUnavailable
+from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
 
 INPUT_ERROR = "invalid_input"
 
@@ -110,6 +112,10 @@ async def _no_such_data_handler(_request: Request, exc: NoSuchData) -> JSONRespo
     return error_response(422, "no_such_data", exc.message)
 
 
+async def _key_required_handler(_request: Request, exc: KeyRequired) -> JSONResponse:
+    return error_response(403, "key_required", exc.message)
+
+
 async def _source_unavailable_handler(_request: Request, exc: SourceUnavailable) -> JSONResponse:
     return error_response(503, "source_unavailable", SOURCE_UNAVAILABLE_MESSAGE)
 
@@ -119,3 +125,4 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ApiError, _api_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(NoSuchData, _no_such_data_handler)  # type: ignore[arg-type]
     app.add_exception_handler(SourceUnavailable, _source_unavailable_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(KeyRequired, _key_required_handler)  # type: ignore[arg-type]
