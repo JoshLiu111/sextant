@@ -147,7 +147,7 @@ def test_companies_missing_an_input_are_excluded_and_counted_with_the_reason() -
     # MCD has negative equity; XOM has no net income in the CY2025 frame.
     assert roe["count"] == 2
     assert {r["reason"] for r in roe["reasons"]} == {
-        "Equity is zero or negative, so the ratio is not meaningful.",
+        "Equity is zero or negative, so the ratio isn't meaningful.",
         "Net Income is not reported for 2025.",
     }
     assert body["excluded"]["total"] == 9  # MCD and XOM are in both groups

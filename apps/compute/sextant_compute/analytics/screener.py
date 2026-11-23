@@ -3,8 +3,8 @@
 Each metric names the line items it needs (``inputs``: item id and a year
 offset, -1 = the prior year) and computes from a ``get(item_id, offset)``
 callback that raises ``MissingData`` when the company didn't report the item.
-A metric also raises ``MissingData`` when a denominator is zero or negative,
-because the ratio means nothing then (e.g. ROE on negative equity).
+A metric raises ``MetricError`` when a denominator is zero or negative, because
+the ratio means nothing then (e.g. ROE on negative equity); see ``guards.positive``.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from sextant_compute.analytics.errors import MissingData
+from sextant_compute.analytics.guards import positive
 
 Get = Callable[[str, int], float]
 
@@ -26,21 +26,15 @@ class ScreenMetric:
     compute: Callable[[Get], float]
 
 
-def _positive(value: float, what: str) -> float:
-    if value <= 0:
-        raise MissingData(f"{what} is zero or negative, so the ratio is not meaningful.")
-    return value
-
-
 def _ratio(numerator: str, denominator: str, denominator_label: str) -> Callable[[Get], float]:
     def compute(get: Get) -> float:
-        return get(numerator, 0) / _positive(get(denominator, 0), denominator_label)
+        return get(numerator, 0) / positive(get(denominator, 0), denominator_label)
 
     return compute
 
 
 def _growth(get: Get) -> float:
-    return get("revenue", 0) / _positive(get("revenue", -1), "Prior-year revenue") - 1
+    return get("revenue", 0) / positive(get("revenue", -1), "Prior-year revenue") - 1
 
 
 METRICS: dict[str, ScreenMetric] = {

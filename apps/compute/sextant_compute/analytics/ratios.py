@@ -24,7 +24,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-from sextant_compute.analytics.errors import MetricError, MissingData
+from sextant_compute.analytics.errors import MissingData
+from sextant_compute.analytics.guards import positive
 from sextant_compute.data.statements import FinancialStatements, FiscalPeriod
 from sextant_compute.envelope import Detailed
 
@@ -97,12 +98,6 @@ def div(numerator: float, denominator: float, what: str) -> float:
     if denominator == 0:
         raise MissingData(f"{what} is zero, so the ratio is undefined.")
     return numerator / denominator
-
-
-def positive(value: float, what: str, ratio: str) -> float:
-    if value <= 0:
-        raise MetricError(f"{what} is zero or negative, so {ratio} isn't meaningful.")
-    return value
 
 
 @dataclass(frozen=True)
