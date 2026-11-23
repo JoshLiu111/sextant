@@ -92,6 +92,7 @@ export const en = {
       per_rate_point: "per 1 percentage point",
       percent: "",
       ratio: "",
+      money: "",
     } as Record<string, string>,
     errors: {
       heading: "Something went wrong",
@@ -316,6 +317,74 @@ export const en = {
     },
     portfolioLabel: "Portfolio",
     benchmarkSuffix: "(benchmark)",
+    demoHeading: "Demo portfolio",
+    savePrompt: {
+      body: "Sign in to save portfolios of your own holdings (ticker, quantity, cost price, currency) and switch between them on any device.",
+    },
+    saved: {
+      heading: "Your portfolios",
+      intro:
+        "Enter your holdings and save them as a named portfolio. Each portfolio is held at its quantities (bought and held, dividends reinvested) and compared with a benchmark. Prices come from demo data until you can connect your own data source.",
+      empty: "You have no saved portfolios yet.",
+      switcher: "Saved portfolio",
+      newPortfolio: "New portfolio",
+      draft: "New portfolio (not saved yet)",
+      name: { label: "Portfolio name", placeholder: "For example: Retirement account" },
+      holdings: {
+        heading: "Holdings",
+        hint: "Demo tickers: DEMO-A to DEMO-F. Cost price is the average price you paid per unit. Use one currency per portfolio for now.",
+        ticker: "Ticker",
+        quantity: "Quantity",
+        cost_price: "Cost price",
+        currency: "Currency",
+        add: "Add holding",
+        remove: "Remove holding",
+      },
+      save: "Save portfolio",
+      saving: "Saving…",
+      saved: "Saved.",
+      unsavedNote: "Results show the saved version. Save to update them.",
+      delete: {
+        button: "Delete portfolio",
+        confirm: "Yes, delete this portfolio",
+        cancel: "Cancel",
+        warning: "This permanently deletes the portfolio and its holdings.",
+      },
+      loading: "Loading portfolio…",
+      analysisHeading: "Analysis settings",
+      sections: {
+        value: "Value and profit",
+        valueNote: "Today's value uses each holding's latest close in the date range, in the portfolio's currency.",
+        metricsNote:
+          "The portfolio holds its quantities from the first day of the range, with dividends reinvested, and is never rebalanced. These metrics are computed on its daily value with the same formulas as Risk & Performance.",
+      },
+      metrics: {
+        market_value: {
+          name: "Market value",
+          what: "What the holdings are worth at the end of the date range.",
+          how: "Sum over holdings of quantity × latest close in the range. Dividends are not added here.",
+          read: "Shown in the portfolio's currency.",
+        },
+        cost_basis: {
+          name: "Cost basis",
+          what: "What you paid for the holdings.",
+          how: "Sum over holdings of quantity × cost price.",
+          read: "Shown in the portfolio's currency.",
+        },
+        unrealized_pnl: {
+          name: "Unrealized profit or loss",
+          what: "How much the holdings have gained or lost versus what you paid, if sold now.",
+          how: "Market value − cost basis.",
+          read: "Positive is a gain, negative a loss, in the portfolio's currency. Taxes, fees and dividends received are not included.",
+        },
+        unrealized_return: {
+          name: "Unrealized return",
+          what: "The unrealized profit or loss as a share of what you paid.",
+          how: "(Market value − cost basis) ÷ cost basis.",
+          read: "Shown in percent. 10% means the holdings are worth 10% more than they cost.",
+        },
+      },
+    },
     sections: {
       chart: "Cumulative return",
       metrics: "Portfolio risk",

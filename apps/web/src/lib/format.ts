@@ -11,11 +11,12 @@ const PERCENT = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-/** Format a metric value by its envelope unit. `decimal` values render as percentages. */
+/** Format a metric value by its envelope unit. `decimal` values render as percentages; `money` as an amount with 2 decimals. */
 export function formatValue(value: number, unit: Unit | null): string {
   if (unit === "decimal") return PERCENT.format(value);
   if (unit === "percent") return `${TWO.format(value)}%`;
   if (unit === "ratio") return TWO.format(value);
+  if (unit === "money") return TWO.format(value);
   return FOUR.format(value);
 }
 
