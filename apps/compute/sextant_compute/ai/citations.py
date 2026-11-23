@@ -7,8 +7,9 @@ the answer into text and citation segments and checks each cited number against
 the cited calculation's actual value, at the precision it was written: "10.45"
 matches 10.4506, "10.4" does not. Percentages are read against the metric's
 unit (``decimal`` metrics hold fractions, ``percent`` metrics hold percents).
-A number written without a sign may quote a negative value's magnitude
-("a drawdown of 35%" for -0.35).
+The sign must match too ("2%" does not match an alpha of -0.02), except for
+metrics whose name says the value is a fall or a loss (drawdowns, VaR/CVaR,
+losses): those may be written with or without a minus sign ("a drawdown of 35%").
 """
 
 from __future__ import annotations
@@ -39,6 +40,8 @@ _MULTIPLIERS = {
     "t": 1e12, "trillion": 1e12,
 }  # fmt: skip
 _PERCENT_UNITS = {"percent", "percentage_points"}
+_LOSS_WORDS = {"drawdown", "var", "cvar", "loss"}
+"""A metric whose name has one of these words states its sign by name."""
 
 
 class Citable(NamedTuple):
@@ -71,7 +74,6 @@ Segment = TextSegment | Citation
 class Written(NamedTuple):
     value: float
     tolerance: float
-    signed: bool
 
 
 def citable_values(result: ResultEnvelope) -> dict[str, Citable]:
@@ -102,14 +104,19 @@ def read_number(text: str, unit: str | None) -> Written | None:
         scale = 0.01 if unit in _PERCENT_UNITS else 0.0001
     sign = m["sign"] or m["sign2"] or ""
     value = float(num) * scale * (-1 if sign in ("-", "−") else 1)
-    return Written(value, 0.5 * 10**-decimals * scale, signed=bool(sign))
+    return Written(value, 0.5 * 10**-decimals * scale)
 
 
-def _close(written: Written, actual: float) -> bool:
+def _sign_in_name(metric_id: str) -> bool:
+    """Whether the metric's name says its value is a fall or a loss, e.g. ``max_drawdown:DEMO-A``."""
+    return not _LOSS_WORDS.isdisjoint(metric_id.split(":")[0].lower().split("_"))
+
+
+def _close(written: Written, actual: float, *, magnitude_only: bool) -> bool:
     slack = written.tolerance + 1e-9 * max(abs(actual), 1.0)
-    if abs(written.value - actual) <= slack:
-        return True
-    return not written.signed and actual < 0 and abs(written.value + actual) <= slack
+    if magnitude_only:
+        return abs(abs(written.value) - abs(actual)) <= slack
+    return abs(written.value - actual) <= slack
 
 
 def check_citation(text: str, calculation_id: str, metric_id: str, calculations: Mapping[str, ResultEnvelope]) -> Citation:
@@ -135,7 +142,7 @@ def check_citation(text: str, calculation_id: str, metric_id: str, calculations:
     written = read_number(text, found.unit)
     if written is None:
         return cite(found.value, found.unit, "Could not read a number in this citation.")
-    if not _close(written, found.value):
+    if not _close(written, found.value, magnitude_only=_sign_in_name(metric_id)):
         return cite(found.value, found.unit, "The number does not match the calculation's result.")
     return cite(found.value, found.unit, None)
 

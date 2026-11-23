@@ -130,6 +130,7 @@ export function signLoginAssertion(config: AuthConfig, identity: GoogleIdentity)
     .setIssuer("sextant-web")
     .setAudience("sextant-compute")
     .setSubject(identity.sub)
+    .setJti(randomBytes(16).toString("hex"))
     .setIssuedAt()
     .setExpirationTime("60s")
     .sign(config.sessionSecret);
