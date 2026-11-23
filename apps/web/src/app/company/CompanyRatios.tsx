@@ -1,6 +1,5 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
@@ -8,6 +7,7 @@ import { MetricExplainer } from "@/components/MetricExplainer";
 import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
 import { formatValue } from "@/lib/format";
+import { decodeRows, encodeRows, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
 // Mirrors RatiosEnvelope in apps/compute/sextant_compute/company/ratios.py.
@@ -15,11 +15,25 @@ import { useCompute } from "@/lib/useCompute";
 type Period = { id: string; label: string; fiscal_year: number; end: string; filed: string; url: string };
 type CompanyOut = { ticker: string; cik: number; name: string; price: number | null; periods: Period[] };
 type RatioOut = { id: string; category: string; unit: string };
-type RatiosResult = ResultEnvelope & { companies: CompanyOut[]; ratios: RatioOut[] };
+// `models` holds the scores (Altman Z, Piotroski F, Beneish M), the nine Piotroski
+// signals and the DuPont burdens; the DuPont tables also reuse ratios from `ratios`.
+type RatiosResult = ResultEnvelope & { companies: CompanyOut[]; ratios: RatioOut[]; models: RatioOut[] };
 
 type Row = { ticker: string; price: string };
 const CATEGORIES = ["efficiency", "liquidity", "profitability", "solvency", "valuation"] as const;
-const ALTMAN: RatioOut = { id: "altman_z", category: "distress", unit: "score" };
+const DUPONT = {
+  dupont3: ["return_on_equity", "net_margin", "asset_turnover", "equity_multiplier"],
+  dupont5: [
+    "return_on_equity",
+    "dupont_tax_burden",
+    "dupont_interest_burden",
+    "operating_margin",
+    "asset_turnover",
+    "equity_multiplier",
+  ],
+} as const;
+const GOOD_ZONES = new Set(["safe", "strong", "unlikely"]);
+const BAD_ZONES = new Set(["distress", "weak", "likely"]);
 const MAX_COMPANIES = 5;
 const DEFAULT_ROWS: Row[] = [{ ticker: "AAPL", price: "" }];
 
@@ -27,13 +41,32 @@ const TWO = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFr
 const ONE = new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
-function formatRatio(value: number, unit: string | null): string {
+function formatRatio(value: number, unit: string | null, id: string): string {
   const r = getMessages().companyRatios;
+  if (unit === "signal") return value === 1 ? r.pass : r.fail;
+  if (id.startsWith("piotroski_f:")) return `${WHOLE.format(value)} / 9`;
   if (unit === "days") return `${ONE.format(value)} ${r.days}`;
   if (unit === "currency") return `${WHOLE.format(value / 1e6)}${r.currencyMillions}`;
   if (unit === "per_share" || unit === "score" || unit === "ratio") return TWO.format(value);
   return formatValue(value, unit);
 }
+
+// Shareable links: `/company?companies=MSFT:400,AAPL` (ticker:price). The
+// screener links with `?ticker=MSFT`, which the statements below share; it is
+// used here only when `companies` is absent.
+const URL_CODEC: UrlCodec<Row[]> = {
+  keys: ["companies"],
+  read(params) {
+    const companies = params.get("companies");
+    if (companies !== null) {
+      const rows = decodeRows(companies, 2).map(([ticker, price]) => ({ ticker: ticker.toUpperCase(), price }));
+      return rows.length ? rows : DEFAULT_ROWS;
+    }
+    const linked = params.get("ticker")?.trim().toUpperCase();
+    return linked ? [{ ticker: linked, price: "" }] : DEFAULT_ROWS;
+  },
+  write: (rows) => ({ companies: encodeRows(rows.map((r) => [r.ticker.toUpperCase(), r.price])) }),
+};
 
 function toRequest(rows: Row[]) {
   return {
@@ -46,13 +79,18 @@ function toRequest(rows: Row[]) {
   };
 }
 
-function Value({ id, result }: { id: string; result: MetricResult | undefined }) {
+// DuPont tables repeat ratios shown elsewhere, so they tag values with
+// data-dupont-value instead, keeping data-metric-value unique on the page.
+type ValueAttr = "data-metric-value" | "data-dupont-value";
+
+function Value({ id, result, attr }: { id: string; result: MetricResult | undefined; attr: ValueAttr }) {
   const r = getMessages().companyRatios;
   if (!result) return <span className="text-black/40 dark:text-white/40">…</span>;
+  const tag = { [attr]: id };
   if (result.status !== "ok" || result.value === null) {
     return (
       <span
-        data-metric-value={id}
+        {...tag}
         data-status={result.status}
         title={result.reason ?? undefined}
         className="cursor-help text-xs italic text-black/50 underline decoration-dotted dark:text-white/50"
@@ -64,15 +102,15 @@ function Value({ id, result }: { id: string; result: MetricResult | undefined })
   }
   const zone = result.details.zone;
   return (
-    <span data-metric-value={id} data-status="ok" className="font-mono tabular-nums">
-      {formatRatio(result.value, result.unit)}
+    <span {...tag} data-status="ok" className="font-mono tabular-nums">
+      {formatRatio(result.value, result.unit, id)}
       {typeof zone === "string" && (
         <span
           data-zone={zone}
           className={`block font-sans text-xs ${
-            zone === "safe"
+            GOOD_ZONES.has(zone)
               ? "text-green-700 dark:text-green-400"
-              : zone === "distress"
+              : BAD_ZONES.has(zone)
                 ? "text-red-700 dark:text-red-400"
                 : "text-amber-700 dark:text-amber-400"
           }`}
@@ -89,11 +127,15 @@ function RatioTable({
   ratios,
   result,
   years,
+  note,
+  attr = "data-metric-value",
 }: {
   category: string;
   ratios: RatioOut[];
   result: RatiosResult;
   years: number[];
+  note?: string;
+  attr?: ValueAttr;
 }) {
   const r = getMessages().companyRatios;
   const headingId = `ratios-${category}`;
@@ -106,6 +148,7 @@ function RatioTable({
       {category === "valuation" && result.companies.some((c) => c.price === null) && (
         <p className="mt-1 text-xs text-black/60 dark:text-white/60">{r.priceNote}</p>
       )}
+      {note && <p className="mt-1 text-xs text-black/60 dark:text-white/60">{note}</p>}
       <div className="relative mt-2 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
         <table aria-labelledby={headingId} className="w-full min-w-[40rem] border-collapse text-sm">
           <thead>
@@ -150,7 +193,7 @@ function RatioTable({
                       const id = period ? `${ratio.id}:${company.ticker}:${period.id}` : null;
                       return (
                         <td key={fy} className="px-3 py-1.5 text-right">
-                          {id ? <Value id={id} result={result.metrics[id]} /> : null}
+                          {id ? <Value id={id} result={result.metrics[id]} attr={attr} /> : null}
                         </td>
                       );
                     })}
@@ -168,9 +211,7 @@ function RatioTable({
 export function CompanyRatios() {
   const t = getMessages();
   const r = t.companyRatios;
-  // `?ticker=MSFT` (links from the screener) prefills and loads that company.
-  const linked = useSearchParams().get("ticker")?.trim().toUpperCase();
-  const initialRows = linked ? [{ ticker: linked, price: "" }] : DEFAULT_ROWS;
+  const { initial: initialRows, share } = useUrlInputs(URL_CODEC);
   const [rows, setRows] = useState<Row[]>(initialRows);
   // Only submitted inputs are fetched: typing doesn't fire EDGAR requests.
   const [query, setQuery] = useState(() => toRequest(initialRows));
@@ -183,6 +224,7 @@ export function CompanyRatios() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    share(rows);
     const next = toRequest(rows);
     if (JSON.stringify(next) === JSON.stringify(query)) run();
     else setQuery(next);
@@ -292,7 +334,20 @@ export function CompanyRatios() {
               {ratios.companies.map((c) => `${c.name} (${c.ticker})`).join(" · ")}
             </p>
             <p className="text-xs text-black/50 dark:text-white/50">{r.averageNote}</p>
-            <RatioTable category="distress" ratios={[ALTMAN]} result={ratios} years={years} />
+            <RatioTable
+              category="scores"
+              ratios={ratios.models.filter((x) => x.category === "scores")}
+              result={ratios}
+              years={years}
+              note={r.scoresNote}
+            />
+            <RatioTable
+              category="piotroski"
+              ratios={ratios.models.filter((x) => x.category === "piotroski")}
+              result={ratios}
+              years={years}
+              note={r.piotroskiNote}
+            />
             {CATEGORIES.map((category) => (
               <RatioTable
                 key={category}
@@ -302,6 +357,20 @@ export function CompanyRatios() {
                 years={years}
               />
             ))}
+            {(["dupont3", "dupont5"] as const).map((category) => {
+              const byId = new Map([...ratios.ratios, ...ratios.models].map((x) => [x.id, x]));
+              return (
+                <RatioTable
+                  key={category}
+                  category={category}
+                  ratios={DUPONT[category].flatMap((id) => byId.get(id) ?? [])}
+                  result={ratios}
+                  years={years}
+                  note={r.dupontNotes[category]}
+                  attr="data-dupont-value"
+                />
+              );
+            })}
             <CalculationInfo result={ratios} />
           </>
         ) : (

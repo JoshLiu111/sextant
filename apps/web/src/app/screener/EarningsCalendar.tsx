@@ -6,6 +6,7 @@ import { ErrorNotice } from "@/components/ErrorNotice";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { ResultEnvelope } from "@/lib/envelope";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
 // Mirrors EarningsEnvelope in apps/compute/sextant_compute/screener/calendar.py.
@@ -25,23 +26,33 @@ type Query = { tickers?: string; start?: string; end?: string };
 
 // Must match CALENDAR_TICKERS in the compute service (the default list).
 const DEFAULT_TICKERS = "AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, JPM, V, WMT, PG, JNJ, KO, XOM, NFLX";
+// Shareable links: `/screener?earnings_tickers=AAPL,MSFT&earnings_start=2026-01-01&earnings_end=2026-06-30`
+// (blank dates = the API defaults). Prefixed so they don't collide with the screen's params.
+const URL_CODEC = fieldsCodec({ earnings_tickers: DEFAULT_TICKERS, earnings_start: "", earnings_end: "" });
+
+function toQuery(tickers: string, start: string, end: string): Query {
+  const next: Query = {};
+  if (tickers.trim() && tickers.trim() !== DEFAULT_TICKERS) next.tickers = tickers;
+  if (start) next.start = start;
+  if (end) next.end = end;
+  return next;
+}
 
 export function EarningsCalendar() {
   const t = getMessages();
   const m = t.screener.earnings;
-  const [tickers, setTickers] = useState(DEFAULT_TICKERS);
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [query, setQuery] = useState<Query>({});
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [tickers, setTickers] = useState(initial.earnings_tickers);
+  const [start, setStart] = useState(initial.earnings_start);
+  const [end, setEnd] = useState(initial.earnings_end);
+  const [query, setQuery] = useState<Query>(() => toQuery(initial.earnings_tickers, initial.earnings_start, initial.earnings_end));
   const { result, fieldErrors, error, pending, run } = useCompute("/screener/earnings", query);
   const calendar = result as EarningsResult | null;
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const next: Query = {};
-    if (tickers.trim() && tickers.trim() !== DEFAULT_TICKERS) next.tickers = tickers;
-    if (start) next.start = start;
-    if (end) next.end = end;
+    const next = toQuery(tickers, start, end);
+    share({ earnings_tickers: tickers.trim(), earnings_start: start, earnings_end: end });
     if (JSON.stringify(next) === JSON.stringify(query)) run();
     else setQuery(next);
   }

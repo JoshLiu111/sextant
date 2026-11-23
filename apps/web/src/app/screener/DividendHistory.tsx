@@ -6,6 +6,7 @@ import { ErrorNotice } from "@/components/ErrorNotice";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { ResultEnvelope } from "@/lib/envelope";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
 // Mirrors DividendsEnvelope in apps/compute/sextant_compute/screener/calendar.py.
@@ -45,18 +46,23 @@ function byFiscalYear(periods: DividendPeriod[]): YearRow[] {
   return [...rows.values()].sort((a, b) => b.fiscalYear - a.fiscalYear);
 }
 
+// Shareable links: `/screener?dividends_ticker=JPM`.
+const URL_CODEC = fieldsCodec({ dividends_ticker: "AAPL" });
+
 const money = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
 export function DividendHistory() {
   const t = getMessages();
   const m = t.screener.dividends;
-  const [ticker, setTicker] = useState("AAPL");
-  const [query, setQuery] = useState({ ticker: "AAPL" });
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [ticker, setTicker] = useState(initial.dividends_ticker);
+  const [query, setQuery] = useState({ ticker: initial.dividends_ticker.trim() });
   const { result, fieldErrors, error, pending, run } = useCompute("/screener/dividends", query);
   const history = result as DividendsResult | null;
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    share({ dividends_ticker: ticker.trim().toUpperCase() });
     if (ticker.trim() === query.ticker) run();
     else setQuery({ ticker: ticker.trim() });
   }
