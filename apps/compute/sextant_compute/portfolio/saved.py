@@ -25,7 +25,7 @@ from sextant_compute.db import Database
 from sextant_compute.envelope import MetricResult, MetricStatus, ResultEnvelope, SeriesResult
 from sextant_compute.errors import ApiError, check
 from sextant_compute.portfolio import store
-from sextant_compute.portfolio.fx import Converter
+from sextant_compute.portfolio.fx import ConvertedEnvelope, Converter
 from sextant_compute.portfolio.api import MAX_HOLDINGS, AnalysisSettings, load_prices, score
 from sextant_compute.portfolio.positions import position_metrics
 from sextant_compute.request_models import Ticker
@@ -178,10 +178,11 @@ def _without_portfolio_risk(env: ResultEnvelope, own: Mapping[str, MetricResult]
 @router.post("/{portfolio_id}/metrics")
 def saved_portfolio_metrics(
     portfolio_id: UUID, settings: SavedAnalysisSettings, user: CurrentUser, db: Db, data: Data, ctx: Ctx
-) -> ResultEnvelope:
+) -> ConvertedEnvelope:
     """Performance and risk of the user's saved portfolio, held at its quantities (buy and hold),
     plus each position's value, weight and P&L (``portfolio.positions``), all in the reporting
-    currency at each date's exchange rate (``portfolio.fx``).
+    currency at each date's exchange rate (``portfolio.fx``); ``fx_source`` names the rates' source
+when any amount was converted.
 
     Prices come from ``settings.source``: Demo data or the user's own provider (My data).
     On My data a holding without prices marks only its own value, weight and P&L
@@ -235,6 +236,8 @@ def saved_portfolio_metrics(
     if problem is not None:
         # The portfolio's value cannot be built; score the benchmark alone and mark the portfolio's risk missing.
         placeholder = frames[settings.benchmark]["close"] / frames[settings.benchmark]["close"].iloc[0]
-        return _without_portfolio_risk(score(req, settings, prices, frames, placeholder, extra), extra, str(problem))
+        return fx.envelope(
+            _without_portfolio_risk(score(req, settings, prices, frames, placeholder, extra), extra, str(problem))
+        )
     value = portfolio_analytics.buy_and_hold_value({**frames, **converted}, quantities)
-    return score(req, settings, prices, frames, value / value.iloc[0], extra)
+    return fx.envelope(score(req, settings, prices, frames, value / value.iloc[0], extra))

@@ -6,7 +6,9 @@ import { SignInLink } from "@/components/SignInLink";
 import { getMessages } from "@/i18n";
 import { fetchAiQuota, type AiQuota } from "@/lib/ai";
 import { CheckedAnswer, type CitationLink } from "@/components/CheckedAnswer";
+import { useReportSources } from "@/components/PageSources";
 import { askAnalyst, type AnalystAnswer } from "@/lib/analyst";
+import { sourcesOf } from "@/lib/envelope";
 import { formatLocalTime } from "@/lib/format";
 
 type Account =
@@ -157,6 +159,12 @@ export function AiAnalyst() {
 function Answer({ answer }: { answer: AnalystAnswer }) {
   const t = getMessages().analyst;
   const headingId = useId();
+  // The tool results credit their data in the footer, like any result on a tool page.
+  useReportSources(
+    Object.values(answer.calculations).flatMap((result) =>
+      sourcesOf(result).map((s) => s.id),
+    ),
+  );
   return (
     <section
       aria-labelledby={headingId}

@@ -8,6 +8,10 @@ at today's rate. A currency Frankfurter does not publish is not an error for the
 whole request: whatever needs it raises ``MissingData`` with the reason, so only
 those metrics are ``missing_data``. A Frankfurter outage still raises
 ``SourceUnavailable`` (503).
+
+A result built with a ``Converter`` is a ``ConvertedEnvelope``: its ``fx_source``
+names Frankfurter only when some amount was converted with one of its rates, so
+the page credits Frankfurter only then.
 """
 
 from __future__ import annotations
@@ -22,10 +26,18 @@ from sextant_compute.analytics.errors import MissingData
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import DataService
+from sextant_compute.envelope import DataSource, ResultEnvelope
 
 SOURCE = "frankfurter"
 LOOKBACK = timedelta(days=14)
 """Rates are fetched from this long before the first date, so a date on a holiday still finds an earlier rate."""
+
+
+class ConvertedEnvelope(ResultEnvelope):
+    """A result whose amounts are in a reporting currency."""
+
+    fx_source: DataSource | None = None
+    """Where the exchange rates came from; None when no amount needed converting."""
 
 
 class Converter:
@@ -41,22 +53,23 @@ class Converter:
         self.reporting = reporting
         self._rates: dict[str, pd.Series] = {}
         self._missing: dict[str, str] = {}
+        self._source: DataSource | None = None
         for currency in sorted(set(currencies) - {reporting}):
             try:
                 loaded = data.fx_rates(ctx, currency, reporting, start=start - LOOKBACK, end=end, source=SOURCE)
             except NoSuchData as exc:
                 self._missing[currency] = " ".join(exc.missing.values()) or exc.message
                 continue
+            self._source = loaded.source
             self._rates[currency] = pd.Series(
                 [rate for _, rate in loaded.rates],
                 index=pd.DatetimeIndex([pd.Timestamp(when) for when, _ in loaded.rates]),
                 dtype=float,
             )
 
-    @property
-    def used(self) -> bool:
-        """Whether any amount needs converting (some currency differs from the reporting one)."""
-        return bool(self._rates or self._missing)
+    def envelope(self, env: ResultEnvelope) -> ConvertedEnvelope:
+        """``env`` naming the exchange-rate source, when any rate was loaded for converting."""
+        return ConvertedEnvelope(**env.model_dump(), fx_source=self._source)
 
     def _series(self, currency: str) -> pd.Series:
         if currency in self._missing:

@@ -1,7 +1,6 @@
 // Data-source attributions shown in the footer slot. The footer credits the
-// sources of the results on the page (`attributionFor`, via `PageSources`) plus
-// any a page always uses (its tool registry entry, src/lib/tools.ts); add new
-// sources here. Wording that a provider's terms require (e.g. FRED) must be
+// sources of the results on the page (`attributionFor`, via `PageSources`); add
+// new sources here. Wording that a provider's terms require (e.g. FRED) must be
 // copied verbatim.
 export type Attribution = {
   text: string;

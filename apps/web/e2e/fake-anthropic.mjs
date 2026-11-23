@@ -15,6 +15,8 @@
 // the default inputs; once the tool result comes back it answers, citing the call
 // price as [[value|calculation_id|call_price]]. A question containing "misquote"
 // makes it cite 12.00 instead, so the UI's mismatch highlighting can be tested.
+// A question mentioning "risk" calls risk_metrics on demo data instead, and the
+// answer just counts the metrics computed.
 
 import { createServer } from "node:http";
 
@@ -24,6 +26,8 @@ function send(res, status, body) {
   res.writeHead(status, { "content-type": "application/json" });
   res.end(JSON.stringify(body));
 }
+
+const DEMO_RISK = { tickers: ["DEMO-A"], start: "2024-01-02", end: "2024-12-31" };
 
 const OPTION = {
   spot: 100,
@@ -57,10 +61,15 @@ function analystTurn(body) {
   const inputLength = JSON.stringify(messages).length;
   const results = Array.isArray(last.content) ? last.content.filter((b) => b.type === "tool_result") : [];
   if (results.length === 0 && body.tools && body.tool_choice?.type !== "none") {
-    const call = { type: "tool_use", id: "toolu_fake_1", name: "options_price", input: OPTION };
+    const call = /risk/i.test(question)
+      ? { type: "tool_use", id: "toolu_fake_1", name: "risk_metrics", input: DEMO_RISK }
+      : { type: "tool_use", id: "toolu_fake_1", name: "options_price", input: OPTION };
     return message(body, [call], "tool_use", inputLength);
   }
   const result = results.length ? JSON.parse(results[results.length - 1].content) : null;
+  if (result && result.tool !== "options") {
+    return message(body, [{ type: "text", text: answer(result) }], "end_turn", inputLength);
+  }
   const value = result?.metrics?.call_price?.value;
   if (value == null) {
     return message(body, [{ type: "text", text: "I could not price the option." }], "end_turn", inputLength);

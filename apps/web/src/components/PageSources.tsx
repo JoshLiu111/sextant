@@ -1,8 +1,8 @@
 "use client";
 
 // The data sources the results on the current page came from, for the footer
-// attribution. Every `useCompute` result reports its `source` (and `price_source`,
-// when a result carries one) while it is on screen; the footer reads the union.
+// attribution. Every result on screen reports the sources it used (`sourcesOf`):
+// `useCompute` results and AI Analyst's tool results. The footer reads the union.
 
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { attributionFor, type AttributionId } from "@/lib/attributions";
