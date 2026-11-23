@@ -35,6 +35,8 @@ from sextant_compute.data.adapters import (
     EconomicSeriesAdapter,
     FilingsAdapter,
     FinancialStatementsAdapter,
+    FxRates,
+    FxRatesAdapter,
     SeriesMeta,
     YieldCurveAdapter,
     YieldCurves,
@@ -44,6 +46,7 @@ from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.edgar import EdgarAdapter
 from sextant_compute.data.filings import FilingList
+from sextant_compute.data.frankfurter import FrankfurterAdapter
 from sextant_compute.data.fred import FredAdapter
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
@@ -280,6 +283,29 @@ class DataService:
             curves=[(when, curve) for y in years for when, curve in y.curves if start <= when <= end],
         )
 
+    def fx_rates(self, ctx: RequestContext, base: str, quote: str, *, start: date, end: date, source: str) -> FxRates:
+        """Daily ``base`` -> ``quote`` rates dated within [start, end], ascending; see
+        ``FxRatesAdapter``. Fetched and cached one calendar year at a time."""
+        adapter = cast(FxRatesAdapter, self._adapter(source))
+        years = [
+            self._cached(
+                ctx,
+                adapter,
+                "fx_rates",
+                {"base": base, "quote": quote, "year": year},
+                lambda year=year: adapter.fx_rates(ctx, base, quote, year),
+                _encode_fx,
+                _decode_fx,
+            )
+            for year in range(start.year, end.year + 1)
+        ]
+        return FxRates(
+            source=adapter.source,
+            base=base,
+            quote=quote,
+            rates=[(when, rate) for y in years for when, rate in y.rates if start <= when <= end],
+        )
+
 
 def cache_key(adapter: Adapter, dataset: str, params: Mapping[str, Any], *, user_id: object | None = None) -> str:
     """``v<CACHE_VERSION>:<shared|user:<id>>:<source>@<adapter version>:<dataset>:<params hash>``."""
@@ -339,12 +365,32 @@ def _decode_curves(raw: Mapping[str, Any]) -> YieldCurves:
     )
 
 
+def _encode_fx(rates: FxRates) -> dict[str, Any]:
+    return {
+        "source": rates.source.model_dump(),
+        "base": rates.base,
+        "quote": rates.quote,
+        "rates": [[when.isoformat(), rate] for when, rate in rates.rates],
+    }
+
+
+def _decode_fx(raw: Mapping[str, Any]) -> FxRates:
+    return FxRates(
+        source=DataSource(**raw["source"]),
+        base=raw["base"],
+        quote=raw["quote"],
+        rates=[(date.fromisoformat(when), rate) for when, rate in raw["rates"]],
+    )
+
+
 def default_adapters() -> dict[str, Adapter]:
     synthetic = SyntheticAdapter()
     fred = FredAdapter.from_env()
     edgar = EdgarAdapter()
     treasury = TreasuryAdapter.from_env()
+    frankfurter = FrankfurterAdapter.from_env()
     return {
+        frankfurter.source.id: frankfurter,
         synthetic.source.id: synthetic,
         fred.source.id: fred,
         edgar.source.id: edgar,
