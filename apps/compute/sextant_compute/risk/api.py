@@ -13,8 +13,9 @@ from pydantic_core import PydanticCustomError
 from sextant_compute.analytics import performance, risk
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
-from sextant_compute.envelope import Detailed, MetricResult, ResultEnvelope, SeriesResult, envelope, metric, series
+from sextant_compute.envelope import MetricResult, ResultEnvelope, SeriesResult, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
+from sextant_compute.risk.metrics import date_series, risk_metric_set
 
 router = APIRouter(tags=["risk"])
 
@@ -72,15 +73,6 @@ def _fields_for(exc: NoSuchData, req: RiskRequest) -> dict[str, str]:
     return fields
 
 
-def _iso(d: date | None) -> str | None:
-    return d.isoformat() if d else None
-
-
-def _max_drawdown(wealth: pd.Series) -> Detailed:
-    mdd = risk.max_drawdown(wealth)
-    return Detailed(mdd.depth, {"peak": _iso(mdd.peak), "trough": _iso(mdd.trough), "recovery": _iso(mdd.recovery)})
-
-
 @router.post("/metrics")
 def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
     symbols = list(dict.fromkeys([*req.tickers, req.benchmark]))
@@ -98,27 +90,16 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
     benchmark_returns = returns_of(req.benchmark)
     for ticker in symbols:
         frame = prices.frames[ticker]
-        returns = returns_of(ticker)
         wealth = performance.total_return_index(frame["close"], frame["dividend"])
-        metrics[f"annualized_return:{ticker}"] = metric(lambda: performance.annualized_return(returns), unit="decimal")
-        metrics[f"annualized_volatility:{ticker}"] = metric(
-            lambda: performance.annualized_volatility(returns), unit="decimal"
+        ticker_metrics = risk_metric_set(
+            returns_of(ticker),
+            wealth,
+            benchmark_returns,
+            confidence=req.confidence,
+            risk_free_rate=req.risk_free_rate,
         )
-        metrics[f"max_drawdown:{ticker}"] = metric(lambda: _max_drawdown(wealth), unit="decimal")
-        metrics[f"sharpe:{ticker}"] = metric(
-            lambda: performance.sharpe_ratio(returns, req.risk_free_rate), unit="ratio"
-        )
-        metrics[f"sortino:{ticker}"] = metric(
-            lambda: performance.sortino_ratio(returns, req.risk_free_rate), unit="ratio"
-        )
-        metrics[f"var:{ticker}"] = metric(lambda: risk.historical_var(returns, req.confidence), unit="decimal")
-        metrics[f"cvar:{ticker}"] = metric(lambda: risk.historical_cvar(returns, req.confidence), unit="decimal")
-        metrics[f"beta:{ticker}"] = metric(lambda: risk.beta(returns, benchmark_returns), unit="ratio")
-        charts[f"drawdown:{ticker}"] = series(
-            lambda: [(ts.date().isoformat(), float(v)) for ts, v in risk.drawdown(wealth).items()],
-            x_unit="date",
-            y_unit="decimal",
-        )
+        metrics.update({f"{name}:{ticker}": result for name, result in ticker_metrics.items()})
+        charts[f"drawdown:{ticker}"] = date_series(lambda: risk.drawdown(wealth))
     return envelope(
         tool=TOOL,
         request=req,
