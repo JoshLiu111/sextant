@@ -20,7 +20,7 @@ import pandas as pd
 
 from sextant_compute.analytics import backtest, garch
 from sextant_compute.envelope import Detailed, MetricResult, MetricStatus, SeriesResult, metric
-from sextant_compute.risk.metrics import date_series, missing_series
+from sextant_compute.risk.metrics import CHART_POINTS, date_series, missing_series
 
 GARCH_ID = "garch_volatility"
 BACKTEST_IDS: dict[str, backtest.VarMethod] = {
@@ -78,7 +78,11 @@ def model_check_set(
         for metric_id, method in BACKTEST_IDS.items()
     }
     metrics[GARCH_ID] = metric(lambda: _garch_metric(fitted()), unit="decimal")
-    series = {GARCH_ID: date_series(lambda: garch.annualized_volatility(fitted().conditional_variance))}
+    series = {
+        GARCH_ID: date_series(
+            lambda: garch.annualized_volatility(fitted().conditional_variance), max_points=CHART_POINTS
+        )
+    }
     return metrics, series
 
 

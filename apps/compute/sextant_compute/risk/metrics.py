@@ -194,10 +194,29 @@ def factor_metric_set(
     return out
 
 
-def date_series(compute_values: Callable[[], pd.Series], *, y_unit: str = "decimal") -> SeriesResult:
-    """A chart series of ``(ISO date, value)`` points from a date-indexed Series."""
+CHART_POINTS = 600
+"""Most points in one Risk & Performance daily chart series. A chart is at most a
+few hundred pixels wide, and it keeps the largest request (10 tickers and a
+benchmark over decades) far below Vercel's 4.5 MB response limit."""
+CHART_DECIMALS = 5
+
+
+def date_series(
+    compute_values: Callable[[], pd.Series], *, y_unit: str = "decimal", max_points: int | None = None
+) -> SeriesResult:
+    """A chart series of ``(ISO date, value)`` points from a date-indexed Series.
+
+    With ``max_points`` the series is thinned (``envelope.thin_points``) and rounded
+    to ``CHART_DECIMALS`` for drawing only."""
+    if max_points is None:
+        return series(
+            lambda: [(ts.date().isoformat(), float(v)) for ts, v in compute_values().items()],
+            x_unit="date",
+            y_unit=y_unit,
+        )
     return series(
-        lambda: [(ts.date().isoformat(), float(v)) for ts, v in compute_values().items()],
+        lambda: [(ts.date().isoformat(), round(float(v), CHART_DECIMALS)) for ts, v in compute_values().items()],
         x_unit="date",
         y_unit=y_unit,
+        max_points=max_points,
     )

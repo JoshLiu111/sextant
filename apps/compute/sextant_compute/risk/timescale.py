@@ -13,6 +13,7 @@ import pandas as pd
 
 from sextant_compute.analytics import distribution, risk, rolling
 from sextant_compute.analytics.periods import PERIODS_PER_YEAR, ReturnPeriod, period_returns
+from sextant_compute.risk.metrics import CHART_DECIMALS, CHART_POINTS
 from sextant_compute.envelope import (
     Band,
     Detail,
@@ -24,17 +25,14 @@ from sextant_compute.envelope import (
     series,
 )
 
-ROLLING_DECIMALS = 5
-
-
 def _rolling_series(compute: Callable[[], pd.Series], *, window: int, y_unit: str) -> SeriesResult:
     def points() -> SeriesData:
         values = compute()
         details: dict[str, Detail] = {"window": window}
-        # Rounded: a chart needs no more, and it keeps a 10-ticker, 10-year response small.
-        return SeriesData([(ts.date().isoformat(), round(float(v), ROLLING_DECIMALS)) for ts, v in values.items()], details)
+        # Rounded and thinned: a chart needs no more, and it keeps the response small.
+        return SeriesData([(ts.date().isoformat(), round(float(v), CHART_DECIMALS)) for ts, v in values.items()], details)
 
-    return series(points, x_unit="date", y_unit=y_unit)
+    return series(points, x_unit="date", y_unit=y_unit, max_points=CHART_POINTS)
 
 
 def _iso(ts: pd.Timestamp) -> str:
@@ -43,16 +41,18 @@ def _iso(ts: pd.Timestamp) -> str:
 
 def underwater_series(wealth: pd.Series) -> SeriesResult:
     """The drawdown curve, with the max drawdown shaded from its peak to its
-    recovery (or to the end of the range when it has not recovered)."""
+    recovery (or to the end of the range when it has not recovered). Thinned for
+    drawing; the trough survives thinning (``envelope.thin_points``)."""
 
     def points() -> SeriesData:
         underwater = risk.drawdown(wealth)
         mdd = risk.max_drawdown(wealth)
         end = mdd.recovery.isoformat() if mdd.recovery else _iso(underwater.index[-1])
         band = Band(start=mdd.peak.isoformat(), end=end, label="max_drawdown")
-        return SeriesData([(_iso(ts), float(v)) for ts, v in underwater.items()], bands=[band] if mdd.depth > 0 else [])
+        values = [(_iso(ts), round(float(v), CHART_DECIMALS)) for ts, v in underwater.items()]
+        return SeriesData(values, bands=[band] if mdd.depth > 0 else [])
 
-    return series(points, x_unit="date", y_unit="decimal")
+    return series(points, x_unit="date", y_unit="decimal", max_points=CHART_POINTS)
 
 
 def _histogram(returns: pd.Series, per_year: int) -> SeriesData:

@@ -97,7 +97,7 @@ def test_underwater_chart_is_zero_at_highs_and_bottoms_at_the_max_drawdown():
     assert all(p["y"] <= 0 for p in points)
     lowest = min(points, key=lambda p: p["y"])
     assert lowest["x"] == CRASH_BOTTOM.isoformat()
-    assert lowest["y"] == pytest.approx(-value(body, "max_drawdown:DEMO-D"))
+    assert lowest["y"] == pytest.approx(-value(body, "max_drawdown:DEMO-D"), abs=1e-5)  # chart y is rounded
 
 
 # Hand-built prices: 253 closes = 252 daily returns = exactly one trading year.
