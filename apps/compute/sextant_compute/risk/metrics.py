@@ -22,7 +22,16 @@ METRIC_NAMES = (
     "sortino",
     "var",
     "cvar",
+    "parametric_var",
+    "parametric_cvar",
+    "cornish_fisher_var",
+    "cornish_fisher_cvar",
     "beta",
+    "treynor",
+    "information_ratio",
+    "alpha",
+    "upside_capture",
+    "downside_capture",
 )
 
 METRIC_UNITS: dict[str, str] = {
@@ -33,7 +42,16 @@ METRIC_UNITS: dict[str, str] = {
     "sortino": "ratio",
     "var": "decimal",
     "cvar": "decimal",
+    "parametric_var": "decimal",
+    "parametric_cvar": "decimal",
+    "cornish_fisher_var": "decimal",
+    "cornish_fisher_cvar": "decimal",
     "beta": "ratio",
+    "treynor": "decimal",
+    "information_ratio": "ratio",
+    "alpha": "decimal",
+    "upside_capture": "decimal",
+    "downside_capture": "decimal",
 }
 
 
@@ -67,7 +85,16 @@ def risk_metric_set(
         "sortino": lambda: performance.sortino_ratio(returns, risk_free_rate),
         "var": lambda: risk.historical_var(returns, confidence),
         "cvar": lambda: risk.historical_cvar(returns, confidence),
+        "parametric_var": lambda: risk.parametric_var(returns, confidence),
+        "parametric_cvar": lambda: risk.parametric_cvar(returns, confidence),
+        "cornish_fisher_var": lambda: risk.cornish_fisher_var(returns, confidence),
+        "cornish_fisher_cvar": lambda: risk.cornish_fisher_cvar(returns, confidence),
         "beta": lambda: risk.beta(returns, benchmark_returns),
+        "treynor": lambda: risk.treynor_ratio(returns, benchmark_returns, risk_free_rate),
+        "information_ratio": lambda: risk.information_ratio(returns, benchmark_returns),
+        "alpha": lambda: risk.capm_alpha(returns, benchmark_returns, risk_free_rate),
+        "upside_capture": lambda: risk.upside_capture(returns, benchmark_returns),
+        "downside_capture": lambda: risk.downside_capture(returns, benchmark_returns),
     }
     return {name: metric(computations[name], unit=METRIC_UNITS[name]) for name in METRIC_NAMES}
 

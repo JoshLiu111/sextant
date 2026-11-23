@@ -36,11 +36,12 @@ def payoff_at_expiry(kind: OptionType, s: float, k: float) -> float:
     return max(s - k, 0.0) if kind == "call" else max(k - s, 0.0)
 
 
-def spot_grid(s: float, k: float, points: int = 101) -> list[float]:
-    """Spot prices from 50% of min(S, K) to 150% of max(S, K), including S and K exactly."""
-    lo, hi = 0.5 * min(s, k), 1.5 * max(s, k)
+def spot_grid(*anchors: float, points: int = 101) -> list[float]:
+    """Spot prices from 50% of the lowest anchor (spot, strikes) to 150% of the
+    highest, including every anchor exactly."""
+    lo, hi = 0.5 * min(anchors), 1.5 * max(anchors)
     step = (hi - lo) / (points - 1)
-    grid = {round(lo + i * step, 10) for i in range(points)} | {s, k}
+    grid = {round(lo + i * step, 10) for i in range(points)} | set(anchors)
     return sorted(grid)
 
 

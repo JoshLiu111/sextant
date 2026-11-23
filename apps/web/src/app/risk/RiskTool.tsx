@@ -13,19 +13,19 @@ import { getMessages } from "@/i18n";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
 import { DEMO_SOURCE, useMyDataProviders, type PriceSource } from "@/lib/myData";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
 // Metric ids are "<metric>:<ticker>", series ids "drawdown:<ticker>".
-const METRICS = [
-  "annualized_return",
-  "annualized_volatility",
-  "max_drawdown",
-  "var",
-  "cvar",
-  "sharpe",
-  "sortino",
-  "beta",
-] as const;
+// Cards are grouped by section; the order within a group is the display order.
+const METRIC_GROUPS = {
+  metrics: ["annualized_return", "annualized_volatility", "max_drawdown"],
+  tail: ["var", "cvar", "parametric_var", "parametric_cvar", "cornish_fisher_var", "cornish_fisher_cvar"],
+  riskAdjusted: ["sharpe", "sortino", "treynor", "information_ratio"],
+  benchmark: ["beta", "alpha", "upside_capture", "downside_capture"],
+} as const;
+
+type MetricId = (typeof METRIC_GROUPS)[keyof typeof METRIC_GROUPS][number];
 
 // confidence and risk_free_rate are kept in percent; the API takes decimals.
 type Form = {
@@ -50,6 +50,10 @@ const DEMO_DEFAULTS: Form = {
 const MY_DATA_DEFAULTS: Form = { ...DEMO_DEFAULTS, tickers: "AAPL, MSFT", benchmark: "SPY" };
 
 const defaultsFor = (source: PriceSource): Form => (source === DEMO_SOURCE ? DEMO_DEFAULTS : MY_DATA_DEFAULTS);
+
+// Shareable links: `/risk?tickers=DEMO-A,DEMO-D&start=2022-01-01`, one param per field.
+// Demo inputs only: My data needs the visitor's own key, so a link never carries it.
+const URL_CODEC = fieldsCodec(DEMO_DEFAULTS);
 
 function percentToDecimal(raw: string): number | null {
   if (raw.trim() === "") return null;
@@ -86,11 +90,12 @@ function dateMarker(result: MetricResult | undefined, key: string, label: string
 export function RiskTool() {
   const t = getMessages();
   const r = t.risk;
+  const { initial, share } = useUrlInputs(URL_CODEC);
   const providers = useMyDataProviders();
   const [chosen, setChosen] = useState<PriceSource>(DEMO_SOURCE);
   // A provider whose key is gone falls back to demo data.
   const source: PriceSource = chosen !== DEMO_SOURCE && !providers.includes(chosen) ? DEMO_SOURCE : chosen;
-  const [forms, setForms] = useState<Partial<Record<PriceSource, Form>>>({});
+  const [forms, setForms] = useState<Partial<Record<PriceSource, Form>>>(() => ({ [DEMO_SOURCE]: initial }));
   const form = forms[source] ?? defaultsFor(source);
   const [chartTicker, setChartTicker] = useState<string | null>(null);
   const { result, fieldErrors, error, run } = useCompute<string, string>("/risk/metrics", toRequest(form, source));
@@ -100,6 +105,7 @@ export function RiskTool() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (source === DEMO_SOURCE) share(form);
     run();
   }
 
@@ -206,27 +212,29 @@ export function RiskTool() {
             message={error}
           />
         )}
-        <div>
-          <h2 className="text-lg font-semibold">{r.sections.metrics}</h2>
-          <div className="mt-2 grid gap-4 xl:grid-cols-3">
-            {METRICS.map((id) => (
-              <MetricCard
-                key={id}
-                id={id}
-                explainer={r.metrics[id]}
-                values={
-                  symbols.length
-                    ? symbols.map((ticker) => ({
-                        id: `${id}:${ticker}`,
-                        label: label(ticker),
-                        result: result?.metrics[`${id}:${ticker}`],
-                      }))
-                    : [{ id: `${id}:pending`, result: undefined }]
-                }
-              />
-            ))}
+        {(Object.keys(METRIC_GROUPS) as (keyof typeof METRIC_GROUPS)[]).map((group) => (
+          <div key={group}>
+            <h2 className="text-lg font-semibold">{r.sections[group]}</h2>
+            <div className="mt-2 grid gap-4 xl:grid-cols-3">
+              {METRIC_GROUPS[group].map((id: MetricId) => (
+                <MetricCard
+                  key={id}
+                  id={id}
+                  explainer={r.metrics[id]}
+                  values={
+                    symbols.length
+                      ? symbols.map((ticker) => ({
+                          id: `${id}:${ticker}`,
+                          label: label(ticker),
+                          result: result?.metrics[`${id}:${ticker}`],
+                        }))
+                      : [{ id: `${id}:pending`, result: undefined }]
+                  }
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        ))}
         <div>
           <div className="flex flex-wrap items-end justify-between gap-2">
             <h2 className="text-lg font-semibold">{r.sections.chart}</h2>
