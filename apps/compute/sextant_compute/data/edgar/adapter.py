@@ -51,7 +51,7 @@ class EdgarAdapter:
         "company_filings": 10 * 60,
     }
     # Bump when the mapping file, the standardizer or the output shape changes.
-    version = "1"
+    version = "2"
 
     def __init__(
         self,
