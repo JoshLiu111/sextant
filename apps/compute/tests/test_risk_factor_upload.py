@@ -239,3 +239,102 @@ def test_the_3_factor_and_momentum_files_must_share_a_frequency(client, alice):
 def test_uploading_needs_a_signed_in_user(client, my_data):
     assert upload(client, None, three_factor_file()).status_code == 401
     assert client.get(FILES).status_code == 401
+
+
+def test_monthly_factors_regress_month_end_returns_and_recover_the_loadings(client, alice):
+    upload(client, alice, three_factor_file())
+    upload(client, alice, momentum_file())
+
+    metrics = risk(client, alice)
+
+    for model, coefficients in {"ff3": ("market", "smb", "hml"), "carhart": ("market", "smb", "hml", "mom")}.items():
+        for coefficient in coefficients:
+            result = metrics[f"{model}_{coefficient}:AAA"]
+            assert result["status"] == "ok", result
+            assert result["details"]["factor_source"] == "user_upload"
+        r2 = metrics[f"{model}_r_squared:AAA"]
+        # Dec 2020 is the base month; Jan 2021..Dec 2023 are the 36 monthly returns.
+        assert r2["details"]["observations"] == 36
+        assert r2["details"]["frequency"] == "monthly"
+    carhart = {c: metrics[f"carhart_{c}:AAA"]["value"] for c in ("market", "smb", "hml", "mom")}
+    assert carhart == pytest.approx({"market": 1.2, "smb": 0.5, "hml": -0.3, "mom": 0.4}, abs=0.05)
+    # Monthly alpha annualizes x12.
+    assert metrics["carhart_alpha:AAA"]["value"] == pytest.approx(ALPHA_MONTHLY * 12, abs=0.015)
+    # The market fund is Mkt-RF + RF, so it loads one for one on the market factor.
+    assert metrics["ff3_market:MKT"]["value"] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_a_range_that_ends_mid_month_drops_the_partial_month(client, alice):
+    upload(client, alice, three_factor_file())
+
+    metrics = risk(client, alice, end="2023-12-15")
+
+    assert metrics["ff3_r_squared:AAA"]["details"]["observations"] == 35
+
+
+def test_without_an_upload_the_factor_metrics_say_how_to_get_them(client, alice):
+    metrics = risk(client, alice)
+
+    reason = metrics["ff3_alpha:AAA"]["reason"]
+    assert metrics["ff3_alpha:AAA"]["status"] == "missing_data"
+    assert "upload a factor file" in reason
+    # Risk metrics are untouched.
+    assert metrics["annualized_volatility:AAA"]["status"] == "ok"
+
+
+def test_a_3_factor_file_alone_gives_ff3_and_leaves_carhart_missing(client, alice):
+    upload(client, alice, three_factor_file())
+
+    metrics = risk(client, alice)
+
+    assert metrics["ff3_smb:AAA"]["status"] == "ok"
+    assert metrics["carhart_mom:AAA"]["status"] == "missing_data"
+    assert "MOM" in metrics["carhart_mom:AAA"]["reason"]
+
+
+def test_one_users_factors_are_never_seen_by_another_user_nor_cached(client, alice, db_url):
+    bob = user_with_key(client, "bob", BOB_KEY)
+    upload(client, alice, three_factor_file())
+
+    assert risk(client, alice)["ff3_market:AAA"]["status"] == "ok"
+    assert client.get(FILES, headers=bob).json() == []
+    assert "until you upload a factor file" in risk(client, bob)["ff3_market:AAA"]["reason"]
+    # Bob deleting "his" file leaves Alice's alone.
+    assert client.delete(f"{FILES}/three_factor", headers=bob).status_code == 204
+    assert [f["kind"] for f in client.get(FILES, headers=alice).json()] == ["three_factor"]
+
+    assert len(client.app.state.data_service.shared_cache) == 0
+    with psycopg.connect(db_url) as conn:
+        datasets = {key.split(":")[4] for (key,) in conn.execute("SELECT cache_key FROM user_data_cache")}
+    assert datasets <= {"daily_prices"}  # prices only; factors are read from the upload, never cached
+
+
+def test_removing_the_file_removes_the_regressions(client, alice):
+    upload(client, alice, three_factor_file())
+
+    assert client.delete(f"{FILES}/three_factor", headers=alice).status_code == 204
+
+    assert client.get(FILES, headers=alice).json() == []
+    assert risk(client, alice)["ff3_market:AAA"]["status"] == "missing_data"
+
+
+def test_demo_data_still_uses_the_synthetic_factors_after_an_upload(client, alice):
+    upload(client, alice, three_factor_file())
+
+    metrics = risk(client, alice, source="synthetic", tickers=["DEMO-H"], benchmark="DEMO-MKT")
+
+    assert metrics["ff3_smb:DEMO-H"]["details"]["factor_source"] == "synthetic"
+
+
+def test_a_file_that_does_not_overlap_the_price_range_is_rejected_with_both_ranges(client, alice):
+    old = monthly_factors()
+    old.index = pd.period_range("1926-07", periods=len(old), freq="M")
+    upload(client, alice, three_factor_file(old))
+
+    metrics = risk(client, alice)
+
+    result = metrics["ff3_market:AAA"]
+    assert result["status"] == "missing_data"
+    assert result["reason"] == (
+        "Your factor file covers 1926-07 to 1929-06, which does not overlap the price range 2020-12-01 to 2023-12-31."
+    )

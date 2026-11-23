@@ -76,6 +76,15 @@ def _user_data_cache_row(conn: psycopg.Connection, user_id) -> None:
     )
 
 
+def _user_factor_file_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO user_factor_files (user_id, kind, filename, frequency, factors)"
+        " VALUES (%s, 'three_factor', 'F-F_Research_Data_Factors.CSV', 'monthly',"
+        " '{\"dates\": [], \"order\": [], \"columns\": {}}'::jsonb)",
+        (user_id,),
+    )
+
+
 # table name -> inserts one row owned by user_id. Order matters: parents first.
 USER_OWNED_ROWS: dict[str, RowFactory] = {
     "sessions": _session_row,
@@ -85,6 +94,7 @@ USER_OWNED_ROWS: dict[str, RowFactory] = {
     "ai_usage": _ai_usage_row,
     "provider_keys": _provider_key_row,
     "user_data_cache": _user_data_cache_row,
+    "user_factor_files": _user_factor_file_row,
 }
 
 

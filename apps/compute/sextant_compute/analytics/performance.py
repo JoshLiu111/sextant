@@ -8,6 +8,7 @@ with ``total_returns``). Annualization assumes ``periods_per_year`` periods
 from __future__ import annotations
 
 import math
+from datetime import date
 
 import pandas as pd
 
@@ -32,6 +33,18 @@ def total_return_index(close: pd.Series, dividend: pd.Series | None = None) -> p
         raise MissingData("needs at least 1 daily price")
     growth = (1 + total_returns(close, dividend)).cumprod()
     return pd.concat([pd.Series([1.0], index=close.index[:1]), growth])
+
+
+def monthly_returns(wealth: pd.Series, through: date) -> pd.Series:
+    """Month-end to month-end returns of a daily wealth index, indexed by month end.
+
+    The first month in the data is only the base (its last close starts the first
+    return), and a month that ends after ``through`` is dropped, since its last
+    close is not a month-end close.
+    """
+    month_end = wealth.resample("ME").last().dropna()
+    returns = month_end.pct_change().iloc[1:]
+    return returns[returns.index <= pd.Timestamp(through)]
 
 
 def _require(returns: pd.Series, minimum: int) -> pd.Series:

@@ -16,6 +16,8 @@ from sextant_compute.data.service import Ctx, Data
 from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
 from sextant_compute.envelope import MetricResult, MissingData, ResultEnvelope, SeriesResult, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
+from sextant_compute.risk.factor_api import FACTOR_SOURCE, Db, load_user_factors
+from sextant_compute.risk.factor_files import Frequency
 from sextant_compute.risk.metrics import (
     date_series,
     factor_metric_set,
@@ -81,10 +83,13 @@ def _fields_for(exc: NoSuchData, req: RiskRequest) -> dict[str, str]:
 
 
 @router.post("/metrics")
-def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
+def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx, db: Db) -> ResultEnvelope:
     """Demo data rejects an unknown ticker inline (the demo set is small and
     listed). On My data an unknown real ticker only marks its own metrics
-    ``missing_data``; the benchmark must exist either way."""
+    ``missing_data``; the benchmark must exist either way.
+
+    Factor regressions use the synthetic demo factors on Demo data, and on My data
+    the factor file the user uploaded (``risk.factor_api``), at its frequency."""
     symbols = list(dict.fromkeys([*req.tickers, req.benchmark]))
     try:
         prices = data.daily_prices(
@@ -97,11 +102,18 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
         raise ApiError(422, "no_such_data", message, {"benchmark": message})
 
     factors: pd.DataFrame | MissingData
-    try:
-        history = data.daily_factors(ctx, req.start, req.end, source=req.source)
-        factors, factor_source = history.frame, history.source.id
-    except NoSuchData as exc:
-        factors, factor_source = MissingData(exc.message), None
+    frequency: Frequency = "daily"
+    if req.source == DEMO_SOURCE:
+        try:
+            history = data.daily_factors(ctx, req.start, req.end, source=req.source)
+            factors, factor_source = history.frame, history.source.id
+        except NoSuchData as exc:
+            factors, factor_source = MissingData(exc.message), None
+    else:
+        # ADR 0003: real factors only come from the user's own upload, read per request
+        # for this user and never cached.
+        factors, frequency = load_user_factors(db, ctx.user_id, req.start, req.end)
+        factor_source = FACTOR_SOURCE
 
     metrics: dict[str, MetricResult] = {}
     charts: dict[str, SeriesResult] = {}
@@ -115,6 +127,13 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
         frame = prices.frames[ticker]
         return performance.total_returns(frame["close"], frame["dividend"])
 
+    def factor_returns_of(ticker: str) -> pd.Series:
+        """The ticker's returns at the factor data's frequency."""
+        if frequency == "daily":
+            return returns_of(ticker)
+        frame = prices.frames[ticker]
+        return performance.monthly_returns(performance.total_return_index(frame["close"], frame["dividend"]), req.end)
+
     benchmark_returns = returns_of(req.benchmark)
     for ticker in prices.frames:
         frame = prices.frames[ticker]
@@ -126,7 +145,9 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
             confidence=req.confidence,
             risk_free_rate=req.risk_free_rate,
         )
-        ticker_metrics.update(factor_metric_set(returns_of(ticker), factors, factor_source=factor_source))
+        ticker_metrics.update(
+            factor_metric_set(factor_returns_of(ticker), factors, factor_source=factor_source, frequency=frequency)
+        )
         metrics.update({f"{name}:{ticker}": result for name, result in ticker_metrics.items()})
         charts[f"drawdown:{ticker}"] = date_series(lambda: risk.drawdown(wealth))
     return envelope(

@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import date
 from functools import cache
+from typing import Literal
 
 import pandas as pd
 
@@ -118,6 +119,8 @@ def missing_series(reason: str, *, y_unit: str = "decimal") -> SeriesResult:
 FACTOR_MODELS: dict[str, tuple[str, ...]] = {"ff3": factor_models.FF3, "carhart": factor_models.CARHART}
 """Metric-id prefix -> the factor columns the model regresses on."""
 
+_PERIODS_PER_YEAR = {"daily": performance.TRADING_DAYS, "monthly": 12}
+
 _COEFFICIENT = {"Mkt-RF": "market", "SMB": "smb", "HML": "hml", "MOM": "mom"}
 
 
@@ -127,14 +130,19 @@ def factor_metric_names(model: str) -> list[str]:
 
 
 def factor_metric_set(
-    returns: pd.Series, factors: pd.DataFrame | MissingData, *, factor_source: str | None
+    returns: pd.Series,
+    factors: pd.DataFrame | MissingData,
+    *,
+    factor_source: str | None,
+    frequency: Literal["daily", "monthly"] = "daily",
 ) -> dict[str, MetricResult]:
     """FF3 and Carhart regression metrics for one return series, keyed like ``factor_metric_names``.
 
     ``factors`` is any frame in the ``analytics.factors`` layout, whatever its origin, or
     the ``MissingData`` that explains why there is none (every metric then reports it).
-    Coefficients carry ``t_stat`` in details, R-squared carries ``observations``;
-    every metric names the ``factor_source``.
+    Coefficients carry ``t_stat`` in details, R-squared carries ``observations`` and
+    ``frequency``; every metric names the ``factor_source``. ``returns`` and ``factors``
+    are both daily or both monthly (``frequency``), which sets the alpha annualization.
     """
     out: dict[str, MetricResult] = {}
     for model, columns in FACTOR_MODELS.items():
@@ -143,7 +151,9 @@ def factor_metric_set(
         def fit(columns: tuple[str, ...] = columns) -> factor_models.FactorRegression:
             if isinstance(factors, MissingData):
                 raise factors
-            return factor_models.factor_regression(returns, factors, columns)
+            return factor_models.factor_regression(
+                returns, factors, columns, periods_per_year=_PERIODS_PER_YEAR[frequency]
+            )
 
         def coefficient(name: str, value: Callable[[factor_models.FactorRegression], float]) -> Detailed:
             result = fit()
@@ -155,7 +165,10 @@ def factor_metric_set(
                 lambda column=column: coefficient(column, lambda f: f.loadings[column]), unit="ratio"
             )
         out[f"{model}_r_squared"] = metric(
-            lambda: Detailed(fit().r_squared, {"observations": fit().observations, "factor_source": factor_source}),
+            lambda: Detailed(
+                fit().r_squared,
+                {"observations": fit().observations, "frequency": frequency, "factor_source": factor_source},
+            ),
             unit="ratio",
         )
     return out
