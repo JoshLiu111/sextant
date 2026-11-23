@@ -158,3 +158,69 @@ def test_dupont_components_multiply_back_to_roe_every_year() -> None:
                 * v["asset_turnover"] * v["equity_multiplier"]
             )
             assert five == approx(v["return_on_equity"])
+
+
+def newly_not_ok(tags: tuple[str, ...], period: str = AAPL_FY26) -> tuple[dict, set[str]]:
+    """The AAPL response with ``tags`` removed, and the metrics in ``period``
+    that are no longer ok compared with the full fixture."""
+    facts = without_tags(load_facts("AAPL"), *tags)
+    body = post(adapter=edgar_adapter(edgar_transport(facts_override={"AAPL": facts})))
+    baseline = post()
+
+    def not_ok(b: dict) -> set[str]:
+        return {k.split(":")[0] for k, v in b["metrics"].items() if k.endswith(period) and v["status"] != "ok"}
+
+    return body, not_ok(body) - not_ok(baseline)
+
+
+def test_a_missing_line_item_makes_only_the_score_that_reads_it_missing() -> None:
+    # The fixture also tags S&M and G&A, which SG&A falls back to: remove all three.
+    body, affected = newly_not_ok((
+        "us-gaap:SellingGeneralAndAdministrativeExpense",
+        "us-gaap:SellingAndMarketingExpense",
+        "us-gaap:GeneralAndAdministrativeExpense",
+    ))
+
+    assert affected == {"beneish_m"}
+    beneish = m(body, "beneish_m", "AAPL", AAPL_FY26)
+    assert beneish["status"] == "missing_data"
+    assert beneish["reason"] == "Selling, General and Administrative is not reported by this company."
+
+
+def test_a_missing_line_item_makes_only_its_piotroski_signal_and_the_f_score_missing() -> None:
+    body, affected = newly_not_ok(("us-gaap:WeightedAverageNumberOfSharesOutstandingBasic",))
+
+    assert affected == {"piotroski_no_dilution", "piotroski_f"}
+    for model in affected:
+        result = m(body, model, "AAPL", AAPL_FY26)
+        assert result["status"] == "missing_data", model
+        assert "Weighted Average Shares (Basic)" in result["reason"], model
+    assert m(body, "piotroski_roa", "AAPL", AAPL_FY26)["value"] == 1
+
+
+def test_a_bank_gets_the_signals_it_can_and_names_the_items_it_lacks() -> None:
+    body = post({"companies": [{"ticker": "JPM"}]})
+
+    jpm = "2025-12-31"
+    assert m(body, "piotroski_roa", "JPM", jpm)["status"] == "ok"
+    assert m(body, "piotroski_cfo", "JPM", jpm)["value"] == 0  # operating cash flow -147,782
+    current = m(body, "piotroski_delta_current_ratio", "JPM", jpm)
+    assert current["status"] == "missing_data"
+    assert "Current Assets" in current["reason"]
+    assert m(body, "piotroski_f", "JPM", jpm)["status"] == "missing_data"
+    assert m(body, "beneish_m", "JPM", jpm)["status"] == "missing_data"
+    assert m(body, "dupont_tax_burden", "JPM", jpm)["status"] == "ok"
+    interest = m(body, "dupont_interest_burden", "JPM", jpm)
+    assert interest["status"] == "missing_data"
+    assert "Operating Income" in interest["reason"]
+
+
+def test_year_over_year_signals_need_the_prior_year() -> None:
+    body = post({"companies": [{"ticker": "AAPL"}], "years": 10})
+
+    first = body["companies"][0]["periods"][0]["id"]  # FY2017: FY2016 is the earliest year in the data
+    delta = m(body, "piotroski_delta_roa", "AAPL", first)
+    assert delta["status"] == "missing_data"
+    assert "FY2016" in delta["reason"]
+    assert m(body, "piotroski_cfo", "AAPL", first)["status"] == "ok"
+    assert m(body, "beneish_m", "AAPL", first)["status"] == "ok"
