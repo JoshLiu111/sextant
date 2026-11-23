@@ -88,6 +88,23 @@ test("the Valuation Calculator takes its My data price from FMP's latest close",
   await expect(market.locator('[data-metric-value="share_price"]')).toContainText("$402.00");
   await expect(market.locator('[data-metric-value="share_price"]')).toContainText("Latest close from FMP, 2024-02-12");
   await expect(main.getByText("Optional. Leave blank to use the latest close from FMP.")).toBeVisible();
+
+  // The footer credits both sources the result used: EDGAR statements and the FMP price.
+  const footer = page.getByRole("contentinfo");
+  await expect(footer.locator('[data-attribution="fmp"]')).toContainText("Data provided by Financial Modeling Prep");
+  await expect(footer.locator('[data-attribution="sec"]')).toBeVisible();
+});
+
+test("on Risk & Performance with FMP the footer credits FMP instead of demo data", async ({ page }) => {
+  await signInWithKeys(page, { fmp: "goodfmp000000000000000000000000fmp1" });
+  const main = await openRisk(page);
+  const footer = page.getByRole("contentinfo");
+
+  await main.getByTestId("data-mode").getByText("My data").click();
+  await expect(metric(page, "max_drawdown:AAPL")).toContainText("10.00%");
+  await expect(footer.locator('[data-attribution="fmp"]')).toBeVisible();
+  await expect(footer.locator('[data-attribution="demo"]')).toHaveCount(0);
+  await expect(footer.locator('[data-attribution="tiingo"]')).toHaveCount(0);
 });
 
 test("with both keys the screener's price criteria run on the provider the user picks", async ({ page }) => {
