@@ -64,6 +64,8 @@ const ai = {
   ANTHROPIC_API_KEY: "e2e-fake-anthropic-key-not-real",
   ANTHROPIC_BASE_URL: `http://127.0.0.1:${ANTHROPIC_PORT}`,
   AI_DAILY_QUOTA: "3",
+  // The only account allowed into the operator view (/operator).
+  OPERATOR_EMAILS: "operator@example.test",
 };
 const uvicorn = `uv run uvicorn main:app --host 127.0.0.1 --port ${COMPUTE_PORT}`;
 const e2eDatabaseUrl = process.env.E2E_DATABASE_URL;

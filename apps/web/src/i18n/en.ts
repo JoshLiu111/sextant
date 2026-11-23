@@ -1592,6 +1592,27 @@ export const en = {
       "Not investment advice. Sextant is for education and research only; results may be wrong or out of date.",
     sourcesLabel: "Data sources",
   },
+  operator: {
+    heading: "AI usage",
+    intro: (since: string, until: string) =>
+      `AI calls, tokens and estimated cost per user, ${since} to ${until} (UTC days). Operator only.`,
+    pricing: (input: string, output: string) =>
+      `Estimated cost at ${input} per million input tokens and ${output} per million output tokens.`,
+    totals: "Total",
+    perUser: "AI usage per user",
+    perDay: "AI usage per user per day",
+    empty: "No AI calls in this period.",
+    columns: {
+      day: "Day (UTC)",
+      user: "User",
+      calls: "Calls",
+      inputTokens: "Input tokens",
+      outputTokens: "Output tokens",
+      cost: "Estimated cost",
+    },
+    errorHeading: "AI usage could not be loaded",
+    unavailable: "The usage log is unavailable right now. Please retry in a moment.",
+  },
   notFound: {
     heading: "Page not found",
     back: "Back to all tools",
