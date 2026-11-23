@@ -1,4 +1,5 @@
-"""Risk & Performance time-scale views: rolling curves and the return distribution.
+"""Risk & Performance time-scale views: underwater chart, rolling curves and the
+return distribution.
 
 Kept apart from ``risk_metric_set`` so the shared P3 metric set stays small;
 ``timescale_results`` adds these per-ticker series and metrics to the envelope.
@@ -10,10 +11,9 @@ from collections.abc import Callable
 
 import pandas as pd
 
-from sextant_compute.analytics import rolling
-from sextant_compute.envelope import Detail, MetricResult, SeriesData, SeriesResult, series
-
-ROLLING_SERIES = ("rolling_volatility", "rolling_sharpe", "rolling_beta")
+from sextant_compute.analytics import distribution, risk, rolling
+from sextant_compute.analytics.periods import PERIODS_PER_YEAR, ReturnPeriod, period_returns
+from sextant_compute.envelope import Band, Detail, MetricResult, SeriesData, SeriesResult, metric, series
 
 
 def _rolling_series(compute: Callable[[], pd.Series], *, window: int, y_unit: str) -> SeriesResult:
@@ -25,6 +25,30 @@ def _rolling_series(compute: Callable[[], pd.Series], *, window: int, y_unit: st
     return series(points, x_unit="date", y_unit=y_unit)
 
 
+def _iso(ts: pd.Timestamp) -> str:
+    return pd.Timestamp(ts).date().isoformat()
+
+
+def underwater_series(wealth: pd.Series) -> SeriesResult:
+    """The drawdown curve, with the max drawdown shaded from its peak to its
+    recovery (or to the end of the range when it has not recovered)."""
+
+    def points() -> SeriesData:
+        underwater = risk.drawdown(wealth)
+        mdd = risk.max_drawdown(wealth)
+        end = mdd.recovery.isoformat() if mdd.recovery else _iso(underwater.index[-1])
+        band = Band(start=mdd.peak.isoformat(), end=end, label="max_drawdown")
+        return SeriesData([(_iso(ts), float(v)) for ts, v in underwater.items()], bands=[band] if mdd.depth > 0 else [])
+
+    return series(points, x_unit="date", y_unit="decimal")
+
+
+def _histogram(returns: pd.Series, per_year: int) -> SeriesData:
+    hist = distribution.histogram(returns, per_year)
+    details: dict[str, Detail] = {"bin_width": hist.bin_width, "observations": hist.observations}
+    return SeriesData(list(zip(hist.centers, [float(c) for c in hist.counts], strict=True)), details)
+
+
 def timescale_results(
     ticker: str,
     returns: pd.Series,
@@ -32,8 +56,19 @@ def timescale_results(
     *,
     window: int,
     risk_free_rate: float,
+    period: ReturnPeriod,
 ) -> tuple[dict[str, MetricResult], dict[str, SeriesResult]]:
-    """Metrics and series ids ``<name>:<ticker>`` for one ticker's daily returns."""
+    """Metrics and series ids ``<name>:<ticker>`` for one ticker's daily returns.
+
+    Rolling curves use daily returns (``window`` in trading days); the
+    distribution uses the chosen return period.
+    """
+    per_year = PERIODS_PER_YEAR[period]
+    by_period = period_returns(returns, period)
+    shape = {
+        f"skewness:{ticker}": metric(lambda: distribution.skewness(by_period, per_year), unit="ratio"),
+        f"excess_kurtosis:{ticker}": metric(lambda: distribution.excess_kurtosis(by_period, per_year), unit="ratio"),
+    }
     charts = {
         f"rolling_volatility:{ticker}": _rolling_series(
             lambda: rolling.rolling_volatility(returns, window), window=window, y_unit="decimal"
@@ -44,5 +79,8 @@ def timescale_results(
         f"rolling_beta:{ticker}": _rolling_series(
             lambda: rolling.rolling_beta(returns, benchmark_returns, window), window=window, y_unit="ratio"
         ),
+        f"return_distribution:{ticker}": series(
+            lambda: _histogram(by_period, per_year), x_unit="decimal", y_unit="count"
+        ),
     }
-    return {}, charts
+    return shape, charts

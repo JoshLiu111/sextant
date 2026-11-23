@@ -181,3 +181,86 @@ def test_an_out_of_range_window_is_a_field_error(window):
 
     assert response.status_code == 422
     assert response.json()["error"]["fields"]["rolling_window"] == "Enter a window between 20 and 756 trading days."
+
+
+# --- Return distribution ---
+
+# 40 daily returns: 36 gains of 1% and four losses of 2%, 4%, 6% and 10%.
+TAIL_RETURNS = [0.01] * 18 + [-0.06, -0.02] + [0.01] * 18 + [-0.10, -0.04]
+
+
+def tail_metrics(**body):
+    closes = [100.0]
+    for r in TAIL_RETURNS:
+        closes.append(closes[-1] * (1 + r))
+    with serving(FixtureAdapter({"TAIL": price_frame("2024-01-01", closes)})):
+        return metrics(tickers=["TAIL"], benchmark="TAIL", start="2024-01-01", end="2024-12-31", **body)
+
+
+def test_skewness_and_excess_kurtosis_of_the_returns():
+    body = tail_metrics()
+
+    # Adjusted Fisher-Pearson G1 and the bias-corrected excess kurtosis G2 (as in Excel's SKEW/KURT),
+    # worked out by hand from the 40 returns above.
+    assert value(body, "skewness:TAIL") == pytest.approx(-3.7249198598, rel=1e-9)
+    assert value(body, "excess_kurtosis:TAIL") == pytest.approx(14.2928007540, rel=1e-9)
+    assert body["metrics"]["skewness:TAIL"]["unit"] == "ratio"
+
+
+def test_the_histogram_counts_every_return_once():
+    body = tail_metrics()
+
+    hist = body["series"]["return_distribution:TAIL"]
+    assert hist["status"] == "ok" and hist["x_unit"] == "decimal" and hist["y_unit"] == "count"
+    counts = [p["y"] for p in hist["points"]]
+    # ceil(sqrt(40)) = 7 equal bins from the worst (-10%) to the best (+1%) return.
+    assert len(counts) == 7
+    assert sum(counts) == 40
+    assert counts[0] == 1 and counts[-1] == 36
+    assert hist["details"]["bin_width"] == pytest.approx(0.11 / 7)
+    assert hist["details"]["observations"] == 40
+    assert hist["points"][0]["x"] == pytest.approx(-0.10 + 0.11 / 14)
+
+
+def test_the_fat_tailed_demo_ticker_has_positive_excess_kurtosis():
+    body = metrics(tickers=["DEMO-F"], start="2021-01-01", end="2025-12-31")
+
+    assert value(body, "excess_kurtosis:DEMO-F") > 1
+
+
+def test_the_distribution_follows_the_return_period():
+    daily = metrics(tickers=["DEMO-A"], start="2021-01-01", end="2025-12-31")
+    monthly = metrics(tickers=["DEMO-A"], start="2021-01-01", end="2025-12-31", period="monthly")
+
+    assert monthly["series"]["return_distribution:DEMO-A"]["details"]["observations"] == 60
+    assert daily["series"]["return_distribution:DEMO-A"]["details"]["observations"] > 1000
+    assert value(daily, "skewness:DEMO-A") != value(monthly, "skewness:DEMO-A")
+
+
+def test_too_few_returns_for_kurtosis_is_missing_data():
+    with serving(FixtureAdapter({"T": price_frame("2024-01-01", [100.0, 101.0, 99.0, 100.0])})):
+        body = metrics(tickers=["T"], benchmark="T", start="2024-01-01", end="2024-12-31")
+
+    assert body["metrics"]["excess_kurtosis:T"]["status"] == "missing_data"
+    assert "needs at least 4 daily returns" in body["metrics"]["excess_kurtosis:T"]["reason"]
+    assert body["metrics"]["skewness:T"]["status"] == "ok"
+
+
+# --- Underwater chart ---
+
+
+def test_the_underwater_chart_shades_the_max_drawdown_from_peak_to_recovery():
+    body = metrics(tickers=["DEMO-D"], start="2021-01-01", end="2025-12-31")
+
+    mdd = body["metrics"]["max_drawdown:DEMO-D"]["details"]
+    assert mdd["trough"] == "2022-04-11"
+    assert mdd["recovery"] is not None
+    bands = body["series"]["drawdown:DEMO-D"]["bands"]
+    assert bands == [{"start": mdd["peak"], "end": mdd["recovery"], "label": "max_drawdown"}]
+
+
+def test_an_unrecovered_max_drawdown_is_shaded_to_the_end_of_the_range():
+    body = metrics(tickers=["DEMO-D"], start="2022-02-28", end="2022-04-11")
+
+    bands = body["series"]["drawdown:DEMO-D"]["bands"]
+    assert bands == [{"start": "2022-02-28", "end": "2022-04-11", "label": "max_drawdown"}]

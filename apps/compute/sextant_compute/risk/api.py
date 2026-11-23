@@ -16,8 +16,8 @@ from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
 from sextant_compute.envelope import MetricResult, ResultEnvelope, SeriesResult, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
-from sextant_compute.risk.metrics import date_series, risk_metric_set
-from sextant_compute.risk.timescale import timescale_results
+from sextant_compute.risk.metrics import risk_metric_set
+from sextant_compute.risk.timescale import timescale_results, underwater_series
 
 router = APIRouter(tags=["risk"])
 
@@ -114,13 +114,14 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
             period=req.period,
         )
         metrics.update({f"{name}:{ticker}": result for name, result in ticker_metrics.items()})
-        charts[f"drawdown:{ticker}"] = date_series(lambda: risk.drawdown(wealth))
+        charts[f"drawdown:{ticker}"] = underwater_series(wealth)
         extra_metrics, extra_charts = timescale_results(
             ticker,
             returns_of(ticker),
             benchmark_returns,
             window=req.rolling_window,
             risk_free_rate=req.risk_free_rate,
+            period=req.period,
         )
         metrics.update(extra_metrics)
         charts.update(extra_charts)
