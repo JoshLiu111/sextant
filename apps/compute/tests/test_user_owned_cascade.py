@@ -68,6 +68,14 @@ def _provider_key_row(conn: psycopg.Connection, user_id) -> None:
     )
 
 
+def _user_data_cache_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO user_data_cache (cache_key, user_id, source, value, expires_at)"
+        " VALUES (%s, %s, 'tiingo', '{}'::jsonb, now() + interval '1 hour')",
+        (f"v1:user:{user_id}:tiingo@1:daily_prices:cascade", user_id),
+    )
+
+
 # table name -> inserts one row owned by user_id. Order matters: parents first.
 USER_OWNED_ROWS: dict[str, RowFactory] = {
     "sessions": _session_row,
@@ -76,6 +84,7 @@ USER_OWNED_ROWS: dict[str, RowFactory] = {
     "portfolio_transactions": _portfolio_transaction_row,
     "ai_usage": _ai_usage_row,
     "provider_keys": _provider_key_row,
+    "user_data_cache": _user_data_cache_row,
 }
 
 

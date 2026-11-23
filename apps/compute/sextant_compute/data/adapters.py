@@ -132,6 +132,28 @@ class EconomicSeriesAdapter(Adapter, Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class SeriesSummary:
+    """One search hit: enough to pick a series before fetching it. ``last_updated``
+    is ISO 8601 with the provider's UTC offset, ``observation_end`` an ISO date."""
+
+    id: str
+    title: str
+    units: str
+    frequency: str
+    seasonal_adjustment: str
+    last_updated: str
+    observation_end: str
+
+
+class SeriesSearchAdapter(Adapter, Protocol):
+    def search_series(self, ctx: RequestContext, query: str, limit: int) -> list[SeriesSummary]:
+        """Series matching ``query`` (name, keyword or id), best match first, at most
+        ``limit``. Only series ``economic_series`` may serve are offered (FRED:
+        public-domain, no copyright notice). No match is an empty list."""
+        ...
+
+
 Curve = dict[float, float]
 """One day's yield curve: maturity in months (1, 1.5, ..., 360) -> yield in percent.
 Maturities not published that day are absent."""
@@ -172,4 +194,43 @@ class YieldCurveAdapter(Adapter, Protocol):
         """Every curve published in calendar ``year``, ascending (empty for a year
         with no data yet). Raises ``SourceUnavailable`` when the provider is down
         or answers something unparseable."""
+        ...
+
+
+@dataclass(frozen=True)
+class CountrySeries:
+    """One economy's annual values of an indicator: ``(year, value)`` ascending.
+    ``None`` is a year the provider has no value for."""
+
+    country: str
+    """ISO 3166-1 alpha-3 code, or the provider's aggregate code (``EMU`` = euro area)."""
+    name: str
+    observations: list[tuple[int, float | None]]
+
+    @property
+    def latest(self) -> tuple[int, float] | None:
+        """The most recent year that has a value."""
+        for year, value in reversed(self.observations):
+            if value is not None:
+                return year, value
+        return None
+
+
+@dataclass(frozen=True)
+class CountryIndicator:
+    """One indicator across several economies, with the metadata a page must show.
+    ``meta.last_updated`` is the provider's last update date (``YYYY-MM-DD``)."""
+
+    source: DataSource
+    meta: SeriesMeta
+    countries: dict[str, CountrySeries]
+
+
+class CountryIndicatorAdapter(Adapter, Protocol):
+    def country_indicator(
+        self, ctx: RequestContext, indicator_id: str, countries: Sequence[str], start_year: int, end_year: int
+    ) -> CountryIndicator:
+        """Annual values in [start_year, end_year] for each requested economy the
+        provider knows. Raises ``NoSuchData`` (``missing`` keyed by indicator id)
+        for unknown indicators and for indicators we may not republish (license)."""
         ...

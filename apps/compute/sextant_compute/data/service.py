@@ -17,18 +17,21 @@ import json
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from types import MappingProxyType
 from typing import Annotated, Any, TypeVar, cast
 
 import pandas as pd
-from fastapi import Depends
+from fastapi import Depends, Request
 
 from sextant_compute.auth import OptionalUser
 from sextant_compute.auth.deps import get_db
 from sextant_compute.data.adapters import (
     Adapter,
+    CountryIndicator,
+    CountryIndicatorAdapter,
+    CountrySeries,
     CrossSectionsAdapter,
     DailyPricesAdapter,
     EconomicSeries,
@@ -38,19 +41,26 @@ from sextant_compute.data.adapters import (
     FxRates,
     FxRatesAdapter,
     SeriesMeta,
+    SeriesSearchAdapter,
+    SeriesSummary,
     YieldCurveAdapter,
     YieldCurves,
 )
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
+from sextant_compute.data.ecb import EcbAdapter
 from sextant_compute.data.edgar import EdgarAdapter
+from sextant_compute.data.errors import KeyRequired, NoSuchData
 from sextant_compute.data.filings import FilingList
 from sextant_compute.data.frankfurter import FrankfurterAdapter
 from sextant_compute.data.fred import FredAdapter
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
+from sextant_compute.data.tiingo import TiingoAdapter
 from sextant_compute.data.treasury import TreasuryAdapter
+from sextant_compute.data.user_cache import PostgresUserCache
+from sextant_compute.data.world_bank import WorldBankAdapter
 from sextant_compute.db import Database
 from sextant_compute.envelope import DataSource
 from sextant_compute.keys.vault import user_keys
@@ -60,10 +70,14 @@ T = TypeVar("T")
 
 @dataclass(frozen=True)
 class PriceHistory:
-    """Daily prices per ticker, plus the source they came from (put it in the envelope)."""
+    """Daily prices per ticker, plus the source they came from (put it in the envelope).
+
+    ``missing`` (filled only with ``partial=True``): ticker -> why the source has
+    no prices for it. Those tickers are not in ``frames``."""
 
     source: DataSource
     frames: dict[str, pd.DataFrame]
+    missing: dict[str, str] = field(default_factory=dict)
 
     @property
     def last_date(self) -> date | None:
@@ -81,6 +95,10 @@ class DataService:
     ``user_cache`` (or without a signed-in user) they are not cached at all.
     An adapter opts a dataset into caching by listing its TTL in ``adapter.ttl``.
     Errors are never cached.
+
+    User-scope sources need the visitor's own key: without
+    ``ctx.key_for(source.id)`` a call raises ``KeyRequired`` before the cache is
+    consulted, so a deleted key also stops cached data from being served.
 
     Single flight: concurrent misses on the same key share one fetch (the others
     wait for it and get its result, or its error), so a burst of identical
@@ -122,6 +140,10 @@ class DataService:
     ) -> T:
         ttl = adapter.ttl.get(dataset)
         if adapter.scope == "user":
+            if not ctx.key_for(adapter.source.id):
+                raise KeyRequired(
+                    adapter.source.id, f"My data needs your own {adapter.source.name} key. Add one in Settings."
+                )
             cache = self.user_cache if ctx.user_id is not None else None
             tags = [f"user:{ctx.user_id}"]
         else:
@@ -160,12 +182,41 @@ class DataService:
                 self._in_flight.pop(key, None)
 
     def daily_prices(
-        self, ctx: RequestContext, tickers: Sequence[str], start: date, end: date, *, source: str
+        self,
+        ctx: RequestContext,
+        tickers: Sequence[str],
+        start: date,
+        end: date,
+        *,
+        source: str,
+        partial: bool = False,
     ) -> PriceHistory:
-        """Daily OHLCV + dividends per ticker in [start, end]; see ``DailyPricesAdapter``."""
+        """Daily OHLCV + dividends per ticker in [start, end]; see ``DailyPricesAdapter``.
+
+        By default one unknown ticker fails the whole call with ``NoSuchData``.
+        With ``partial=True`` each ticker is fetched and cached on its own, and
+        tickers the source has no prices for land in ``PriceHistory.missing``
+        instead (for real tickers: a typo shouldn't cost the rest, nor the user's
+        provider quota be spent refetching them). ``SourceUnavailable`` and
+        ``KeyRequired`` still fail the call."""
         adapter = cast(DailyPricesAdapter, self._adapter(source))
         wanted = list(dict.fromkeys(tickers))
-        frames = self._cached(
+        if partial:
+            found: dict[str, pd.DataFrame] = {}
+            missing: dict[str, str] = {}
+            for ticker in wanted:
+                try:
+                    found[ticker] = self._prices(ctx, adapter, [ticker], start, end)[ticker]
+                except NoSuchData as exc:
+                    missing[ticker] = exc.missing.get(ticker, exc.message)
+            return PriceHistory(source=adapter.source, frames=found, missing=missing)
+        frames = self._prices(ctx, adapter, wanted, start, end)
+        return PriceHistory(source=adapter.source, frames={t: frames[t] for t in wanted})
+
+    def _prices(
+        self, ctx: RequestContext, adapter: DailyPricesAdapter, wanted: list[str], start: date, end: date
+    ) -> dict[str, pd.DataFrame]:
+        return self._cached(
             ctx,
             adapter,
             "daily_prices",
@@ -174,7 +225,6 @@ class DataService:
             _encode_frames,
             _decode_frames,
         )
-        return PriceHistory(source=adapter.source, frames={t: frames[t] for t in wanted})
 
     def financial_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
         """Standardized annual statements for one company; see ``FinancialStatementsAdapter``.
@@ -260,6 +310,21 @@ class DataService:
             _decode_series,
         )
 
+    def search_series(self, ctx: RequestContext, query: str, *, limit: int, source: str) -> list[SeriesSummary]:
+        """Series matching a name, keyword or id; see ``SeriesSearchAdapter``.
+        Cached per (query lowercased and trimmed, limit)."""
+        adapter = cast(SeriesSearchAdapter, self._adapter(source))
+        text = " ".join(query.split())
+        return self._cached(
+            ctx,
+            adapter,
+            "series_search",
+            {"query": text.lower(), "limit": limit},
+            lambda: adapter.search_series(ctx, text, limit),
+            lambda hits: [dataclasses.asdict(h) for h in hits],
+            lambda raw: [SeriesSummary(**h) for h in raw],
+        )
+
     def yield_curves(self, ctx: RequestContext, *, start: date, end: date, source: str) -> YieldCurves:
         """Daily yield curves dated within [start, end], ascending; see ``YieldCurveAdapter``.
         Fetched and cached one calendar year at a time, so a wider range reuses the
@@ -304,6 +369,31 @@ class DataService:
             base=base,
             quote=quote,
             rates=[(when, rate) for y in years for when, rate in y.rates if start <= when <= end],
+        )
+
+    def country_indicator(
+        self,
+        ctx: RequestContext,
+        indicator_id: str,
+        countries: Sequence[str],
+        *,
+        start_year: int,
+        end_year: int,
+        source: str,
+    ) -> CountryIndicator:
+        """One indicator's annual values for several economies; see ``CountryIndicatorAdapter``.
+        Cached per (indicator, country set, years): ask for a fixed country set and
+        filter, so every selection shares one entry."""
+        adapter = cast(CountryIndicatorAdapter, self._adapter(source))
+        wanted = sorted({c.strip().upper() for c in countries})
+        return self._cached(
+            ctx,
+            adapter,
+            "country_indicator",
+            {"indicator": indicator_id, "countries": wanted, "start_year": start_year, "end_year": end_year},
+            lambda: adapter.country_indicator(ctx, indicator_id, wanted, start_year, end_year),
+            _encode_country_indicator,
+            _decode_country_indicator,
         )
 
 
@@ -383,30 +473,65 @@ def _decode_fx(raw: Mapping[str, Any]) -> FxRates:
     )
 
 
+def _encode_country_indicator(found: CountryIndicator) -> dict[str, Any]:
+    return {
+        "source": found.source.model_dump(),
+        "meta": dataclasses.asdict(found.meta),
+        "countries": [
+            [c.country, c.name, [[year, value] for year, value in c.observations]] for c in found.countries.values()
+        ],
+    }
+
+
+def _decode_country_indicator(raw: Mapping[str, Any]) -> CountryIndicator:
+    return CountryIndicator(
+        source=DataSource(**raw["source"]),
+        meta=SeriesMeta(**raw["meta"]),
+        countries={
+            code: CountrySeries(code, name, [(int(year), value) for year, value in observations])
+            for code, name, observations in raw["countries"]
+        },
+    )
+
+
 def default_adapters() -> dict[str, Adapter]:
     synthetic = SyntheticAdapter()
     fred = FredAdapter.from_env()
     edgar = EdgarAdapter()
     treasury = TreasuryAdapter.from_env()
     frankfurter = FrankfurterAdapter.from_env()
+    tiingo = TiingoAdapter.from_env()
+    world_bank = WorldBankAdapter.from_env()
+    ecb = EcbAdapter.from_env()
     return {
+        tiingo.source.id: tiingo,
         frankfurter.source.id: frankfurter,
         synthetic.source.id: synthetic,
         fred.source.id: fred,
         edgar.source.id: edgar,
         treasury.source.id: treasury,
+        world_bank.source.id: world_bank,
+        ecb.source.id: ecb,
     }
 
 
-_service: DataService | None = None
+def make_data_service(db: Database, adapters: Mapping[str, Adapter] | None = None) -> DataService:
+    """The production wiring: the shared cache (Runtime Cache on Vercel) plus the
+    per-user Postgres cache in ``db``. Tests pass their own ``adapters``."""
+    return DataService(
+        adapters if adapters is not None else default_adapters(),
+        shared_cache=default_shared_cache(),
+        user_cache=PostgresUserCache(db),
+    )
 
 
-def get_data_service() -> DataService:
-    """FastAPI dependency. Tests swap it with ``app.dependency_overrides``."""
-    global _service
-    if _service is None:
-        _service = DataService(default_adapters(), shared_cache=default_shared_cache())
-    return _service
+def get_data_service(request: Request) -> DataService:
+    """FastAPI dependency: one service per app, built on first use. Tests swap it
+    with ``app.dependency_overrides`` (``serving``) or set ``app.state.data_service``."""
+    service = getattr(request.app.state, "data_service", None)
+    if service is None:
+        service = request.app.state.data_service = make_data_service(request.app.state.db)
+    return service
 
 
 def get_request_context(user: OptionalUser, db: Annotated[Database, Depends(get_db)]) -> RequestContext:

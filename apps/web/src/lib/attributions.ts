@@ -24,6 +24,27 @@ export const ATTRIBUTIONS = {
     text: "Exchange rates: Frankfurter (frankfurter.dev).",
     href: "https://frankfurter.dev/",
   },
+  // Dataset Terms format "The World Bank: Dataset name: Data source"; the original
+  // data source of each indicator is named next to its chart. See ADR 0005.
+  world_bank: {
+    text: "The World Bank: World Development Indicators, licensed CC BY 4.0. Not endorsed by the World Bank.",
+    href: "https://databank.worldbank.org/source/world-development-indicators",
+    links: [
+      { label: "CC BY 4.0", href: "https://creativecommons.org/licenses/by/4.0/" },
+      { label: "World Bank Dataset Terms", href: "https://www.worldbank.org/ext/en/legal/terms-conditions/datasets" },
+    ],
+  },
+  // The ECB reuse policy asks for "Source: ECB statistics."; HICP is Eurostat's data. See ADR 0005.
+  ecb: {
+    text: "Source: ECB statistics. Euro area HICP: Eurostat.",
+    href: "https://data.ecb.europa.eu/",
+    links: [
+      {
+        label: "ECB statistics reuse policy",
+        href: "https://www.ecb.europa.eu/stats/ecb_statistics/governance_and_quality_framework/html/usage_policy.en.html",
+      },
+    ],
+  },
 } as const satisfies Record<string, Attribution>;
 
 export type AttributionId = keyof typeof ATTRIBUTIONS;

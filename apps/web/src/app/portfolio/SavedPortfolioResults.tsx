@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { MetricCard } from "@/components/MetricCard";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { csvFilename } from "@/lib/csv";
 import type { SavedPortfolio } from "@/lib/portfolios";
 import { useCompute } from "@/lib/useCompute";
-import { PortfolioResults } from "./PortfolioResults";
+import { PortfolioResults, portfolioCsvInput } from "./PortfolioResults";
 import { PortfolioReturns } from "./PortfolioReturns";
-import { PositionsTable } from "./PositionsTable";
+import { PositionsTable, positionsCsvTable } from "./PositionsTable";
 
 /** Value metrics only the saved portfolio has (it knows quantities, cost prices and imported sells). */
 const VALUE_METRICS = ["market_value", "cost_basis", "unrealized_pnl", "unrealized_return", "realized_pnl"] as const;
@@ -77,7 +79,24 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
         />
       )}
       <div>
-        <h2 className="text-lg font-semibold">{s.sections.value}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">{s.sections.value}</h2>
+          {result && (
+            <ExportCsvButton
+              label={s.sections.value}
+              filename={csvFilename("portfolio", "value", portfolioCsvInput(result))}
+              demo={result.source.is_demo}
+              table={{
+                columns: [t.common.csv.metric, t.common.csv.value, t.common.csv.currency],
+                rows: VALUE_METRICS.map((id) => [
+                  s.metrics[id].name,
+                  result.metrics[`${id}:portfolio`],
+                  id === "unrealized_return" ? null : currency,
+                ]),
+              }}
+            />
+          )}
+        </div>
         <p className="mt-1 text-sm text-black/70 dark:text-white/70">{s.sections.valueNote}</p>
         <div className="mt-2 grid gap-4 sm:grid-cols-2">
           {VALUE_METRICS.map((id) => (
@@ -97,13 +116,24 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
         </div>
       </div>
       <div>
-        <h2 className="text-lg font-semibold">{s.sections.positions}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">{s.sections.positions}</h2>
+          {result && (
+            <ExportCsvButton
+              label={s.sections.positions}
+              filename={csvFilename("portfolio", "positions", portfolioCsvInput(result))}
+              demo={result.source.is_demo}
+              table={positionsCsvTable(result)}
+            />
+          )}
+        </div>
         <div className="mt-2">
           <PositionsTable result={result} currency={currency} />
         </div>
       </div>
       <PortfolioReturns
         portfolioId={portfolio.id}
+        name={portfolio.name}
         start={settings.start}
         end={settings.end}
         reportingCurrency={reportingCurrency}

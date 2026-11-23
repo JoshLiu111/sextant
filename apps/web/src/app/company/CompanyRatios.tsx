@@ -3,9 +3,11 @@
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { MetricExplainer } from "@/components/MetricExplainer";
 import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
+import { csvFilename, type CsvTable } from "@/lib/csv";
 import { formatValue } from "@/lib/format";
 import { decodeRows, encodeRows, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
@@ -140,11 +142,35 @@ function RatioTable({
   const r = getMessages().companyRatios;
   const headingId = `ratios-${category}`;
   const many = result.companies.length > 1;
+  const csv: CsvTable = {
+    columns: [r.ratio, ...(many ? [r.companyColumn] : []), ...years.map((fy) => `FY${fy}`)],
+    rows: ratios.flatMap((ratio) =>
+      result.companies.map((company) => {
+        const byYear = new Map(company.periods.map((p) => [p.fiscal_year, p]));
+        return [
+          r.ratios[ratio.id].name,
+          ...(many ? [company.ticker] : []),
+          ...years.map((fy) => {
+            const period = byYear.get(fy);
+            return period ? result.metrics[`${ratio.id}:${company.ticker}:${period.id}`] : null;
+          }),
+        ];
+      }),
+    ),
+  };
   return (
     <section aria-labelledby={headingId}>
-      <h3 id={headingId} className="text-base font-semibold">
-        {r.categories[category]}
-      </h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 id={headingId} className="text-base font-semibold">
+          {r.categories[category]}
+        </h3>
+        <ExportCsvButton
+          table={csv}
+          label={r.categories[category]}
+          filename={csvFilename("company-ratios", r.categories[category], result.companies.map((c) => c.ticker).join("_"))}
+          demo={result.source.is_demo}
+        />
+      </div>
       {category === "valuation" && result.companies.some((c) => c.price === null) && (
         <p className="mt-1 text-xs text-black/60 dark:text-white/60">{r.priceNote}</p>
       )}

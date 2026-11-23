@@ -2,9 +2,11 @@
 
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { LineChart } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { getMessages } from "@/i18n";
+import { csvFilename } from "@/lib/csv";
 import type { MetricResult, ResultEnvelope, SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercentValue, formatTimestampUtc } from "@/lib/format";
 
@@ -74,6 +76,18 @@ function Indicator({
     <article data-indicator={id} className="min-w-0 space-y-3">
       <MetricCard id={id} explainer={explainer} values={[{ id: `latest:${id}`, result: latest }]} />
       {latest?.status === "ok" && <SeriesMeta details={latest.details} />}
+      {history?.status === "ok" && history.points.length > 0 && (
+        <div className="flex justify-end">
+          <ExportCsvButton
+            label={`${explainer.name} ${t.macro.chart.history}`}
+            filename={csvFilename("macro", id, String(latest?.details.series_id ?? ""))}
+            table={{
+              columns: [t.macro.chart.x, `${explainer.name} (${String(latest?.details.units ?? "")})`],
+              rows: history.points.map((p) => [String(p.x), p.y]),
+            }}
+          />
+        </div>
+      )}
       {points.length > 0 && (
         <LineChart
           label={`${explainer.name} ${t.macro.chart.history}`}
@@ -88,7 +102,7 @@ function Indicator({
   );
 }
 
-function SeriesMeta({ details }: { details: MetricResult["details"] }) {
+export function SeriesMeta({ details }: { details: MetricResult["details"] }) {
   const m = getMessages().macro.meta;
   const text = (key: string) => String(details[key] ?? "");
   const seriesId = text("series_id");
