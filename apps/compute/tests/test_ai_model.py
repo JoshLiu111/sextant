@@ -48,6 +48,75 @@ def test_sends_the_key_from_the_environment_and_returns_text_and_token_counts(mo
     assert body["messages"] == [{"role": "user", "content": "user text"}]
 
 
+AI_ENV = ("AI_API_KEY", "AI_BASE_URL", "AI_MODEL", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL")
+
+
+def request_from_env(monkeypatch, **env: str) -> httpx.Request:
+    """The request ``AnthropicModel.from_env`` sends for one Explain call, under exactly ``env``."""
+    for name in AI_ENV:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=REPLY)
+
+    AnthropicModel.from_env(transport=fake(handler)).complete("s", "p")
+    return seen[0]
+
+
+def test_production_points_ai_calls_at_the_vercel_ai_gateway_with_its_key(monkeypatch):
+    request = request_from_env(
+        monkeypatch,
+        AI_BASE_URL="https://ai-gateway.vercel.sh",
+        AI_API_KEY="gateway-key-not-real",
+        AI_MODEL="anthropic/claude-haiku-5-5",
+    )
+
+    assert str(request.url) == "https://ai-gateway.vercel.sh/v1/messages"
+    assert request.headers["x-api-key"] == "gateway-key-not-real"
+    assert request.headers["anthropic-version"] == "2023-06-01"
+    body = json.loads(request.content)
+    assert body["model"] == "anthropic/claude-haiku-5-5"
+    assert body["thinking"] == {"type": "disabled"}
+
+
+def test_the_ai_names_win_over_the_older_anthropic_names(monkeypatch):
+    request = request_from_env(
+        monkeypatch,
+        AI_BASE_URL="https://ai-gateway.vercel.sh",
+        AI_API_KEY="gateway-key-not-real",
+        ANTHROPIC_BASE_URL="http://claude.invalid",
+        ANTHROPIC_API_KEY="anthropic-key-not-real",
+    )
+
+    assert str(request.url) == "https://ai-gateway.vercel.sh/v1/messages"
+    assert request.headers["x-api-key"] == "gateway-key-not-real"
+
+
+def test_without_any_base_url_calls_go_straight_to_anthropic_with_the_default_model(monkeypatch):
+    request = request_from_env(monkeypatch, AI_API_KEY="k")
+
+    assert str(request.url) == "https://api.anthropic.com/v1/messages"
+    assert json.loads(request.content)["model"] == "claude-haiku-5-5"
+
+
+@pytest.mark.parametrize("base_url", ["https://ai-gateway.vercel.sh/v1", "https://ai-gateway.vercel.sh/v1/"])
+def test_a_base_url_that_already_ends_in_v1_is_not_doubled(monkeypatch, base_url):
+    # The gateway docs show the OpenAI-compatible URL with /v1; the Messages API
+    # base URL has none, and the client appends /v1/messages itself.
+    request = request_from_env(monkeypatch, AI_BASE_URL=base_url, AI_API_KEY="k")
+
+    assert str(request.url) == "https://ai-gateway.vercel.sh/v1/messages"
+
+
+def test_without_any_key_the_model_is_unavailable_and_says_which_variable_to_set(monkeypatch):
+    with pytest.raises(ModelUnavailable, match="AI_API_KEY"):
+        request_from_env(monkeypatch, AI_BASE_URL="https://ai-gateway.vercel.sh")
+
+
 def test_retries_overload_and_then_reports_the_model_unavailable():
     calls = 0
 

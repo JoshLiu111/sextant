@@ -52,7 +52,8 @@ unless the question says otherwise.
 [[18.3%|calc_0123abcd|annualized_volatility:DEMO-A]] or [[$391.0B|calc_0123abcd|revenue:2024-09-28]]. \
 Only metric ids from the result's "metrics" (or a screener row as <metric>:<TICKER>) can be cited. \
 Write the number in the citation exactly as the reader should see it, rounded sensibly; \
-show decimal metrics as percentages (0.183 as 18.3%).
+show decimal metrics as percentages (0.183 as 18.3%). Keep a negative number's minus \
+sign in the citation ([[-2.1%|...|alpha:DEMO-A]]), even when the sentence says "fell" or "lagged".
 - Plain text in short paragraphs: no headings, tables or Markdown.
 - This is not investment advice. Never recommend buying, selling or holding anything. \
 If you mention buying or selling at all, say clearly that this is only a reading of \
