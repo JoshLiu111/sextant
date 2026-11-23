@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
 import { MetricExplainer } from "@/components/MetricExplainer";
@@ -303,6 +304,7 @@ export function CompanyRatios() {
               />
             ))}
             <CalculationInfo result={ratios} />
+            <AiExplain tool="company-ratios" result={ratios} />
           </>
         ) : (
           !error && <p className="text-sm text-black/60 dark:text-white/60">{r.loading}</p>

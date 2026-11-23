@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { TextField } from "@/components/TextField";
@@ -143,6 +144,7 @@ export function LatestFilings() {
               </div>
             )}
             <CalculationInfo result={list} />
+            <AiExplain tool="screener-filings" result={list} />
           </>
         ) : (
           !error && <p className="text-sm text-black/60 dark:text-white/60">{f.loading}</p>

@@ -9,6 +9,13 @@ import type { ResultEnvelope } from "@/lib/envelope";
 
 type Account = { kind: "loading" } | { kind: "signed_out" } | { kind: "signed_in"; quota: AiQuota | null };
 
+/** Every AI Explain on a page shares one daily quota: an answer announces the new quota to the others. */
+const QUOTA_EVENT = "sextant:ai-quota";
+
+function announceQuota(quota: AiQuota) {
+  window.dispatchEvent(new CustomEvent<AiQuota>(QUOTA_EVENT, { detail: quota }));
+}
+
 /**
  * "AI Explain" for a tool's current result. Signed-in users get a plain-English
  * reading of the result on screen and see their daily quota; visitors get a
@@ -30,7 +37,12 @@ export function AiExplain({ tool, result }: { tool: string; result: ResultEnvelo
         else setAccount({ kind: "signed_in", quota: outcome.kind === "ok" ? outcome.quota : null });
       })
       .catch(() => {});
-    return () => controller.abort();
+    const onQuota = (e: Event) => setAccount({ kind: "signed_in", quota: (e as CustomEvent<AiQuota>).detail });
+    window.addEventListener(QUOTA_EVENT, onQuota);
+    return () => {
+      controller.abort();
+      window.removeEventListener(QUOTA_EVENT, onQuota);
+    };
   }, []);
 
   const quota = account.kind === "signed_in" ? account.quota : null;
@@ -45,9 +57,10 @@ export function AiExplain({ tool, result }: { tool: string; result: ResultEnvelo
     setPending(false);
     if (outcome.kind === "ok") {
       setAnswer({ for: calculationId, explanation: outcome.explanation });
-      setAccount({ kind: "signed_in", quota: outcome.explanation.quota });
+      announceQuota(outcome.explanation.quota);
     } else if (outcome.kind === "quota_exceeded") {
-      setAccount((a) => ({ kind: "signed_in", quota: a.kind === "signed_in" && a.quota ? { ...a.quota, remaining: 0 } : null }));
+      if (quota) announceQuota({ ...quota, used: quota.limit, remaining: 0 });
+      else setAccount({ kind: "signed_in", quota: null });
       setError(outcome.message);
     } else if (outcome.kind === "signed_out") {
       setAccount({ kind: "signed_out" });

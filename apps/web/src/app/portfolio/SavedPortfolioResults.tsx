@@ -82,7 +82,7 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
           ))}
         </div>
       </div>
-      <PortfolioResults result={result} metricsNote={s.sections.metricsNote} />
+      <PortfolioResults result={result} metricsNote={s.sections.metricsNote} aiTool="portfolio-saved" />
     </section>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { LineChart, type ChartBand, type ChartSeries } from "@/components/LineChart";
@@ -50,6 +51,7 @@ export function TreasuryRates() {
         <TermSpread latest={result?.metrics["latest:spread_10y_2y"]} history={result?.series["history:spread_10y_2y"]} />
       </div>
       {result && <CalculationInfo result={result} />}
+      {result && <AiExplain tool="macro-rates" result={result} />}
     </section>
   );
 }

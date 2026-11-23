@@ -3,9 +3,10 @@
 // ANTHROPIC_BASE_URL, so the real Claude client runs end to end without the
 // network or a real key.
 //
-// It answers deterministically from the result JSON in the prompt: it quotes the
-// call price the compute service calculated, and mentions buying so the
-// not-advice notice shows.
+// It answers deterministically from the result JSON in the prompt. For an options
+// result it quotes the call price the compute service calculated, and mentions
+// buying so the not-advice notice shows. For any other tool it names the tool,
+// counts the metrics computed, and says so when the result is demo data.
 
 import { createServer } from "node:http";
 
@@ -19,6 +20,22 @@ function send(res, status, body) {
 function resultFrom(prompt) {
   const match = /Result \(JSON\):\n([\s\S]*?)\n\nExplain this result\./.exec(prompt);
   return match ? JSON.parse(match[1]) : null;
+}
+
+function answer(result) {
+  if (!result) return "I could not find a result in this prompt.";
+  if (result.tool === "options") {
+    const call = result.metrics?.call_price?.value;
+    if (call == null) return "I could not find a call price in this result.";
+    return (
+      `With these inputs the call is worth about ${call.toFixed(2)} per share.\n\n` +
+      "Someone thinking of buying it would compare that with the market price."
+    );
+  }
+  const metrics = Object.values(result.metrics ?? {});
+  const ok = metrics.filter((m) => m.status === "ok").length;
+  const demo = result.source?.is_demo ? " This result uses synthetic demo data, not real market data." : "";
+  return `This ${result.tool} result has ${ok} of ${metrics.length} metrics computed.${demo}`;
 }
 
 createServer((req, res) => {
@@ -36,12 +53,7 @@ createServer((req, res) => {
     const body = JSON.parse(raw);
     const prompt = body.messages?.[0]?.content ?? "";
     const result = resultFrom(prompt);
-    const call = result?.metrics?.call_price?.value;
-    const text =
-      call == null
-        ? "I could not find a call price in this result."
-        : `With these inputs the call is worth about ${call.toFixed(2)} per share.\n\n` +
-          "Someone thinking of buying it would compare that with the market price.";
+    const text = answer(result);
     send(res, 200, {
       id: "msg_fake",
       type: "message",

@@ -1,5 +1,6 @@
 "use client";
 
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { LineChart } from "@/components/LineChart";
@@ -51,6 +52,7 @@ export function MacroDashboard() {
         ))}
       </div>
       {result && <CalculationInfo result={result} />}
+      {result && <AiExplain tool="macro" result={result} />}
     </section>
   );
 }

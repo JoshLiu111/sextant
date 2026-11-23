@@ -231,7 +231,7 @@ export function PortfolioTool() {
             message={error}
           />
         )}
-        <PortfolioResults result={result} />
+        <PortfolioResults result={result} aiTool="portfolio" />
       </section>
     </div>
   );

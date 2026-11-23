@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
@@ -252,6 +253,7 @@ export function RiskTool() {
           )}
         </div>
         {result && <CalculationInfo result={result} />}
+        {result && <AiExplain tool="risk" result={result} />}
       </section>
     </div>
   );
