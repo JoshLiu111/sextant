@@ -4,9 +4,9 @@ import { Suspense } from "react";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { getMessages } from "@/i18n";
 import { sessionToken } from "@/lib/auth/session";
-import { fetchAiUsage, type DayUsage, type UsageTotals, type UserUsage } from "@/lib/operator";
+import { fetchAiUsage, fetchUsers, type DayUsage, type UsageTotals, type UserUsage } from "@/lib/operator";
 
-// Operator view of AI usage (story 95). src/proxy.ts already turned non-operators
+// Operator view: users (issue #51) and AI usage (story 95). src/proxy.ts already turned non-operators
 // away with a 404 before rendering; the compute service checks again here.
 
 const t = getMessages();
@@ -145,13 +145,84 @@ async function AiUsage() {
   );
 }
 
+const u = t.operator.users;
+
+function Stat({ label, value, testId }: { label: string; value: number; testId: string }) {
+  return (
+    <div className="rounded border border-black/10 px-4 py-3 dark:border-white/10">
+      <dt className="text-sm text-black/70 dark:text-white/70">{label}</dt>
+      <dd className="mt-1 text-2xl font-semibold tabular-nums" data-testid={testId}>
+        {WHOLE.format(value)}
+      </dd>
+    </div>
+  );
+}
+
+async function Users() {
+  const result = await fetchUsers(await sessionToken());
+  if (result.kind === "not_found") notFound();
+  if (result.kind === "failed") {
+    return (
+      <div className="mt-3">
+        <ErrorNotice title={u.errorHeading} message={u.unavailable} />
+      </div>
+    );
+  }
+  const { report } = result;
+  return (
+    <>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+        <Stat label={u.total} value={report.total_users} testId="users-total" />
+        {report.signed_in_within.map((s) => (
+          <Stat
+            key={s.days}
+            label={u.signedInWithin(s.days)}
+            value={s.users}
+            testId={`users-signed-in-${s.days}`}
+          />
+        ))}
+      </dl>
+      <p className="mt-2 text-sm text-black/60 dark:text-white/60">{u.signedInNote}</p>
+      <div className="mt-6 overflow-x-auto">
+        <table className={tableClass} aria-label={u.signUps}>
+          <caption className="text-left text-lg font-semibold">{u.signUps}</caption>
+          <thead>
+            <tr>
+              <th scope="col" className={th}>{u.columns.day}</th>
+              <th scope="col" className={thNum}>{u.columns.signUps}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.sign_ups.map((d) => (
+              <tr key={d.day}>
+                <td className={`${td} tabular-nums`}>{d.day}</td>
+                <td className={tdNum}>{WHOLE.format(d.users)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-1 text-sm text-black/60 dark:text-white/60">{u.signUpsIntro(report.since, report.until)}</p>
+      </div>
+    </>
+  );
+}
+
 export default function OperatorPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10">
       <h1 className="text-2xl font-semibold">{t.operator.heading}</h1>
-      <Suspense fallback={null}>
-        <AiUsage />
-      </Suspense>
+      <section aria-labelledby="operator-users" className="mt-6">
+        <h2 id="operator-users" className="text-xl font-semibold">{u.heading}</h2>
+        <Suspense fallback={null}>
+          <Users />
+        </Suspense>
+      </section>
+      <section aria-labelledby="operator-ai-usage" className="mt-10">
+        <h2 id="operator-ai-usage" className="text-xl font-semibold">{t.operator.aiUsageHeading}</h2>
+        <Suspense fallback={null}>
+          <AiUsage />
+        </Suspense>
+      </section>
     </main>
   );
 }

@@ -7,6 +7,8 @@ case-insensitive) get in. Everyone else, signed in or not, gets a 404
 - ``GET /access``: 204 for an operator (the web app checks this before rendering).
 - ``GET /ai-usage?days=N``: calls, tokens and estimated cost per user and per
   user per UTC day, over the last N days (default 30, today included).
+- ``GET /users?days=N``: registered users, sign-ups per UTC day over the same kind
+  of window, and users who signed in within the last 7 and 30 days.
 """
 
 from __future__ import annotations
@@ -168,4 +170,69 @@ def ai_usage(_operator: Operator, db: Db, days: Annotated[int, Query(ge=1, le=36
         totals=UsageTotals(**_totals(rows, pricing)),
         users=per_user,
         days=per_day,
+    )
+
+
+SIGNED_IN_WITHIN_DAYS = (7, 30)
+
+
+class DaySignUps(BaseModel):
+    day: date
+    """The UTC calendar day."""
+    users: int
+
+
+class SignedInWithin(BaseModel):
+    days: int
+    users: int
+    """Users whose last sign-in was within ``days`` days. ``last_login_at`` only moves
+    at sign-in and sessions last 30 days, so this undercounts daily use."""
+
+
+class UsersReport(BaseModel):
+    since: date
+    until: date
+    total_users: int
+    sign_ups: list[DaySignUps]
+    """Every UTC day in the window, newest first, including days without sign-ups."""
+    signed_in_within: list[SignedInWithin]
+
+
+_USER_COUNTS = """
+SELECT count(*)::int AS total_users,
+       count(*) FILTER (WHERE last_login_at >= now() - make_interval(days => %s))::int AS within_short,
+       count(*) FILTER (WHERE last_login_at >= now() - make_interval(days => %s))::int AS within_long
+FROM users
+"""
+
+_SIGN_UPS_PER_DAY = """
+SELECT (created_at AT TIME ZONE 'UTC')::date AS day, count(*)::int AS users
+FROM users
+WHERE created_at >= %s
+GROUP BY 1
+"""
+
+
+@router.get("/users")
+def users(_operator: Operator, db: Db, days: Annotated[int, Query(ge=1, le=366)] = 30) -> UsersReport:
+    until = datetime.now(UTC).date()
+    since = until - timedelta(days=days - 1)
+    short, long = SIGNED_IN_WITHIN_DAYS
+    with db.connection() as conn:
+        counts = conn.execute(_USER_COUNTS, (short, long)).fetchone()
+        rows = conn.execute(_SIGN_UPS_PER_DAY, (datetime.combine(since, time(), tzinfo=UTC),)).fetchall()
+
+    per_day = {r["day"]: r["users"] for r in rows}
+    return UsersReport(
+        since=since,
+        until=until,
+        total_users=counts["total_users"],
+        sign_ups=[
+            DaySignUps(day=day, users=per_day.get(day, 0))
+            for day in (until - timedelta(days=i) for i in range(days))
+        ],
+        signed_in_within=[
+            SignedInWithin(days=short, users=counts["within_short"]),
+            SignedInWithin(days=long, users=counts["within_long"]),
+        ],
     )
