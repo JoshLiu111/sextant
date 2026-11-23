@@ -125,7 +125,7 @@ test("screener results export raw values for the screen's year", async ({ page }
 test("every result table on each tool has an export button", async ({ page }) => {
   // [path, export buttons in main]
   const expected: [string, number][] = [
-    ["/company", 3 + 6], // three statements; Altman Z + five ratio categories
+    ["/company", 3 + 9], // three statements; scores, Piotroski, five ratio categories, two DuPont tables
     ["/risk", 1],
     ["/portfolio", 1],
     ["/valuation", 2], // sensitivity, free cash flow
