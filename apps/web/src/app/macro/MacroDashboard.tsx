@@ -1,0 +1,123 @@
+"use client";
+
+import { CalculationInfo } from "@/components/CalculationInfo";
+import { ErrorNotice } from "@/components/ErrorNotice";
+import { LineChart } from "@/components/LineChart";
+import { MetricCard } from "@/components/MetricCard";
+import { getMessages } from "@/i18n";
+import type { MetricResult, SeriesResult } from "@/lib/envelope";
+import { formatChartDate, formatChartPercentValue, formatTimestampUtc } from "@/lib/format";
+import { useCompute } from "@/lib/useCompute";
+
+// Envelope ids: metric "latest:<key>" (details carry the series metadata), series "history:<key>".
+const INDICATORS = ["gdp_growth", "cpi_inflation", "unemployment_rate", "fed_funds_rate"] as const;
+type IndicatorKey = (typeof INDICATORS)[number];
+type MetricId = `latest:${IndicatorKey}`;
+type SeriesId = `history:${IndicatorKey}`;
+
+const COLORS: Record<IndicatorKey, string> = {
+  gdp_growth: "#2563eb",
+  cpi_inflation: "#dc2626",
+  unemployment_rate: "#7c3aed",
+  fed_funds_rate: "#059669",
+};
+
+// The page has no inputs yet; the endpoint's defaults pick the history range.
+const REQUEST = {};
+
+function chartPoints(series: SeriesResult | undefined) {
+  if (!series || series.status !== "ok") return [];
+  return series.points.map((p) => ({ x: Date.parse(String(p.x)), y: p.y }));
+}
+
+export function MacroDashboard() {
+  const t = getMessages();
+  const { result, error } = useCompute<MetricId, SeriesId>("/macro/indicators", REQUEST);
+
+  return (
+    <section data-testid="results" aria-labelledby="macro-indicators" className="mt-6 space-y-6">
+      <h2 id="macro-indicators" className="text-lg font-semibold">
+        {t.macro.sections.indicators}
+      </h2>
+      {error && <ErrorNotice title={t.common.errors.heading} message={error} />}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {INDICATORS.map((key) => (
+          <Indicator
+            key={key}
+            id={key}
+            latest={result?.metrics[`latest:${key}`]}
+            history={result?.series[`history:${key}`]}
+          />
+        ))}
+      </div>
+      {result && <CalculationInfo result={result} />}
+    </section>
+  );
+}
+
+function Indicator({
+  id,
+  latest,
+  history,
+}: {
+  id: IndicatorKey;
+  latest: MetricResult | undefined;
+  history: SeriesResult | undefined;
+}) {
+  const t = getMessages();
+  const explainer = t.macro.indicators[id];
+  const points = chartPoints(history);
+
+  return (
+    <article data-indicator={id} className="min-w-0 space-y-3">
+      <MetricCard id={id} explainer={explainer} values={[{ id: `latest:${id}`, result: latest }]} />
+      {latest?.status === "ok" && <SeriesMeta details={latest.details} />}
+      {points.length > 0 && (
+        <LineChart
+          label={`${explainer.name} ${t.macro.chart.history}`}
+          series={[{ id, label: explainer.name, points, color: COLORS[id] }]}
+          xLabel={t.macro.chart.x}
+          formatX={formatChartDate}
+          formatY={formatChartPercentValue}
+          height={220}
+        />
+      )}
+    </article>
+  );
+}
+
+function SeriesMeta({ details }: { details: MetricResult["details"] }) {
+  const m = getMessages().macro.meta;
+  const text = (key: string) => String(details[key] ?? "");
+  const seriesId = text("series_id");
+
+  return (
+    <dl
+      data-testid="series-meta"
+      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-black/70 dark:text-white/70"
+    >
+      <dt className="font-medium">{m.source}</dt>
+      <dd>
+        {text("source")}, {m.via}{" "}
+        <a
+          href={`https://fred.stlouisfed.org/series/${encodeURIComponent(seriesId)}`}
+          className="font-mono underline"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {seriesId}
+        </a>
+      </dd>
+      <dt className="font-medium">{m.units}</dt>
+      <dd>{text("units")}</dd>
+      <dt className="font-medium">{m.frequency}</dt>
+      <dd>
+        {text("frequency")} ({text("seasonal_adjustment")})
+      </dd>
+      <dt className="font-medium">{m.latestPeriod}</dt>
+      <dd>{text("date")}</dd>
+      <dt className="font-medium">{m.lastUpdated}</dt>
+      <dd>{formatTimestampUtc(text("last_updated"))}</dd>
+    </dl>
+  );
+}

@@ -6,3 +6,8 @@ __pycache__/
 .venv/
 *.pyc
 .vercel
+test-results/
+playwright-report/
+.pytest_cache/
+.env*
+!.env.example

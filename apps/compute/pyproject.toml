@@ -1,0 +1,25 @@
+[project]
+name = "sextant-compute"
+version = "0.1.0"
+description = "Sextant compute service: all calculations and data access (FastAPI)."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "numpy>=2.5.5",
+    "pandas>=3.1.1",
+    "vercel-cache>=0.8.0",
+    "psycopg-pool>=3.2",
+    "psycopg[binary]>=3.2",
+    "pyjwt>=2.9",
+    "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "uvicorn>=0.30",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
