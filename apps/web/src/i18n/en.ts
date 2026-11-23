@@ -40,7 +40,7 @@ export const en = {
   tools: {
     options: {
       name: "Options Calculator",
-      description: "Price European options with Black-Scholes, see the Greeks, implied volatility and payoff.",
+      description: "Price options with Black-Scholes and binomial trees, see the Greeks, implied volatility and multi-leg payoffs.",
     },
     risk: {
       name: "Risk & Performance",
@@ -115,7 +115,7 @@ export const en = {
   },
   options: {
     intro:
-      "European options priced with Black-Scholes(-Merton). Change any input and the results update.",
+      "Price European options with Black-Scholes(-Merton), build multi-leg strategies, and price American options on a binomial tree. Change any input and the results update.",
     inputsHeading: "Inputs",
     submit: "Calculate",
     inputs: {
@@ -191,6 +191,154 @@ export const en = {
         what: "The volatility that makes the Black-Scholes price equal the market price you entered, for the chosen option type.",
         how: "Solved numerically by bisection between 0.0001% and 500%. There is no solution if the price is at or below the discounted intrinsic value, or at or above the no-arbitrage upper bound.",
         read: "Compare it with the volatility you expect: if implied volatility is above your view, the option looks expensive; below it, cheap.",
+      },
+    },
+    tabs: {
+      label: "Options Calculator views",
+      single: "Single option",
+      strategy: "Strategy builder",
+      american: "American (binomial)",
+    },
+    strategy: {
+      intro:
+        "Combine calls, puts and the underlying into one strategy. All legs share the market inputs and expiry; quantities are in units of the underlying.",
+      marketHeading: "Market",
+      presets: {
+        heading: "Presets",
+        hint: "Strikes are set around the current spot price.",
+        items: {
+          bullCallSpread: { name: "Bull call spread", description: "Long a lower-strike call, short a higher-strike call." },
+          straddle: { name: "Straddle", description: "Long a call and a put at the same strike." },
+          strangle: { name: "Strangle", description: "Long an out-of-the-money put and an out-of-the-money call." },
+          ironCondor: {
+            name: "Iron condor",
+            description: "Short a put spread and a call spread around the spot: a capped gain if the price stays in range.",
+          },
+        },
+      },
+      legs: {
+        heading: "Legs",
+        instrument: "Instrument",
+        position: "Position",
+        quantity: "Quantity",
+        strike: "Strike",
+        add: "Add leg",
+        remove: "Remove leg",
+        instruments: { call: "Call", put: "Put", underlying: "Underlying" },
+        positions: { long: "Long", short: "Short" },
+      },
+      sections: {
+        summary: "Cost and payoff",
+        greeks: "Strategy Greeks",
+        payoff: "Profit at expiry and today",
+        curves: "Greek curves",
+      },
+      chart: {
+        label: "Chart of the strategy's profit at expiry and today across underlying prices",
+        x: "Underlying price",
+        atExpiry: "Profit at expiry",
+        today: "Profit today",
+        spot: "Spot",
+      },
+      curves: {
+        label: "Chart of the selected Greek of the strategy",
+        greek: "Greek",
+        against: "Plot against",
+        spot: "Underlying price",
+        time: "Time to expiry (years)",
+        now: "Now",
+      },
+      metrics: {
+        net_cost: {
+          name: "Net cost",
+          what: "What it costs to open the strategy today at Black-Scholes prices. Negative means you collect a net credit.",
+          how: "The sum over legs of quantity × price, with long legs added and short legs subtracted. The underlying is priced at the spot.",
+          read: "A debit of 5.33 means you pay $5.33 per unit to open; a credit of −4.42 means you receive $4.42.",
+        },
+        max_profit: {
+          name: "Max profit at expiry",
+          what: "The most the strategy can make at expiry, after its opening cost, over every underlying price.",
+          how: "The payoff at expiry is a straight line between strikes, so its highest value sits at zero, at a strike, or rises without limit above the highest strike.",
+          read: "Unlimited means the profit keeps growing as the underlying rises (for example a long call or straddle).",
+        },
+        max_loss: {
+          name: "Max loss at expiry",
+          what: "The most the strategy can lose at expiry, including its opening cost, shown as a positive amount.",
+          how: "The lowest profit at expiry, at zero, at a strike, or unlimited if the payoff falls without limit above the highest strike.",
+          read: "For a debit spread the max loss is the debit; for an iron condor it is the wing width less the credit.",
+        },
+        delta: {
+          name: "Delta",
+          what: "How much the strategy's value changes for a $1 move in the underlying.",
+          how: "Sum of each leg's Black-Scholes delta × signed quantity. The underlying has delta 1. Unit: per $1 move in spot.",
+          read: "Near zero means the strategy barely cares about small moves; positive means it gains as the price rises.",
+        },
+        gamma: {
+          name: "Gamma",
+          what: "How fast the strategy's delta changes for a $1 move in the underlying.",
+          how: "Sum of each option leg's gamma × signed quantity (the underlying has none).",
+          read: "Positive gamma (long options) benefits from big moves; negative gamma (short options) prefers a quiet market.",
+        },
+        vega: {
+          name: "Vega",
+          what: "How much the strategy's value changes when volatility moves 1 volatility point.",
+          how: "Sum of each option leg's vega × signed quantity, per 1 volatility point.",
+          read: "Negative vega means the strategy gains if volatility falls, as for an iron condor.",
+        },
+        theta: {
+          name: "Theta",
+          what: "How much the strategy's value changes as one calendar day passes, all else equal.",
+          how: "Sum of each option leg's theta × signed quantity, per calendar day.",
+          read: "Positive theta means time decay works for you, as for strategies that sell options.",
+        },
+        rho: {
+          name: "Rho",
+          what: "How much the strategy's value changes when the risk-free rate moves 1 percentage point.",
+          how: "Sum of each option leg's rho × signed quantity, per 1 percentage point.",
+          read: "Usually small unless the strategy is long-dated or holds many calls or puts on one side.",
+        },
+      },
+    },
+    american: {
+      intro:
+        "American options can be exercised at any time before expiry. They are priced on a Cox-Ross-Rubinstein binomial tree, next to the Black-Scholes price of the European option.",
+      inputs: {
+        steps: { label: "Steps", hint: "Tree steps, 1 to 5,000. More steps are more accurate." },
+      },
+      sections: { prices: "Prices", chart: "Convergence by number of steps" },
+      chart: {
+        select: "Option type",
+        label: "Chart of the tree price by number of steps, against the Black-Scholes price",
+        x: "Steps",
+        american: "American (tree)",
+        europeanTree: "European (tree)",
+        bs: "European (Black-Scholes)",
+      },
+      metrics: {
+        american: {
+          name: "American price",
+          what: "The value of an option that can be exercised at any time up to expiry.",
+          how: "Cox-Ross-Rubinstein tree: u = e^(σ√Δt), d = 1/u, risk-neutral p = (e^((r−q)Δt) − d)/(u − d). Working back from expiry, each node takes the larger of the discounted expected value and exercising now.",
+          read: "Always at least the European price. For a call on a stock without dividends the two are equal: early exercise never pays.",
+        },
+        european: {
+          name: "European price (Black-Scholes)",
+          what: "The Black-Scholes value of the same option if it could only be exercised at expiry.",
+          how: "The Black-Scholes-Merton formula, as on the Single option tab.",
+          read: "The benchmark for the American price: the gap between them is the value of being able to exercise early.",
+        },
+        european_tree: {
+          name: "European price (tree)",
+          what: "The European option priced on the same binomial tree, without early exercise.",
+          how: "The same tree as the American price, holding at every node. It converges to Black-Scholes as the steps increase.",
+          read: "Its distance from the Black-Scholes price shows the tree's discretisation error at this number of steps.",
+        },
+        early_exercise_premium: {
+          name: "Early-exercise premium",
+          what: "How much the right to exercise early is worth.",
+          how: "American tree price − European tree price, both on the same tree so the discretisation error largely cancels.",
+          read: "Puts carry a premium when they are deep in the money and rates are positive; calls only when there is a dividend yield.",
+        },
       },
     },
   },
