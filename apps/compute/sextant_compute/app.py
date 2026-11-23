@@ -18,6 +18,7 @@ from sextant_compute.errors import install_error_handlers
 from sextant_compute.macro.api import router as macro_router
 from sextant_compute.options.api import router as options_router
 from sextant_compute.portfolio.api import router as portfolio_router
+from sextant_compute.portfolio.saved import router as saved_portfolios_router
 from sextant_compute.risk.api import router as risk_router
 
 API_PREFIX = "/api/compute"
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(risk_router, prefix=f"{API_PREFIX}/risk")
     app.include_router(company_router, prefix=f"{API_PREFIX}/company")
     app.include_router(portfolio_router, prefix=f"{API_PREFIX}/portfolio")
+    app.include_router(saved_portfolios_router, prefix=f"{API_PREFIX}/portfolios")
     app.include_router(macro_router, prefix=f"{API_PREFIX}/macro")
     app.include_router(auth_router, prefix=API_PREFIX)
     return app

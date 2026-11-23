@@ -31,9 +31,23 @@ def _session_row(conn: psycopg.Connection, user_id) -> None:
     )
 
 
+def _portfolio_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute("INSERT INTO portfolios (user_id, name) VALUES (%s, 'Cascade test')", (user_id,))
+
+
+def _portfolio_holding_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO portfolio_holdings (portfolio_id, position, ticker, quantity, cost_price, currency)"
+        " SELECT id, 0, 'DEMO-A', 10, 100, 'USD' FROM portfolios WHERE user_id = %s LIMIT 1",
+        (user_id,),
+    )
+
+
 # table name -> inserts one row owned by user_id. Order matters: parents first.
 USER_OWNED_ROWS: dict[str, RowFactory] = {
     "sessions": _session_row,
+    "portfolios": _portfolio_row,
+    "portfolio_holdings": _portfolio_holding_row,
 }
 
 

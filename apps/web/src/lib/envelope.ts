@@ -21,6 +21,7 @@ export type Unit =
   | "percentage_points"
   | "years"
   | "ratio"
+  | "money"
   | "date"
   | (string & {});
 
