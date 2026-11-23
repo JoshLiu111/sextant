@@ -22,7 +22,7 @@ def test_different_seeds_give_different_series():
 def test_universe_is_fictional_tickers_only_with_daily_ohlcv_and_dividends():
     universe = generate_universe(seed=7)
 
-    assert set(universe) == {"DEMO-A", "DEMO-B", "DEMO-C", "DEMO-D", "DEMO-E", "DEMO-F", "DEMO-MKT"}
+    assert set(universe) == {"DEMO-A", "DEMO-B", "DEMO-C", "DEMO-D", "DEMO-E", "DEMO-F", "DEMO-G", "DEMO-MKT"}
     assert BENCHMARK == "DEMO-MKT"
     assert set(PERSONALITIES) == set(universe)
     for frame in universe.values():
