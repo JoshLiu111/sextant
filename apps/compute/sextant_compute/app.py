@@ -5,9 +5,14 @@ original request path (``/api/compute/...``) to this service unchanged.
 Add each tool as its own ``APIRouter`` and include it in ``create_app``.
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, FastAPI
 
 from sextant_compute import SERVICE_NAME, __version__
+from sextant_compute.auth.api import router as auth_router
+from sextant_compute.db import Database
 
 API_PREFIX = "/api/compute"
 
@@ -19,12 +24,22 @@ def health() -> dict[str, str]:
     return {"status": "ok", "service": SERVICE_NAME, "version": __version__}
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    yield
+    app.state.db.close()
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Sextant compute service",
         version=__version__,
         docs_url=f"{API_PREFIX}/docs",
         openapi_url=f"{API_PREFIX}/openapi.json",
+        lifespan=_lifespan,
     )
+    # Opened lazily on first use, so anonymous tools never need a database.
+    app.state.db = Database.from_env()
     app.include_router(health_router, prefix=API_PREFIX)
+    app.include_router(auth_router, prefix=API_PREFIX)
     return app
