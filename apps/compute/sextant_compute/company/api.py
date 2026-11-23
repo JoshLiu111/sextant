@@ -1,4 +1,8 @@
-"""Company Health Check (P1) endpoints: standardized financial statements."""
+"""Company Health Check (P1) endpoints: standardized financial statements.
+
+``frequency``: ``annual`` (default; the ``years`` most recent fiscal years) or
+``quarterly`` (the ``quarters`` most recent fiscal quarters, labelled
+"Q2 FY2026"; Q4 flows are the year minus the first three quarters)."""
 
 from __future__ import annotations
 
@@ -10,7 +14,7 @@ from pydantic import BaseModel, BeforeValidator
 
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
-from sextant_compute.data.statements import FinancialStatements, Missing
+from sextant_compute.data.statements import FinancialStatements, Frequency, Missing
 from sextant_compute.envelope import MetricResult, MetricStatus, ResultEnvelope, envelope
 from sextant_compute.errors import ApiError, check
 
@@ -18,6 +22,7 @@ router = APIRouter(tags=["company"])
 
 TOOL = "company"
 MAX_YEARS = 10
+MAX_QUARTERS = 20
 # XBRL unit -> envelope unit.
 UNITS = {"USD": "currency", "USD/shares": "per_share", "shares": "shares"}
 
@@ -31,7 +36,15 @@ class StatementsRequest(BaseModel):
     years: Annotated[
         int, check(lambda v: 1 <= v <= MAX_YEARS, f"Choose between 1 and {MAX_YEARS} years.")
     ] = 5
+    frequency: Frequency = "annual"
+    quarters: Annotated[
+        int, check(lambda v: 1 <= v <= MAX_QUARTERS, f"Choose between 1 and {MAX_QUARTERS} quarters.")
+    ] = 8
     source: Literal["sec_edgar"] = "sec_edgar"
+
+    def periods(self) -> int:
+        """How many recent periods to show: ``years``, or ``quarters`` when quarterly."""
+        return self.quarters if self.frequency == "quarterly" else self.years
 
 
 class CompanyOut(BaseModel):
@@ -44,6 +57,7 @@ class PeriodOut(BaseModel):
     id: str
     label: str
     fiscal_year: int
+    fiscal_quarter: int | None
     start: date | None
     end: date
     filed: date
@@ -106,11 +120,11 @@ def statement_metrics(statements: FinancialStatements) -> dict[str, MetricResult
 @router.post("/statements")
 def statements(req: StatementsRequest, data: Data, ctx: Ctx) -> StatementsEnvelope:
     try:
-        full = data.financial_statements(ctx, req.ticker, source=req.source)
+        full = data.statements(ctx, req.ticker, source=req.source, frequency=req.frequency)
     except NoSuchData as exc:
         message = exc.missing.get(req.ticker, exc.message)
         raise ApiError(422, "no_such_data", message, {"ticker": message}) from exc
-    st = full.last(req.years)
+    st = full.last(req.periods())
     base = envelope(
         tool=TOOL,
         request=req,
@@ -126,6 +140,7 @@ def statements(req: StatementsRequest, data: Data, ctx: Ctx) -> StatementsEnvelo
                 id=p.id,
                 label=p.label,
                 fiscal_year=p.fiscal_year,
+                fiscal_quarter=p.fiscal_quarter,
                 start=p.start,
                 end=p.end,
                 filed=p.filed,

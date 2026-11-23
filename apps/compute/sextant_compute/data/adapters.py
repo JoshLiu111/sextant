@@ -63,6 +63,10 @@ class FinancialStatementsAdapter(Adapter, Protocol):
         financial statements."""
         ...
 
+    def quarterly_statements(self, ctx: RequestContext, ticker: str) -> FinancialStatements:
+        """The same, by fiscal quarter (``FiscalPeriod.fiscal_quarter`` 1..4)."""
+        ...
+
 
 class CrossSectionsAdapter(Adapter, Protocol):
     def cross_sections(self, ctx: RequestContext, item_ids: Sequence[str], year: int) -> dict[str, CrossSection]:
