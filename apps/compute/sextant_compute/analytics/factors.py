@@ -24,13 +24,15 @@ import pandas as pd
 from sextant_compute.analytics.errors import MissingData
 from sextant_compute.analytics.performance import TRADING_DAYS
 
-MARKET = "Mkt-RF"
 RISK_FREE = "RF"
 FF3: tuple[str, ...] = ("Mkt-RF", "SMB", "HML")
 CARHART: tuple[str, ...] = (*FF3, "MOM")
 
 MIN_OBSERVATIONS = 24
 """Fewest overlapping returns a regression runs on (two years of monthly data)."""
+
+_EXACT_FIT = 1e-16
+"""Residual share of variance below which the fit counts as exact (rounding noise only)."""
 
 _PERIOD = {TRADING_DAYS: "daily", 12: "monthly"}
 
@@ -42,7 +44,8 @@ class FactorRegression:
     loadings: dict[str, float]
     """Factor column -> coefficient."""
     t_stats: dict[str, float | None]
-    """``"alpha"`` and each factor column -> t-statistic (None when the fit is exact)."""
+    """``"alpha"`` and each factor column -> t-statistic. None when the factors explain the
+    returns exactly (no residual, e.g. the market on Mkt-RF), where t is undefined."""
     r_squared: float
     observations: int
 
@@ -78,7 +81,8 @@ def factor_regression(
     variance = ssr / dof
     se = np.sqrt(variance * np.diag(np.linalg.inv(x.T @ x)))
     names = ["alpha", *columns]
-    t_stats = {name: (float(b / s) if s > 0 else None) for name, b, s in zip(names, coef, se, strict=True)}
+    exact = ssr <= _EXACT_FIT * total
+    t_stats = {name: (None if exact else float(b / s)) for name, b, s in zip(names, coef, se, strict=True)}
     return FactorRegression(
         alpha=float(coef[0]) * periods_per_year,
         loadings={c: float(b) for c, b in zip(columns, coef[1:], strict=True)},

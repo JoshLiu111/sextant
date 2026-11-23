@@ -23,6 +23,11 @@ export function formatValue(value: number, unit: Unit | null): string {
 
 const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
+/** A whole-number count with thousands separators (1303 -> "1,303"). */
+export function formatCount(value: number): string {
+  return WHOLE.format(value);
+}
+
 /**
  * Financial-statement cell: `currency` and `shares` in millions (no decimals),
  * `per_share` with two decimals. Units are stated once in the table caption.

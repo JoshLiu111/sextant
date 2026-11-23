@@ -221,11 +221,11 @@ export const en = {
   },
   risk: {
     intro:
-      "Compare the return, volatility, worst fall, tail risk and risk-adjusted return of a few tickers against a benchmark over a date range. Change any input and the results update.",
+      "Compare the return, volatility, worst fall, tail risk, risk-adjusted return and factor exposures of a few tickers against a benchmark over a date range. Change any input and the results update.",
     inputsHeading: "Inputs",
     submit: "Calculate",
     inputs: {
-      tickers: { label: "Tickers", hint: "Comma-separated. Demo tickers: DEMO-A to DEMO-G." },
+      tickers: { label: "Tickers", hint: "Comma-separated. Demo tickers: DEMO-A to DEMO-I." },
       benchmark: { label: "Benchmark", hint: "Demo benchmark: DEMO-MKT." },
       start: { label: "Start date", hint: "Demo data covers 2016-01-04 to 2025-12-31." },
       end: { label: "End date", hint: "Must be after the start date." },
@@ -239,11 +239,22 @@ export const en = {
       },
     },
     benchmarkSuffix: "(benchmark)",
+    factors: {
+      source: {
+        synthetic:
+          "Factors: synthetic demo factors (Mkt-RF, SMB, HML, MOM, RF) generated with the demo prices. DEMO-H and DEMO-I are built with known size, value and momentum loadings. Sextant shows no real factor data.",
+      },
+      tStat: "t =",
+      exactFit: "t: undefined (exact fit)",
+      observations: "days",
+    },
     sections: {
       metrics: "Return and risk",
       tail: "Tail risk: VaR and CVaR",
       riskAdjusted: "Risk-adjusted return",
       benchmark: "Relationship with the benchmark",
+      ff3: "Factor exposures: Fama-French 3-factor",
+      carhart: "Factor exposures: Carhart 4-factor",
       chart: "Underwater chart",
     },
     chart: {
@@ -361,6 +372,72 @@ export const en = {
         how: "Mean daily return of the ticker on the benchmark's down days ÷ the benchmark's mean daily return on those days (arithmetic means).",
         read: "Lower is better: 70% means it fell only 70% as much as the benchmark on down days. Below 0% means it tended to rise when the benchmark fell.",
       },
+      ff3_alpha: {
+        name: "FF3: alpha (annual)",
+        what: "The yearly return left over after the factors in the model are accounted for.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. Alpha is the regression constant × 252.",
+        read: "Positive means the ticker beat what its factor exposures explain. Check the t-statistic: below about 2 in absolute value, the alpha cannot be told apart from zero.",
+      },
+      ff3_market: {
+        name: "FF3: market (Mkt-RF)",
+        what: "Exposure to the market factor: the market's return above the risk-free rate.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on Mkt-RF. In demo data Mkt-RF is DEMO-MKT's daily total return minus RF, whatever benchmark you picked.",
+        read: "Read it like beta: 1 moves with the market, 1.3 moves 1.3× as much. t (the coefficient over its standard error) above about 2 in absolute value means the exposure is statistically real.",
+      },
+      ff3_smb: {
+        name: "FF3: size (SMB)",
+        what: "Exposure to the size factor: small companies' return minus big companies' (Small Minus Big).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on SMB.",
+        read: "Positive is a small-cap tilt, negative a large-cap tilt, near 0 no size bias. |t| above about 2 means the tilt is statistically real.",
+      },
+      ff3_hml: {
+        name: "FF3: value (HML)",
+        what: "Exposure to the value factor: cheap (high book-to-market) companies' return minus expensive ones' (High Minus Low).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on HML.",
+        read: "Positive is a value tilt, negative a growth tilt, near 0 neither. |t| above about 2 means the tilt is statistically real.",
+      },
+      ff3_r_squared: {
+        name: "FF3: R²",
+        what: "The share of the ticker's daily excess-return variance that the model's factors explain.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. R² = 1 − (sum of squared residuals ÷ total sum of squares of y). The number of daily returns used is shown under it.",
+        read: "0.9 means the factors explain 90% of the day-to-day moves; the rest is stock-specific. Compare the two models: if adding momentum raises R² a lot, momentum matters for this ticker.",
+      },
+      carhart_alpha: {
+        name: "Carhart: alpha (annual)",
+        what: "The yearly return left over after the factors in the model are accounted for.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. Alpha is the regression constant × 252.",
+        read: "Positive means the ticker beat what its factor exposures explain. Check the t-statistic: below about 2 in absolute value, the alpha cannot be told apart from zero.",
+      },
+      carhart_market: {
+        name: "Carhart: market (Mkt-RF)",
+        what: "Exposure to the market factor: the market's return above the risk-free rate.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on Mkt-RF. In demo data Mkt-RF is DEMO-MKT's daily total return minus RF, whatever benchmark you picked.",
+        read: "Read it like beta: 1 moves with the market, 1.3 moves 1.3× as much. t (the coefficient over its standard error) above about 2 in absolute value means the exposure is statistically real.",
+      },
+      carhart_smb: {
+        name: "Carhart: size (SMB)",
+        what: "Exposure to the size factor: small companies' return minus big companies' (Small Minus Big).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on SMB.",
+        read: "Positive is a small-cap tilt, negative a large-cap tilt, near 0 no size bias. |t| above about 2 means the tilt is statistically real.",
+      },
+      carhart_hml: {
+        name: "Carhart: value (HML)",
+        what: "Exposure to the value factor: cheap (high book-to-market) companies' return minus expensive ones' (High Minus Low).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on HML.",
+        read: "Positive is a value tilt, negative a growth tilt, near 0 neither. |t| above about 2 means the tilt is statistically real.",
+      },
+      carhart_mom: {
+        name: "Carhart: momentum (MOM)",
+        what: "Exposure to the momentum factor: recent winners' return minus recent losers'.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on MOM, the factor Carhart added to the Fama-French three.",
+        read: "Positive means the ticker behaves like a trend follower, negative like a contrarian. |t| above about 2 means the exposure is statistically real.",
+      },
+      carhart_r_squared: {
+        name: "Carhart: R²",
+        what: "The share of the ticker's daily excess-return variance that the model's factors explain.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. R² = 1 − (sum of squared residuals ÷ total sum of squares of y). The number of daily returns used is shown under it.",
+        read: "0.9 means the factors explain 90% of the day-to-day moves; the rest is stock-specific. Compare the two models: if adding momentum raises R² a lot, momentum matters for this ticker.",
+      },
     },
   },
   portfolio: {
@@ -385,7 +462,7 @@ export const en = {
     },
     holdings: {
       heading: "Holdings",
-      hint: "Demo tickers: DEMO-A to DEMO-G. Weights are a share of the portfolio and must add up to 100%. The portfolio is rebalanced to these weights every day.",
+      hint: "Demo tickers: DEMO-A to DEMO-I. Weights are a share of the portfolio and must add up to 100%. The portfolio is rebalanced to these weights every day.",
       ticker: "Ticker",
       weight: "Weight",
       weightUnit: "(%)",
@@ -420,7 +497,7 @@ export const en = {
       name: { label: "Portfolio name", placeholder: "For example: Retirement account" },
       holdings: {
         heading: "Holdings",
-        hint: "Demo tickers: DEMO-A to DEMO-G. Cost price is the average price you paid per unit. Use one currency per portfolio for now.",
+        hint: "Demo tickers: DEMO-A to DEMO-I. Cost price is the average price you paid per unit. Use one currency per portfolio for now.",
         ticker: "Ticker",
         quantity: "Quantity",
         cost_price: "Cost price",

@@ -80,6 +80,8 @@ def test_the_market_itself_loads_one_for_one_on_the_market_factor():
     assert ok(body, "ff3_market:DEMO-MKT")["value"] == pytest.approx(1.0, abs=1e-9)
     assert ok(body, "ff3_smb:DEMO-MKT")["value"] == pytest.approx(0.0, abs=1e-9)
     assert ok(body, "ff3_r_squared:DEMO-MKT")["value"] == pytest.approx(1.0, abs=1e-9)
+    # An exact fit has no residual, so its t-stats are undefined rather than astronomically large.
+    assert ok(body, "ff3_market:DEMO-MKT")["details"]["t_stat"] is None
 
 
 def test_results_carry_t_stats_and_observations_and_are_marked_as_demo_factors():

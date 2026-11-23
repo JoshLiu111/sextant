@@ -10,7 +10,7 @@ import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
-import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
+import { formatChartDate, formatChartPercent, formatCount, formatValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
 
 // Metric ids are "<metric>:<ticker>", series ids "drawdown:<ticker>".
@@ -20,7 +20,12 @@ const METRIC_GROUPS = {
   tail: ["var", "cvar", "parametric_var", "parametric_cvar", "cornish_fisher_var", "cornish_fisher_cvar"],
   riskAdjusted: ["sharpe", "sortino", "treynor", "information_ratio"],
   benchmark: ["beta", "alpha", "upside_capture", "downside_capture"],
+  ff3: ["ff3_alpha", "ff3_market", "ff3_smb", "ff3_hml", "ff3_r_squared"],
+  carhart: ["carhart_alpha", "carhart_market", "carhart_smb", "carhart_hml", "carhart_mom", "carhart_r_squared"],
 } as const;
+
+/** The factor sections; their values carry a t-statistic or an observation count. */
+const FACTOR_GROUPS: ReadonlySet<string> = new Set(["ff3", "carhart"]);
 
 type MetricId = (typeof METRIC_GROUPS)[keyof typeof METRIC_GROUPS][number];
 
@@ -74,6 +79,23 @@ function dateMarker(result: MetricResult | undefined, key: string, label: string
   return typeof iso === "string" ? [{ x: Date.parse(iso), label }] : [];
 }
 
+type FactorCopy = ReturnType<typeof getMessages>["risk"]["factors"];
+
+/** The line under a factor regression value: its t-statistic, or for R² the days used. */
+function factorNote(result: MetricResult | undefined, copy: FactorCopy): string | undefined {
+  if (result?.status !== "ok") return undefined;
+  const { t_stat: t, observations: n } = result.details;
+  if (typeof n === "number") return `${formatCount(n)} ${copy.observations}`;
+  if (typeof t === "number") return `${copy.tStat} ${formatValue(t, "ratio")}`;
+  return copy.exactFit;
+}
+
+/** Where the factors came from, from the first factor result that names it. */
+function factorSource(result: { metrics: Record<string, MetricResult> } | null | undefined): string | undefined {
+  const named = Object.values(result?.metrics ?? {}).find((m) => typeof m.details.factor_source === "string");
+  return named?.details.factor_source as string | undefined;
+}
+
 export function RiskTool() {
   const t = getMessages();
   const r = t.risk;
@@ -112,6 +134,11 @@ export function RiskTool() {
         ]
       : [];
   const markers = [...dateMarker(mdd, "peak", r.chart.peak), ...dateMarker(mdd, "trough", r.chart.trough)];
+  const factorSourceId = factorSource(result);
+  const factorSourceText =
+    factorSourceId && factorSourceId in r.factors.source
+      ? r.factors.source[factorSourceId as keyof typeof r.factors.source]
+      : undefined;
 
   return (
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
@@ -192,6 +219,11 @@ export function RiskTool() {
         {(Object.keys(METRIC_GROUPS) as (keyof typeof METRIC_GROUPS)[]).map((group) => (
           <div key={group}>
             <h2 className="text-lg font-semibold">{r.sections[group]}</h2>
+            {group === "ff3" && factorSourceText && (
+              <p data-testid="factor-source" className="mt-1 text-sm text-black/70 dark:text-white/70">
+                {factorSourceText}
+              </p>
+            )}
             <div className="mt-2 grid gap-4 xl:grid-cols-3">
               {METRIC_GROUPS[group].map((id: MetricId) => (
                 <MetricCard
@@ -200,11 +232,15 @@ export function RiskTool() {
                   explainer={r.metrics[id]}
                   values={
                     symbols.length
-                      ? symbols.map((ticker) => ({
-                          id: `${id}:${ticker}`,
-                          label: label(ticker),
-                          result: result?.metrics[`${id}:${ticker}`],
-                        }))
+                      ? symbols.map((ticker) => {
+                          const value = result?.metrics[`${id}:${ticker}`];
+                          return {
+                            id: `${id}:${ticker}`,
+                            label: label(ticker),
+                            result: value,
+                            note: FACTOR_GROUPS.has(group) ? factorNote(value, r.factors) : undefined,
+                          };
+                        })
                       : [{ id: `${id}:pending`, result: undefined }]
                   }
                 />
