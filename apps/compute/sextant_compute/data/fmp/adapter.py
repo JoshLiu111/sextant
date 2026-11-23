@@ -4,12 +4,13 @@ Like Tiingo, FMP's free terms don't allow showing its data to anyone but the key
 holder, so the adapter's scope is ``"user"``: ``DataService`` caches what it
 fetches under that user only, and only while the user has an FMP key.
 
-Two jobs:
+Its jobs:
 
 - ``verify_key``: Settings checks a key before saving it.
 - ``daily_prices``: end-of-day prices for the My data tools, with
   ``ctx.key_for("fmp")``.
 - ``latest_close``: the newest close (the Valuation Calculator's share price).
+- ``splits``: the stock splits since a date.
 
 All calls go to the "stable" API with the key in the ``apikey`` header (never
 in the URL, so it can't leak into a logged URL):
@@ -25,6 +26,11 @@ in the URL, so it can't leak into a logged URL):
 - Dividends: ``GET /stable/dividends?symbol=``, the whole history newest first;
   ``date`` is the ex-date and ``adjDividend`` the split-adjusted cash amount
   (on the same scale as the prices). Filtered to the range here.
+- Splits: ``GET /stable/splits?symbol=``, the whole history newest first,
+  ``{symbol, date, numerator, denominator}`` (documented shape, not yet checked
+  with a real key): ``date`` is the ex-date, ``numerator / denominator`` the new
+  shares per old share (4/1 for a 4:1 split). Portfolio returns use them to put
+  a past trade's quantity in today's share count, like the prices.
 - Latest close: the same prices URL without ``from``/``to`` (FMP then answers
   its default recent range, newest first); the newest row's close. Split-adjusted
   closes are in today's share count, so the newest one is the raw close.
@@ -87,7 +93,7 @@ class FmpAdapter(UserKeyHttpAdapter):
     source = FMP
     no_key_message = NO_KEY_MESSAGE
     # Same reasoning as Tiingo: end-of-day data, and a free key has a small daily quota.
-    ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600}
+    ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600, "splits": 12 * 3600}
     # 2: today's partial bar is dropped (cached series may hold one).
     version = "2"
 
@@ -152,6 +158,22 @@ class FmpAdapter(UserKeyHttpAdapter):
             return _frame(rows, dividends)
 
         return self._per_ticker(tickers, fetch)
+
+    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[tuple[date, float]]:
+        """See ``SplitsAdapter``. One request: the whole split history, filtered here."""
+        try:
+            rows = self._list("/stable/splits", self._key(ctx), {"symbol": ticker})
+        except _NotInPlan:
+            message = _not_in_plan(ticker)
+            raise NoSuchData(FMP.id, message, {ticker: message}) from None
+        try:
+            found = [
+                (date.fromisoformat(str(r["date"])[:10]), float(r["numerator"]) / float(r["denominator"]))
+                for r in rows
+            ]
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            raise SourceUnavailable(FMP.id, "FMP returned splits in an unexpected shape.") from None
+        return sorted((d, ratio) for d, ratio in found if d >= start and ratio != 1.0)
 
     def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
         """See ``LatestCloseAdapter``. One request: the prices URL without dates."""

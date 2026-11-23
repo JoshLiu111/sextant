@@ -7,8 +7,8 @@
 // down. Anything else answers 401 with FMP's real "Invalid API KEY" body
 // (probed 2026-11-22).
 //
-// GET /stable/quote: the key check. GET /stable/historical-price-eod/full and
-// /stable/dividends serve the recorded responses the compute tests use
+// GET /stable/quote: the key check. GET /stable/historical-price-eod/full,
+// /stable/dividends and /stable/splits serve the recorded responses the compute tests use
 // (apps/compute/tests/fixtures/fmp: aapl, msft, spy; 30 trading days from
 // 2024-01-02, newest first), with the same rules as FakeFmp in
 // apps/compute/tests/fmp_fixtures.py: an unknown symbol answers 402 with the
@@ -47,7 +47,7 @@ createServer(async (req, res) => {
   if (!key.startsWith("good")) return send(res, 401, INVALID_KEY);
   const symbol = (url.searchParams.get("symbol") || "").toLowerCase();
   if (url.pathname === "/stable/quote") return send(res, 200, symbol ? [{ symbol: symbol.toUpperCase(), price: 130 }] : []);
-  const prices = url.pathname === "/stable/historical-price-eod/full" || url.pathname === "/stable/dividends";
+  const prices = ["/stable/historical-price-eod/full", "/stable/dividends", "/stable/splits"].includes(url.pathname);
   if (prices && !KNOWN.has(symbol)) {
     res.writeHead(402, { "content-type": "text/plain" });
     return res.end(PREMIUM);
@@ -58,5 +58,6 @@ createServer(async (req, res) => {
     return send(res, 200, (await rows("historical-price-eod", symbol)).filter((r) => from <= r.date && r.date <= to));
   }
   if (url.pathname === "/stable/dividends") return send(res, 200, await rows("dividends", symbol));
+  if (url.pathname === "/stable/splits") return send(res, 200, await rows("splits", symbol));
   send(res, 404, { "Error Message": "Not found." });
 }).listen(PORT, "127.0.0.1");

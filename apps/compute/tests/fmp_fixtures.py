@@ -15,6 +15,10 @@ Recorded responses under ``tests/fixtures/fmp/``:
   cash amount as paid, ``adjDividend`` the split-adjusted one). AAPL has a
   pre-split dividend inside the range (0.96 paid, 0.24 adjusted); SPY has 1.50
   on 2024-01-09; MSFT has none inside the range.
+- ``splits/<ticker>.json``: the body of ``GET /stable/splits?symbol=<T>``, the
+  whole history newest first, in the documented shape (``symbol, date,
+  numerator, denominator``; not yet checked with a real key). AAPL has the 4:1
+  split on 2024-01-30 the prices are adjusted for, and a 7:1 in 2014.
 
 The numbers are made up; the field names, the 401 body for a bad key (probed
 2026-11-22) and the 402 plain-text body are real. Checked with a real free key
@@ -80,7 +84,7 @@ class FakeFmp:
         path = request.url.path
         if path == "/stable/quote":
             return httpx.Response(200, json=[{"symbol": symbol, "price": 130.0}] if symbol else [])
-        if path in ("/stable/historical-price-eod/full", "/stable/dividends") and (
+        if path in ("/stable/historical-price-eod/full", "/stable/dividends", "/stable/splits") and (
             symbol in self.premium or not self._rows("historical-price-eod", symbol)
         ):
             return httpx.Response(402, text=PREMIUM_BODY)
@@ -91,6 +95,8 @@ class FakeFmp:
             return httpx.Response(200, json=[r for r in self._rows("historical-price-eod", symbol) if start <= r["date"] <= end])
         if path == "/stable/dividends":
             return httpx.Response(200, json=self._rows("dividends", symbol))
+        if path == "/stable/splits":
+            return httpx.Response(200, json=self._rows("splits", symbol))
         return httpx.Response(404, json={"Error Message": "Not found."})
 
     @staticmethod
