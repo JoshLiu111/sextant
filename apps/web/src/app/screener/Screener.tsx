@@ -10,7 +10,7 @@ import { MetricExplainer } from "@/components/MetricExplainer";
 import { getMessages } from "@/i18n";
 import { csvFilename } from "@/lib/csv";
 import type { DataSource, ResultEnvelope } from "@/lib/envelope";
-import { PROVIDER_NAMES, useMyDataProviders } from "@/lib/myData";
+import { PROVIDER_NAMES, useMyDataProviders, type MyDataProvider } from "@/lib/myData";
 import { decodeRows, encodeRows, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
@@ -201,10 +201,13 @@ export function Screener() {
   const [query, setQuery] = useState<Query>(() => toQuery(initial));
   // The form as last submitted: sorting re-shares it, not unsubmitted edits.
   const [submitted, setSubmitted] = useState({ rows: initial.rows, year: initial.year });
-  // Price criteria run on the user's own provider; a link with them opened
-  // without a key gets the API's "needs My data" message on the criterion.
+  // Price criteria run on the user's own provider (their pick when they have
+  // several keys); a link with them opened without a key gets the API's
+  // "needs My data" message on the criterion.
   const providers = useMyDataProviders();
-  const priceSource = providers[0] ?? null;
+  const [chosenProvider, setChosenProvider] = useState<MyDataProvider | null>(null);
+  const priceSource =
+    chosenProvider !== null && providers.includes(chosenProvider) ? chosenProvider : (providers[0] ?? null);
   const hasPriceCriteria = query.criteria.some((c) => PRICE_METRICS.includes(c.metric));
   const body = hasPriceCriteria && priceSource ? { ...query, price_source: priceSource } : query;
   const { result, fieldErrors, error, pending, run } = useCompute("/screener/screen", body);
@@ -355,6 +358,23 @@ export function Screener() {
             {s.run}
           </button>
         </div>
+        {priceSource && providers.length > 1 && (
+          <label className="block text-sm font-medium">
+            {s.priceCriteria.provider}
+            <select
+              name="price_source"
+              value={priceSource}
+              onChange={(e) => setChosenProvider(e.target.value as MyDataProvider)}
+              className={`${inputClass} sm:max-w-xs`}
+            >
+              {providers.map((p) => (
+                <option key={p} value={p}>
+                  {PROVIDER_NAMES[p]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <p data-testid="price-criteria-note" className="text-xs text-black/50 dark:text-white/50">
           {priceSource ? s.priceCriteria.myData(PROVIDER_NAMES[priceSource], MAX_PRICED) : s.priceCriteria.signIn}
         </p>
@@ -447,7 +467,10 @@ export function Screener() {
                         ))}
                         <td className="px-2 py-1.5 text-right font-mono text-xs">{r.period_end ?? "–"}</td>
                         <td className="whitespace-nowrap px-2 py-1.5">
-                          <Link href={`/company?ticker=${encodeURIComponent(r.ticker)}`} className="underline">
+                          <Link
+                            href={`/company?companies=${encodeURIComponent(r.ticker)}&ticker=${encodeURIComponent(r.ticker)}`}
+                            className="underline"
+                          >
                             {s.healthCheck}
                           </Link>{" "}
                           ·{" "}

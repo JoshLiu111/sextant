@@ -42,7 +42,10 @@ test("presets load their legs; the iron condor has a capped gain and loss", asyn
 
   await main.getByRole("button", { name: "Straddle" }).click();
   await expect(legRows(main)).toHaveCount(2);
+  // Unlimited is a valid answer, not a failure.
+  await expect(metric(main, "max_profit")).toHaveAttribute("data-status", "ok");
   await expect(metric(main, "max_profit")).toContainText("Unlimited");
+  await expect(metric(main, "max_profit")).not.toContainText("Can't compute");
   await expect(metric(main, "max_loss")).toContainText("16.0241");
 });
 

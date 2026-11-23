@@ -19,7 +19,7 @@ on the next request.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal, Protocol
+from typing import Annotated, Protocol
 
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel, BeforeValidator
@@ -28,6 +28,7 @@ from sextant_compute.auth import CurrentUser
 from sextant_compute.auth.deps import get_db
 from sextant_compute.data import user_cache
 from sextant_compute.data.fmp import FmpAdapter
+from sextant_compute.data.sources import MY_DATA_SOURCES, MyDataProvider
 from sextant_compute.data.tiingo import TiingoAdapter
 from sextant_compute.db import Database
 from sextant_compute.errors import ApiError, check
@@ -37,8 +38,8 @@ from sextant_compute.keys.cipher import KeyCipher, KeysNotConfigured
 router = APIRouter(tags=["keys"])
 
 Db = Annotated[Database, Depends(get_db)]
-Provider = Literal["tiingo", "fmp"]
-PROVIDER_NAMES: dict[str, str] = {"tiingo": "Tiingo", "fmp": "FMP"}
+Provider = MyDataProvider
+"""A key can be saved for every My data provider (``data.sources`` is the registry)."""
 MAX_KEY_LENGTH = 200
 HINT_LENGTH = 4
 
@@ -113,7 +114,7 @@ def _cipher() -> KeyCipher:
 def list_keys(user: CurrentUser, db: Db) -> list[SavedKey]:
     with db.connection() as conn:
         rows = store.list_for(conn, user.id)
-    return [SavedKey.model_validate(row) for row in rows if row["provider"] in PROVIDER_NAMES]
+    return [SavedKey.model_validate(row) for row in rows if row["provider"] in MY_DATA_SOURCES]
 
 
 @router.put("/{provider}")
@@ -126,7 +127,7 @@ def save_key(
 ) -> SavedKey:
     cipher = _cipher()
     if not verifiers[provider].verify_key(body.key):  # SourceUnavailable -> 503 source_unavailable
-        message = f"This key is invalid: {PROVIDER_NAMES[provider]} rejected it. Check that you copied the whole key."
+        message = f"This key is invalid: {MY_DATA_SOURCES[provider].name} rejected it. Check that you copied the whole key."
         raise ApiError(422, "invalid_key", message, fields={"key": message})
     sealed = cipher.seal(user.id, provider, body.key)
     with db.connection() as conn:

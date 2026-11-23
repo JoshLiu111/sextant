@@ -62,6 +62,13 @@ function MetricValue({ value, format }: { value: MetricCardValue; format: Format
           )}
           {value.note && <div className="text-xs text-black/50 dark:text-white/50">{value.note}</div>}
         </>
+      ) : r.status === "ok" && r.details.bound === "unlimited" ? (
+        <>
+          <div className="font-mono text-xl">{t.unlimited}</div>
+          {typeof r.details.why === "string" && (
+            <div className="text-xs text-black/50 dark:text-white/50">{r.details.why}</div>
+          )}
+        </>
       ) : (
         <p className={`text-sm ${r.status === "error" ? "text-red-700 dark:text-red-400" : "text-black/60 dark:text-white/60"}`}>
           <span className="font-medium">{t.status[r.status === "ok" ? "error" : r.status]}: </span>

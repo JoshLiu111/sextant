@@ -47,25 +47,21 @@ from urllib.parse import quote
 import httpx
 import pandas as pd
 
-from sextant_compute.data.adapters import PRICE_COLUMNS, Scope
+from sextant_compute.data.adapters import PRICE_COLUMNS
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
-from sextant_compute.data.retry import get_with_retries
-from sextant_compute.envelope import DataSource
-
-TIINGO = DataSource(id="tiingo", name="Tiingo", is_demo=False)
+from sextant_compute.data.sources import TIINGO
+from sextant_compute.data.user_key_http import UserKeyHttpAdapter
 
 BASE_URL = "https://api.tiingo.com"
-ATTEMPTS = 2
-BACKOFF = 0.5  # seconds
 
 NO_KEY_MESSAGE = "My data needs your own Tiingo key. Add one in Settings."
 REJECTED_KEY_MESSAGE = "Tiingo no longer accepts your saved key. Replace it in Settings."
 
 
-class TiingoAdapter:
+class TiingoAdapter(UserKeyHttpAdapter):
     source = TIINGO
-    scope: Scope = "user"
+    no_key_message = NO_KEY_MESSAGE
     # End-of-day data changes once a day; half a day keeps a user's repeat requests
     # off their hourly Tiingo quota without serving yesterday's close for long.
     ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600}
@@ -78,41 +74,27 @@ class TiingoAdapter:
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        self._base_url = base_url.rstrip("/")
-        self._client = httpx.Client(transport=transport, timeout=10.0)
-        self._sleep = sleep
+        super().__init__(base_url=base_url, transport=transport, sleep=sleep)
 
     @classmethod
     def from_env(cls) -> TiingoAdapter:
         """``TIINGO_BASE_URL`` (optional; e2e tests point it at a fake)."""
         return cls(base_url=os.environ.get("TIINGO_BASE_URL") or BASE_URL)
 
-    def _get(self, path: str, key: str, params: dict[str, str] | None = None) -> httpx.Response:
-        try:
-            return get_with_retries(
-                lambda: self._client.get(
-                    f"{self._base_url}{path}",
-                    params=params,
-                    headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
-                ),
-                attempts=ATTEMPTS,
-                backoff=BACKOFF,
-                sleep=self._sleep,
-            )
-        except httpx.HTTPError as exc:
-            raise SourceUnavailable(TIINGO.id, f"Tiingo request failed ({type(exc).__name__}).") from None
+    def _tiingo_get(self, path: str, key: str, params: dict[str, str] | None = None) -> httpx.Response:
+        return self._get(path, params, {"Authorization": f"Token {key}", "Content-Type": "application/json"})
 
     def verify_key(self, key: str) -> bool:
         """True if Tiingo accepts ``key``, False if it rejects it.
 
         Raises ``SourceUnavailable`` when Tiingo can't tell us either way.
         """
-        response = self._get("/api/test", key)
+        response = self._tiingo_get("/api/test", key)
         if response.status_code in (401, 403):
             return False
         if response.status_code != 200:
             raise SourceUnavailable(TIINGO.id, f"Tiingo answered HTTP {response.status_code}.")
-        body = _json(response)
+        body = self._json(response)
         message = str(body.get("message", "")).lower() if isinstance(body, dict) else ""
         if "successfully" in message:
             return True
@@ -125,29 +107,21 @@ class TiingoAdapter:
     ) -> dict[str, pd.DataFrame]:
         """See ``DailyPricesAdapter``. One Tiingo request per ticker; every unknown
         ticker (or one with no prices in the range) is collected into one ``NoSuchData``."""
-        key = ctx.key_for(TIINGO.id)
-        if not key:
-            raise KeyRequired(TIINGO.id, NO_KEY_MESSAGE)
-        frames: dict[str, pd.DataFrame] = {}
-        missing: dict[str, str] = {}
-        for ticker in tickers:
+        key = self._key(ctx)
+
+        def fetch(ticker: str) -> pd.DataFrame | str:
             rows = self._prices(key, ticker, start, end)
             if rows is None:
-                missing[ticker] = f"Tiingo has no ticker {ticker}."
-            elif not rows:
-                missing[ticker] = f"No Tiingo prices for {ticker} between {start} and {end}."
-            else:
-                frames[ticker] = _frame(rows)
-        if missing:
-            raise NoSuchData(TIINGO.id, " ".join(missing.values()), missing)
-        return frames
+                return f"Tiingo has no ticker {ticker}."
+            if not rows:
+                return f"No Tiingo prices for {ticker} between {start} and {end}."
+            return _frame(rows)
+
+        return self._per_ticker(tickers, fetch)
 
     def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
         """See ``LatestCloseAdapter``. Tiingo's prices URL without dates answers the latest day."""
-        key = ctx.key_for(TIINGO.id)
-        if not key:
-            raise KeyRequired(TIINGO.id, NO_KEY_MESSAGE)
-        rows = self._prices(key, ticker, None, None)
+        rows = self._prices(self._key(ctx), ticker, None, None)
         if rows is None:
             message = f"Tiingo has no ticker {ticker}."
         elif not rows:
@@ -162,24 +136,17 @@ class TiingoAdapter:
         params = {"format": "json"}
         if start is not None and end is not None:
             params |= {"startDate": start.isoformat(), "endDate": end.isoformat()}
-        response = self._get(f"/tiingo/daily/{quote(ticker.lower(), safe='')}/prices", key, params)
+        response = self._tiingo_get(f"/tiingo/daily/{quote(ticker.lower(), safe='')}/prices", key, params)
         if response.status_code in (401, 403):
             raise KeyRequired(TIINGO.id, REJECTED_KEY_MESSAGE)
         if response.status_code == 404:
             return None
         if response.status_code != 200:
             raise SourceUnavailable(TIINGO.id, f"Tiingo answered HTTP {response.status_code}.")
-        body = _json(response)
+        body = self._json(response)
         if not isinstance(body, list) or not all(isinstance(r, dict) for r in body):
             raise SourceUnavailable(TIINGO.id, "Tiingo returned prices in an unexpected shape.")
         return body
-
-
-def _json(response: httpx.Response) -> Any:
-    try:
-        return response.json()
-    except ValueError:
-        raise SourceUnavailable(TIINGO.id, "Tiingo returned a response that is not JSON.") from None
 
 
 def _frame(rows: list[dict[str, Any]]) -> pd.DataFrame:

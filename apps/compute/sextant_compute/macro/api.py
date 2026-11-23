@@ -7,8 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter
-from pydantic import BaseModel, ValidationInfo, field_validator
-from pydantic_core import PydanticCustomError
+from pydantic import BaseModel
 
 from sextant_compute.analytics import rates
 from sextant_compute.data.adapters import EconomicSeries, YieldCurves
@@ -26,7 +25,8 @@ from sextant_compute.envelope import (
     metric,
     series,
 )
-from sextant_compute.errors import INPUT_ERROR, check
+from sextant_compute.errors import check
+from sextant_compute.request_models import EndOnOrAfterStart
 
 router = APIRouter(tags=["macro"])
 
@@ -121,7 +121,7 @@ TREASURY_FIRST = date(1990, 1, 2)  # the par yield curve starts here
 CURVES = {"latest": 0, "1m_ago": 1, "1y_ago": 12}
 
 
-class RatesRequest(BaseModel):
+class RatesRequest(EndOnOrAfterStart):
     start: Annotated[
         date, check(lambda v: v >= TREASURY_FIRST, "Treasury yield curve data starts on 1990-01-02.")
     ] = RATES_START
@@ -129,14 +129,6 @@ class RatesRequest(BaseModel):
     end: date | None = None
     """Last day considered (default: today, UTC). The latest curve is the newest on or before it."""
     source: Literal["treasury"] = "treasury"
-
-    @field_validator("end")
-    @classmethod
-    def _end_after_start(cls, end: date | None, info: ValidationInfo) -> date | None:
-        start = info.data.get("start")
-        if end is not None and start is not None and end < start:
-            raise PydanticCustomError(INPUT_ERROR, "End date must be on or after the start date.")
-        return end
 
 
 def _meta_details(found: YieldCurves) -> dict[str, str | float | int | None]:

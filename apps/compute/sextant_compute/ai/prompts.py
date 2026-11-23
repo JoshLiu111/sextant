@@ -75,14 +75,21 @@ def _compact(value, *, drop_empty: bool):
     return value
 
 
-def result_payload(result: ResultEnvelope) -> dict:
+def result_payload(result: ResultEnvelope, *, drop_ok_status: bool = False) -> dict:
     """The envelope as the model sees it, kept small: chart series are thinned to a
     few points, provenance fields are left out, and so are empty fields of metrics
-    and series (a metric keeps ``value``, null when it could not be computed)."""
+    and series (a metric keeps ``value``, null when it could not be computed).
+
+    ``drop_ok_status`` also leaves out ``status`` when it is ``"ok"`` (the AI
+    Analyst's tool results, where most metrics are ok), so only failures say so."""
     data = result.model_dump(mode="json")
     for s in data["series"].values():
         s["points"] = _sampled(s["points"])
     metrics = {k: {"value": None, **_compact(m, drop_empty=True)} for k, m in data.pop("metrics").items()}
+    if drop_ok_status:
+        for m in metrics.values():
+            if m.get("status") == "ok":
+                del m["status"]
     series = {k: _compact(s, drop_empty=True) for k, s in data.pop("series").items()}
     return _compact(data, drop_empty=False) | {"metrics": metrics, "series": series}
 

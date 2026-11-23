@@ -2,9 +2,7 @@
 // The session cookie goes along automatically (same origin). Mirrors
 // apps/compute/sextant_compute/valuation/saved.py.
 
-import { getMessages } from "@/i18n";
-import { computePath } from "./compute";
-import type { ApiErrorBody } from "./envelope";
+import { sendSignedIn, type SignedInOutcome } from "./computeClient";
 
 /** `ValuationAssumptions`: rates as decimals, null = derive (or no price). */
 export type ValuationAssumptions = {
@@ -38,41 +36,10 @@ export type AssumptionSetBody = {
   assumptions: Record<keyof ValuationAssumptions, number | null>;
 };
 
-export type AssumptionsOutcome<T> =
-  | { kind: "ok"; value: T }
-  | { kind: "signedOut" }
-  | { kind: "invalid"; message: string; fields: Record<string, string> }
-  | { kind: "failed"; message: string };
+export type AssumptionsOutcome<T> = SignedInOutcome<T>;
 
-async function send<T>(
-  method: string,
-  suffix: string,
-  body?: unknown,
-): Promise<AssumptionsOutcome<T>> {
-  const t = getMessages().common.errors;
-  let res: Response;
-  try {
-    res = await fetch(computePath(`/valuation/assumptions${suffix}`), {
-      method,
-      headers:
-        body === undefined ? undefined : { "content-type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      cache: "no-store",
-    });
-  } catch {
-    return { kind: "failed", message: t.computeUnavailable };
-  }
-  if (res.status === 401) return { kind: "signedOut" };
-  if (res.status === 204) return { kind: "ok", value: undefined as T };
-  const json: unknown = await res.json().catch(() => null);
-  if (res.ok && json !== null) return { kind: "ok", value: json as T };
-  if (json && typeof json === "object" && "error" in json) {
-    const { error } = json as ApiErrorBody;
-    if (Object.keys(error.fields ?? {}).length > 0)
-      return { kind: "invalid", message: error.message, fields: error.fields };
-    return { kind: "failed", message: error.message };
-  }
-  return { kind: "failed", message: t.computeUnavailable };
+function send<T>(method: string, suffix: string, body?: unknown): Promise<AssumptionsOutcome<T>> {
+  return sendSignedIn<T>(method, `/valuation/assumptions${suffix}`, body);
 }
 
 export const valuationAssumptionsApi = {

@@ -121,6 +121,8 @@ export const en = {
       missing_data: "Missing data",
       error: "Can't compute",
     },
+    /** An ok metric with no bound (`details.bound === "unlimited"`), e.g. a straddle's max profit. */
+    unlimited: "Unlimited",
     units: {
       currency: "",
       decimal: "",
@@ -816,7 +818,7 @@ export const en = {
     saved: {
       heading: "Your portfolios",
       intro:
-        "Enter your holdings and save them as a named portfolio. Each portfolio is held at its quantities (bought and held, dividends reinvested) and compared with a benchmark. Prices come from demo data, or with My data from your own provider once you save its key in Settings.",
+        "Enter your holdings and save them as a named portfolio. Each portfolio is held at its quantities (bought and held, dividends reinvested) and compared with a benchmark. Prices come from demo data, or with My data from your own provider once you save its key in Settings; a portfolio of real tickers then opens on My data.",
       empty: "You have no saved portfolios yet.",
       switcher: "Saved portfolio",
       newPortfolio: "New portfolio",
@@ -1172,7 +1174,7 @@ export const en = {
     yearEnded: "Year ended",
     quarterEnded: "Quarter ended",
     quarterlyNote:
-      "Quarters are the company's fiscal quarters. Companies file no fourth-quarter report, so Q4 income and cash flows are the year (10-K) minus the first three quarters; per-share amounts and weighted-average shares aren't derived for Q4. Cash flows in 10-Qs are year to date, so each quarter shows only its own three months.",
+      "Quarters are the company's fiscal quarters. Companies file no fourth-quarter report, so Q4 income and cash flows are the year (10-K) minus the first three quarters; Q4 weighted-average shares are the year weighted by days minus the nine months, and Q4 EPS is the year's EPS x shares minus the nine months', over Q4's shares (approximations; hover a value to see how). Cash flows in 10-Qs are year to date, so each quarter shows only its own three months.",
     filed: "filed",
     sourceFiling: "Source",
     derived: "derived",
@@ -1222,6 +1224,8 @@ export const en = {
         "Price criteria (52-week change, distance from the 52-week high) use your own price data: sign in and add a price data key in Settings. Market cap is not offered.",
       myData: (provider: string, max: number) =>
         `Price criteria use real prices from ${provider}, fetched with your own key and shown only to you. They are checked on at most ${max} companies passing the other criteria.`,
+      /** Shown when the user has keys for several price providers. */
+      provider: "Price provider",
     },
     pricesInfo: (provider: string, asOf: string) => `Prices: ${provider}, as of ${asOf}. Shown only to you.`,
     priceExplainer: {
@@ -1686,7 +1690,7 @@ export const en = {
     averageNote:
       "Balance-sheet amounts in ratios with revenue, costs or income are averaged over the opening and closing balance (the prior and current fiscal year end). Hover n/a for the reason; select any value to see its formula and inputs.",
     quarterlyNote:
-      "Quarterly ratios marked TTM use trailing twelve months: income and cash flows are the sum of the four quarters to each quarter end, and balances are averaged over that quarter end and the one a year before. Unmarked ratios use the quarter-end balance sheet. A TTM ratio at Q4 equals the fiscal-year ratio.",
+      "Quarterly ratios marked TTM use trailing twelve months: income and cash flows are the sum of the four quarters to each quarter end, and balances are averaged over that quarter end and the one a year before. Unmarked ratios use the quarter-end balance sheet. A TTM ratio at Q4 equals the fiscal-year ratio, except P/E: its TTM EPS is the sum of the four quarterly EPS.",
     ttm: "TTM",
     ttmTitle: "Trailing twelve months: the four quarters to each quarter end",
     drill: {

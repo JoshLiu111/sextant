@@ -15,8 +15,19 @@ Rules (on top of the annual ones in ``standardize``):
   year (10-K) minus the nine months to Q3, or minus Q1 + Q2 + Q3. Each quarter
   holds only its own three months, so the four quarters add up to the year.
 - Per-share amounts and weighted-average share counts don't add up across
-  periods, so they are never subtracted: they come only from three-month facts,
-  and Q4 is ``Missing`` saying why.
+  periods, so Q1-Q3 come only from three-month facts. Q4 is derived from the
+  year (10-K) and the nine months to Q3 (10-Q year to date, which every 10-Q
+  income statement reports), as approximations documented in the cell's
+  ``derived_from``:
+
+  - Weighted-average shares: the year's average is the day-weighted average of
+    its parts, so Q4 = (FY x days(FY) - 9M x days(9M)) / days(Q4).
+  - EPS: EPS x weighted shares is the earnings behind the EPS, so Q4 EPS =
+    (FY EPS x FY shares - 9M EPS x 9M shares) / Q4 shares, with the matching
+    share count (basic or diluted, ``EPS_SHARES``). Using the company's own EPS
+    keeps preferred dividends and other adjustments out of it.
+
+  Without both reports Q4 is ``Missing`` saying why.
 - As in the annual statements: the first tag with a value wins per period, the
   earliest filing wins among duplicates, then ``derive`` formulas fill gaps.
 """
@@ -48,6 +59,8 @@ QUARTER_DAYS = range(70, 111)
 # Year-to-date spans by quarter: about 3, 6 and 9 months.
 YTD_DAYS = {1: range(70, 111), 2: range(160, 201), 3: range(250, 291)}
 MONTHS = {1: "three", 2: "six", 3: "nine"}
+EPS_SHARES = {"eps_basic": "shares_basic", "eps_diluted": "shares_diluted"}
+"""Per-share item -> the weighted-average share count it is divided by (for Q4)."""
 
 
 @dataclass(frozen=True)
@@ -146,6 +159,7 @@ def standardize_quarterly(
 
     found: dict[str, dict[str, Reported]] = {}
     missing: dict[str, dict[str, str]] = {}
+    pending_q4: list[tuple[LineItemSpec, FiscalPeriod, _Quarter]] = []
     for spec in specs:
         row: dict[str, Reported] = {}
         additive = spec.item.unit == "USD"
@@ -163,12 +177,16 @@ def standardize_quarterly(
                     row[p.id] = cell
                     break
             if p.id not in row and not additive and q.number == 4:
-                missing.setdefault(spec.id, {})[p.id] = (
-                    f"{spec.item.label} is not reported for {p.label}: companies report per-share amounts and "
-                    "weighted-average shares for the whole year, and the year minus three quarters isn't "
-                    "meaningful for them."
-                )
+                pending_q4.append((spec, p, q))
         found[spec.id] = row
+
+    # Share counts first: a Q4 EPS divides by its Q4 share count.
+    for spec, p, q in sorted(pending_q4, key=lambda t: t[0].item.unit != "shares"):
+        cell = _q4_per_share(spec, q, ends, flows, found, p.id, filing)
+        if isinstance(cell, Reported):
+            found[spec.id][p.id] = cell
+        else:
+            missing.setdefault(spec.id, {})[p.id] = f"{spec.item.label} for {p.label} can't be derived: {cell}"
 
     ever = {
         spec.id: any(facts for _, facts in instants.get(spec.id, []))
@@ -256,4 +274,73 @@ def _flow(
         filing(now),
         tag=tag,
         derived_from=f"{what} minus {names} FY{q.year.fiscal_year}",
+    )
+
+
+def _days(start: date, end: date) -> int:
+    return (end - start).days + 1
+
+
+def _year_and_nine_months(
+    tags: Sequence[tuple[str, _Spans]], q: _Quarter, end3: date
+) -> tuple[str, Fact, Fact] | None:
+    """The first tag with both the year (10-K) and the nine months to Q3 (10-Q)."""
+    for tag, spans in tags:
+        year, nine = spans.ytd(q.year.start, q.end), spans.ytd(q.year.start, end3)
+        if year is not None and nine is not None and year.form in ANNUAL_FORMS:
+            return tag, year, nine
+    return None
+
+
+def _q4_per_share(
+    spec: LineItemSpec,
+    q: _Quarter,
+    ends: Mapping[tuple[_Year, int], date],
+    flows: Mapping[str, Sequence[tuple[str, _Spans]]],
+    found: Mapping[str, Mapping[str, Reported]],
+    period_id: str,
+    filing: Callable[[Fact], Filing],
+) -> Reported | str:
+    """Q4 of a weighted-average share count or a per-share amount (see the module
+    docstring), or why it can't be derived."""
+    end3 = ends.get((q.year, 3))
+    if end3 is None:
+        return f"there is no Q3 FY{q.year.fiscal_year} report to subtract from the year."
+    fy = f"FY{q.year.fiscal_year}"
+    days_year, days_nine, days_q4 = _days(q.year.start, q.end), _days(q.year.start, end3), (q.end - end3).days
+    if spec.item.unit == "shares":
+        pair = _year_and_nine_months(flows.get(spec.id, []), q, end3)
+        if pair is None:
+            return f"it needs {fy}'s 10-K and the nine months to {end3} (10-Q), and one is missing."
+        tag, year, nine = pair
+        return Reported(
+            (year.value * days_year - nine.value * days_nine) / days_q4,
+            filing(max(year, nine, key=lambda f: (f.filed, f.accession))),
+            tag=tag,
+            derived_from=(
+                f"{fy} ({_note(year)}) and the nine months to {end3} ({_note(nine)}), weighted by days: "
+                f"({fy} x {days_year} - nine months x {days_nine}) / {days_q4}"
+            ),
+        )
+    shares_id = EPS_SHARES.get(spec.id)
+    if shares_id is None:
+        return "only share counts and EPS are derived for Q4."
+    shares_q4 = found.get(shares_id, {}).get(period_id)
+    eps = _year_and_nine_months(flows.get(spec.id, []), q, end3)
+    shares = _year_and_nine_months(flows.get(shares_id, []), q, end3)
+    if shares_q4 is None or eps is None or shares is None:
+        return f"it needs {fy}'s 10-K and the nine months to {end3} (10-Q) for both EPS and weighted shares."
+    if shares_q4.value <= 0:
+        return f"its weighted shares for Q4 {fy} come out at {shares_q4.value:,.0f}."
+    tag, eps_year, eps_nine = eps
+    _, shares_year, shares_nine = shares
+    earnings = eps_year.value * shares_year.value - eps_nine.value * shares_nine.value
+    return Reported(
+        earnings / shares_q4.value,
+        filing(max(eps_year, eps_nine, key=lambda f: (f.filed, f.accession))),
+        tag=tag,
+        derived_from=(
+            f"{fy} ({_note(eps_year)}) minus the nine months to {end3} ({_note(eps_nine)}), as EPS x weighted "
+            "shares, divided by Q4's weighted shares (themselves derived)"
+        ),
     )

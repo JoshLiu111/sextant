@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Annotated
 
 import pandas as pd
 from fastapi import APIRouter
-from pydantic import BaseModel, BeforeValidator, ValidationInfo, field_validator
-from pydantic_core import PydanticCustomError
 
-from sextant_compute.analytics import performance, risk
+from sextant_compute.analytics import performance
 from sextant_compute.analytics.periods import ReturnPeriod
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
-from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
+from sextant_compute.data.sources import DEMO_SOURCE
 from sextant_compute.envelope import MetricResult, MissingData, ResultEnvelope, SeriesResult, envelope
-from sextant_compute.errors import INPUT_ERROR, ApiError, check
+from sextant_compute.errors import ApiError, check
 from sextant_compute.risk.factor_api import FACTOR_SOURCE, Db, load_user_factors
 from sextant_compute.risk.factor_files import Frequency
 from sextant_compute.risk.metrics import (
@@ -27,6 +24,7 @@ from sextant_compute.risk.metrics import (
 )
 from sextant_compute.risk.timescale import missing_timescale_results, timescale_results, underwater_series
 from sextant_compute.risk.model_checks import missing_model_check_set, model_check_set
+from sextant_compute.request_models import PriceRangeRequest, Ticker
 
 router = APIRouter(tags=["risk"])
 
@@ -36,14 +34,7 @@ MIN_ROLLING_WINDOW = 20
 MAX_ROLLING_WINDOW = 756
 
 
-def _normalize_ticker(value: object) -> object:
-    return value.strip().upper() if isinstance(value, str) else value
-
-
-Ticker = Annotated[str, BeforeValidator(_normalize_ticker), check(lambda v: v != "", "Enter a ticker.")]
-
-
-class RiskRequest(BaseModel):
+class RiskRequest(PriceRangeRequest):
     tickers: Annotated[
         list[Ticker],
         check(lambda v: len(v) >= 1, "Enter at least one ticker."),
@@ -51,8 +42,6 @@ class RiskRequest(BaseModel):
         check(lambda v: len(set(v)) == len(v), "Each ticker can only be listed once."),
     ]
     benchmark: Ticker = "DEMO-MKT"
-    start: date
-    end: date
     confidence: Annotated[
         float, check(lambda v: 0.5 <= v <= 0.999, "Enter a confidence level between 50% and 99.9%.")
     ] = 0.95
@@ -71,16 +60,6 @@ class RiskRequest(BaseModel):
         ),
     ] = 63
     """Rolling-curve window in trading days (daily returns, whatever the period)."""
-    source: PriceSource = DEMO_SOURCE
-    """Demo data (``"synthetic"``) or the user's own provider (My data, e.g. ``"tiingo"``)."""
-
-    @field_validator("end")
-    @classmethod
-    def _end_after_start(cls, end: date, info: ValidationInfo) -> date:
-        start = info.data.get("start")
-        if start is not None and end <= start:
-            raise PydanticCustomError(INPUT_ERROR, "End date must be after the start date.")
-        return end
 
 
 def _fields_for(exc: NoSuchData, req: RiskRequest) -> dict[str, str]:

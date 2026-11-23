@@ -148,13 +148,14 @@ def test_rolling_volatility_sharpe_and_beta_over_the_chosen_window():
     assert all(p["y"] == pytest.approx(1.0, abs=1e-5) for p in beta["points"])
 
 
-def test_a_longer_window_gives_fewer_rolling_points():
+def test_a_longer_window_starts_the_rolling_curve_later():
     short = metrics(tickers=["DEMO-B"], start="2021-01-01", end="2025-12-31", rolling_window=21)
     long = metrics(tickers=["DEMO-B"], start="2021-01-01", end="2025-12-31", rolling_window=126)
 
-    assert len(short["series"]["rolling_volatility:DEMO-B"]["points"]) - 105 == len(
-        long["series"]["rolling_volatility:DEMO-B"]["points"]
-    )
+    first_short = short["series"]["rolling_volatility:DEMO-B"]["points"][0]["x"]
+    first_long = long["series"]["rolling_volatility:DEMO-B"]["points"][0]["x"]
+    # 105 more trading days (weekdays in the demo calendar) before the first full window.
+    assert len(pd.bdate_range(first_short, first_long)) - 1 == 105
 
 
 def test_rolling_beta_tracks_the_configured_beta():

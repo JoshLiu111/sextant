@@ -88,10 +88,13 @@ test("each row opens the company in Company Health Check and the Valuation Calcu
   const msft = results(main).getByRole("row", { name: /MICROSOFT CORP/ });
 
   await expect(msft.getByRole("link", { name: "Valuation" })).toHaveAttribute("href", "/valuation?ticker=MSFT");
-  await expect(msft.getByRole("link", { name: "Health check" })).toHaveAttribute("href", "/company?ticker=MSFT");
+  await expect(msft.getByRole("link", { name: "Health check" })).toHaveAttribute(
+    "href",
+    "/company?companies=MSFT&ticker=MSFT",
+  );
 
   await msft.getByRole("link", { name: "Health check" }).click();
-  await expect(page).toHaveURL(/\/company\?ticker=MSFT$/);
+  await expect(page).toHaveURL(/\/company\?companies=MSFT&ticker=MSFT$/);
   const company = page.getByRole("main");
   await expect(company.getByLabel("Ticker")).toHaveValue("MSFT");
   await expect(company.getByTestId("results").getByRole("heading", { name: "MICROSOFT CORP" })).toBeVisible();

@@ -16,7 +16,7 @@ from functools import cache
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ValidationInfo, field_validator
+from pydantic import AfterValidator, BaseModel, ValidationInfo, field_validator
 from pydantic_core import PydanticCustomError
 
 from sextant_compute.analytics import valuation as v
@@ -38,6 +38,7 @@ from sextant_compute.envelope import (
     series,
 )
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
+from sextant_compute.request_models import Ticker
 
 router = APIRouter(tags=["valuation"])
 
@@ -55,15 +56,10 @@ DEFAULT_EQUITY_RISK_PREMIUM = 0.05  # Damodaran's implied US ERP has been about 
 NO_PRICE_MESSAGE = "Enter a share price to compare the market value with the intrinsic value."
 
 
-def _normalize_ticker(value: object) -> object:
-    return value.strip().upper() if isinstance(value, str) else value
-
-
 def _rate(low: float, high: float, name: str) -> AfterValidator:
     return check(lambda x: low <= x <= high, f"Enter {name} between {low:.0%} and {high:.0%}.")
 
 
-Ticker = Annotated[str, BeforeValidator(_normalize_ticker), check(lambda x: x != "", "Enter a ticker.")]
 
 
 class ValuationAssumptions(BaseModel):

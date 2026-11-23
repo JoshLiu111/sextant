@@ -53,6 +53,7 @@ __all__ = [
     "metric",
     "new_calculation_id",
     "series",
+    "thin_points",
 ]
 
 
@@ -152,21 +153,54 @@ def metric(compute: Callable[[], float | Detailed], *, unit: str | None = None) 
         return MetricResult(value=None, status=MetricStatus.ERROR, reason=str(exc), unit=unit)
 
 
+def thin_points(
+    points: Sequence[tuple[float | str, float | None]], max_points: int
+) -> list[tuple[float | str, float | None]]:
+    """At most ``max_points`` of ``points`` (x-ordered), for drawing.
+
+    Keeps the first and the last point, and from each of ``(max_points - 2) // 2``
+    equal runs of the points between them its lowest and highest ``y``, in x
+    order. So a thinned line still spans the whole range and still reaches every
+    run's extremes (a drawdown's trough, a volatility spike) on their own x.
+    """
+    if len(points) <= max_points:
+        return list(points)
+    inner = points[1:-1]
+    buckets = max(1, (max_points - 2) // 2)
+    size = len(inner) / buckets
+    kept: list[int] = []
+    for b in range(buckets):
+        run = range(round(b * size), round((b + 1) * size))
+        valued = [i for i in run if inner[i][1] is not None]
+        if not valued:
+            kept.extend(run[:1])
+            continue
+        low = min(valued, key=lambda i: inner[i][1])  # type: ignore[arg-type,return-value]
+        high = max(valued, key=lambda i: inner[i][1])  # type: ignore[arg-type,return-value]
+        kept.extend(sorted({low, high}))
+    return [points[0], *(inner[i] for i in kept), points[-1]]
+
+
 def series(
     compute: Callable[[], Sequence[tuple[float | str, float | None]] | SeriesData],
     *,
     x_unit: str | None = None,
     y_unit: str | None = None,
+    max_points: int | None = None,
 ) -> SeriesResult:
-    """Run one series' computation with the same isolation rules as ``metric``."""
+    """Run one series' computation with the same isolation rules as ``metric``.
+
+    ``max_points`` thins a long series for drawing (``thin_points``); compute any
+    metric from the full data, never from a thinned series."""
     try:
         out = compute()
         data = out if isinstance(out, SeriesData) else SeriesData(out)
+        points = data.points if max_points is None else thin_points(data.points, max_points)
         return SeriesResult(
             status=MetricStatus.OK,
             x_unit=x_unit,
             y_unit=y_unit,
-            points=[Point(x=x, y=y) for x, y in data.points],
+            points=[Point(x=x, y=y) for x, y in points],
             details=dict(data.details),
             bands=list(data.bands),
         )

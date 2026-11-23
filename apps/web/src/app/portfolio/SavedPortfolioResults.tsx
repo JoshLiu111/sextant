@@ -9,7 +9,13 @@ import { MetricCard } from "@/components/MetricCard";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import { csvFilename } from "@/lib/csv";
-import { DEMO_SOURCE, useMyDataProviders, type PriceSource } from "@/lib/myData";
+import {
+  DEMO_SOURCE,
+  isDemoTicker,
+  useMyDataProviderList,
+  type MyDataProvider,
+  type PriceSource,
+} from "@/lib/myData";
 import type { SavedPortfolio } from "@/lib/portfolios";
 import { useCompute } from "@/lib/useCompute";
 import { PortfolioResults, portfolioCsvInput } from "./PortfolioResults";
@@ -29,13 +35,33 @@ const defaultsFor = (source: PriceSource): Settings => (source === DEMO_SOURCE ?
 /**
  * Performance, risk and value of one saved portfolio, from
  * `POST /portfolios/{id}/metrics`. Holdings are read server-side from the saved version.
+ *
+ * A portfolio of real tickers opens on My data when the user has a key (demo
+ * tickers, or no key, on Demo data), so it waits for the key list before the first run.
  */
 export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio }) {
+  const { providers, loaded } = useMyDataProviderList();
+  const real = portfolio.holdings.length > 0 && portfolio.holdings.every((h) => !isDemoTicker(h.ticker));
+  if (real && !loaded) {
+    return <section data-testid="saved-results" aria-label={getMessages().portfolio.saved.sections.value} />;
+  }
+  const initial: PriceSource = real && providers.length > 0 ? providers[0] : DEMO_SOURCE;
+  return <SavedPortfolioAnalysis portfolio={portfolio} providers={providers} initial={initial} />;
+}
+
+function SavedPortfolioAnalysis({
+  portfolio,
+  providers,
+  initial,
+}: {
+  portfolio: SavedPortfolio;
+  providers: MyDataProvider[];
+  initial: PriceSource;
+}) {
   const t = getMessages();
   const p = t.portfolio;
   const s = p.saved;
-  const providers = useMyDataProviders();
-  const [chosen, setChosen] = useState<PriceSource>(DEMO_SOURCE);
+  const [chosen, setChosen] = useState<PriceSource>(initial);
   // A provider whose key is gone falls back to demo data.
   const source: PriceSource = chosen !== DEMO_SOURCE && !providers.includes(chosen) ? DEMO_SOURCE : chosen;
   const [allSettings, setAllSettings] = useState<Partial<Record<PriceSource, Settings>>>({});

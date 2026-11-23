@@ -145,9 +145,11 @@ def test_long_straddle_and_strangle_lose_at_most_the_premium_and_profit_without_
 
     assert value(body, "max_loss") == pytest.approx(premium, abs=1e-9)
     assert at_expiry[100.0] == pytest.approx(-premium, abs=1e-9)
+    # Unlimited is a valid answer, not a failure: ok, no number, and flagged as unlimited.
     unlimited = body["metrics"]["max_profit"]
-    assert unlimited["status"] == "error" and unlimited["value"] is None
-    assert "unlimited" in unlimited["reason"].lower()
+    assert unlimited["status"] == "ok" and unlimited["value"] is None
+    assert unlimited["details"]["bound"] == "unlimited"
+    assert "rises" in unlimited["details"]["why"]
     # A V shape: the payoff rises on both sides away from the strikes.
     assert at_expiry[min(at_expiry)] > -premium and at_expiry[max(at_expiry)] > -premium
     assert value(body, "gamma") > 0 and value(body, "vega") > 0
@@ -155,8 +157,9 @@ def test_long_straddle_and_strangle_lose_at_most_the_premium_and_profit_without_
 
 def test_short_call_reports_an_unlimited_loss_and_the_underlying_leg_has_delta_one():
     naked = strategy([leg("call", "short", 100.0)])
-    assert naked["metrics"]["max_loss"]["status"] == "error"
-    assert "unlimited" in naked["metrics"]["max_loss"]["reason"].lower()
+    unlimited = naked["metrics"]["max_loss"]
+    assert unlimited["status"] == "ok" and unlimited["value"] is None and unlimited["reason"] is None
+    assert unlimited["details"]["bound"] == "unlimited"
     assert value(naked, "max_profit") == pytest.approx(-value(naked, "net_cost"), abs=1e-9)
 
     covered = strategy([leg("underlying", "long"), leg("call", "short", 110.0)])

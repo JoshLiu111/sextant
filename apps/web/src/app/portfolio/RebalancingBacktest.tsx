@@ -10,9 +10,28 @@ import { getMessages } from "@/i18n";
 import type { SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercent } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
+import { useUrlInputs, writeUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 
 const RULES = ["monthly", "quarterly", "yearly", "drift"] as const;
 type Rule = (typeof RULES)[number];
+
+type Settings = { rule: Rule; drift_threshold: string };
+const DEFAULTS: Settings = { rule: "quarterly", drift_threshold: "5" };
+
+// Shareable links: `/portfolio?...&rule=drift&drift_threshold=10` (threshold in %).
+// Written on every change, since the section has no submit button. An unknown
+// rule falls back to the default (a select can't show it).
+const URL_CODEC: UrlCodec<Settings> = {
+  keys: ["rule", "drift_threshold"],
+  read(params) {
+    const rule = params.get("rule");
+    return {
+      rule: RULES.includes(rule as Rule) ? (rule as Rule) : DEFAULTS.rule,
+      drift_threshold: params.get("drift_threshold") ?? DEFAULTS.drift_threshold,
+    };
+  },
+  write: (settings) => ({ ...settings }),
+};
 
 /** Strategies in `POST /portfolio/rebalancing`: metrics `<metric>:<who>`, series `cumulative_return:<who>`. */
 const WHO = ["rebalanced", "buy_and_hold"] as const;
@@ -50,8 +69,16 @@ function chartPoints(series: SeriesResult | undefined) {
 export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, unknown> }) {
   const t = getMessages();
   const r = t.portfolioConstruction.rebalancing;
-  const [rule, setRule] = useState<Rule>("quarterly");
-  const [threshold, setThreshold] = useState("5");
+  const { initial } = useUrlInputs(URL_CODEC);
+  const [settings, setSettings] = useState<Settings>(initial);
+  const { rule, drift_threshold: threshold } = settings;
+  const update = (change: Partial<Settings>) => {
+    const next = { ...settings, ...change };
+    setSettings(next);
+    writeUrlInputs(URL_CODEC, next);
+  };
+  const setRule = (value: Rule) => update({ rule: value });
+  const setThreshold = (value: string) => update({ drift_threshold: value });
   const thresholdValue = threshold.trim() === "" || !Number.isFinite(Number(threshold)) ? null : Number(threshold) / 100;
   const { result, fieldErrors, error } = useCompute<MetricId, SeriesId>("/portfolio/rebalancing", {
     ...portfolio,

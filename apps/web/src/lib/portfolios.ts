@@ -2,9 +2,7 @@
 // cookie goes along automatically (same origin). Mirrors
 // apps/compute/sextant_compute/portfolio/saved.py.
 
-import { getMessages } from "@/i18n";
-import { computePath } from "./compute";
-import type { ApiErrorBody } from "./envelope";
+import { send as sendJson, type Outcome } from "./computeClient";
 
 export type SavedHolding = { ticker: string; quantity: number; cost_price: number; currency: string };
 
@@ -18,34 +16,11 @@ export type PortfolioBody = {
   holdings: { ticker: string; quantity: number | null; cost_price: number | null; currency: string }[];
 };
 
-export type PortfolioOutcome<T> =
-  | { kind: "ok"; value: T }
-  | { kind: "invalid"; message: string; fields: Record<string, string> }
-  | { kind: "failed"; message: string };
+export type PortfolioOutcome<T> = Outcome<T>;
 
 /** `suffix` follows `/portfolios`: "" for the collection, `/<id>` for one portfolio. */
-async function send<T>(method: string, suffix: "" | `/${string}`, body?: unknown): Promise<PortfolioOutcome<T>> {
-  const t = getMessages().common.errors;
-  let res: Response;
-  try {
-    res = await fetch(computePath(`/portfolios${suffix}`), {
-      method,
-      headers: body === undefined ? undefined : { "content-type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      cache: "no-store",
-    });
-  } catch {
-    return { kind: "failed", message: t.computeUnavailable };
-  }
-  if (res.status === 204) return { kind: "ok", value: undefined as T };
-  const json: unknown = await res.json().catch(() => null);
-  if (res.ok && json !== null) return { kind: "ok", value: json as T };
-  if (json && typeof json === "object" && "error" in json) {
-    const { error } = json as ApiErrorBody;
-    if (Object.keys(error.fields ?? {}).length > 0) return { kind: "invalid", message: error.message, fields: error.fields };
-    return { kind: "failed", message: error.message };
-  }
-  return { kind: "failed", message: t.computeUnavailable };
+function send<T>(method: string, suffix: "" | `/${string}`, body?: unknown): Promise<PortfolioOutcome<T>> {
+  return sendJson<T>(method, `/portfolios${suffix}`, body);
 }
 
 // Transactions imported from CSV (apps/compute/sextant_compute/portfolio/imports.py).

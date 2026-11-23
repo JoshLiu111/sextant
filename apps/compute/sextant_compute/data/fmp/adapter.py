@@ -50,17 +50,14 @@ from typing import Any
 import httpx
 import pandas as pd
 
-from sextant_compute.data.adapters import PRICE_COLUMNS, Scope
+from sextant_compute.data.adapters import PRICE_COLUMNS
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
-from sextant_compute.data.retry import get_with_retries
-from sextant_compute.envelope import DataSource
+from sextant_compute.data.sources import FMP
+from sextant_compute.data.user_key_http import UserKeyHttpAdapter
 
-FMP = DataSource(id="fmp", name="FMP", is_demo=False)
 
 BASE_URL = "https://financialmodelingprep.com"
-ATTEMPTS = 2
-BACKOFF = 0.5  # seconds
 KEY_CHECK_SYMBOL = "AAPL"
 
 NO_KEY_MESSAGE = "My data needs your own FMP key. Add one in Settings."
@@ -71,9 +68,9 @@ class _NotInPlan(Exception):
     """FMP answered 402 for this symbol."""
 
 
-class FmpAdapter:
+class FmpAdapter(UserKeyHttpAdapter):
     source = FMP
-    scope: Scope = "user"
+    no_key_message = NO_KEY_MESSAGE
     # Same reasoning as Tiingo: end-of-day data, and a free key has a small daily quota.
     ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600}
     version = "1"
@@ -85,38 +82,28 @@ class FmpAdapter:
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
-        self._base_url = base_url.rstrip("/")
-        self._client = httpx.Client(transport=transport, timeout=10.0)
-        self._sleep = sleep
+        super().__init__(base_url=base_url, transport=transport, sleep=sleep)
 
     @classmethod
     def from_env(cls) -> FmpAdapter:
         """``FMP_BASE_URL`` (optional; e2e tests point it at a fake)."""
         return cls(base_url=os.environ.get("FMP_BASE_URL") or BASE_URL)
 
-    def _get(self, path: str, key: str, params: dict[str, str]) -> httpx.Response:
-        try:
-            return get_with_retries(
-                lambda: self._client.get(f"{self._base_url}{path}", params=params, headers={"apikey": key}),
-                attempts=ATTEMPTS,
-                backoff=BACKOFF,
-                sleep=self._sleep,
-            )
-        except httpx.HTTPError as exc:
-            raise SourceUnavailable(FMP.id, f"FMP request failed ({type(exc).__name__}).") from None
+    def _fmp_get(self, path: str, key: str, params: dict[str, str]) -> httpx.Response:
+        return self._get(path, params, {"apikey": key})
 
     def verify_key(self, key: str) -> bool:
         """True if FMP accepts ``key``, False if it rejects it.
 
         Raises ``SourceUnavailable`` when FMP can't tell us either way."""
-        response = self._get("/stable/quote", key, {"symbol": KEY_CHECK_SYMBOL})
+        response = self._fmp_get("/stable/quote", key, {"symbol": KEY_CHECK_SYMBOL})
         if response.status_code in (401, 403):
             return False
         if response.status_code == 402:  # the key works; the plan just doesn't cover the symbol
             return True
         if response.status_code != 200:
             raise SourceUnavailable(FMP.id, f"FMP answered HTTP {response.status_code}.")
-        body = _json(response)
+        body = self._json(response)
         if isinstance(body, list):
             return True
         if _rejects_key(body):
@@ -128,12 +115,9 @@ class FmpAdapter:
     ) -> dict[str, pd.DataFrame]:
         """See ``DailyPricesAdapter``. Two FMP requests per ticker (prices, dividends);
         every ticker without prices is collected into one ``NoSuchData``."""
-        key = ctx.key_for(FMP.id)
-        if not key:
-            raise KeyRequired(FMP.id, NO_KEY_MESSAGE)
-        frames: dict[str, pd.DataFrame] = {}
-        missing: dict[str, str] = {}
-        for ticker in tickers:
+        key = self._key(ctx)
+
+        def fetch(ticker: str) -> pd.DataFrame | str:
             try:
                 rows = self._list(
                     "/stable/historical-price-eod/full",
@@ -141,24 +125,18 @@ class FmpAdapter:
                     {"symbol": ticker, "from": start.isoformat(), "to": end.isoformat()},
                 )
                 if not rows:
-                    missing[ticker] = f"No FMP prices for {ticker} between {start} and {end}."
-                    continue
+                    return f"No FMP prices for {ticker} between {start} and {end}."
                 dividends = self._list("/stable/dividends", key, {"symbol": ticker})
             except _NotInPlan:
-                missing[ticker] = f"Your FMP plan does not include {ticker}."
-                continue
-            frames[ticker] = _frame(rows, dividends)
-        if missing:
-            raise NoSuchData(FMP.id, " ".join(missing.values()), missing)
-        return frames
+                return f"Your FMP plan does not include {ticker}."
+            return _frame(rows, dividends)
+
+        return self._per_ticker(tickers, fetch)
 
     def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
         """See ``LatestCloseAdapter``. One request: the prices URL without dates."""
-        key = ctx.key_for(FMP.id)
-        if not key:
-            raise KeyRequired(FMP.id, NO_KEY_MESSAGE)
         try:
-            rows = self._list("/stable/historical-price-eod/full", key, {"symbol": ticker})
+            rows = self._list("/stable/historical-price-eod/full", self._key(ctx), {"symbol": ticker})
         except _NotInPlan:
             message = f"Your FMP plan does not include {ticker}."
         else:
@@ -171,14 +149,14 @@ class FmpAdapter:
         raise NoSuchData(FMP.id, message, {ticker: message})
 
     def _list(self, path: str, key: str, params: dict[str, str]) -> list[dict[str, Any]]:
-        response = self._get(path, key, params)
+        response = self._fmp_get(path, key, params)
         if response.status_code in (401, 403):
             raise KeyRequired(FMP.id, REJECTED_KEY_MESSAGE)
         if response.status_code == 402:
             raise _NotInPlan
         if response.status_code != 200:
             raise SourceUnavailable(FMP.id, f"FMP answered HTTP {response.status_code}.")
-        body = _json(response)
+        body = self._json(response)
         if _rejects_key(body):
             raise KeyRequired(FMP.id, REJECTED_KEY_MESSAGE)
         if not isinstance(body, list) or not all(isinstance(r, dict) for r in body):
@@ -188,13 +166,6 @@ class FmpAdapter:
 
 def _rejects_key(body: Any) -> bool:
     return isinstance(body, dict) and "invalid api key" in str(body.get("Error Message", "")).lower()
-
-
-def _json(response: httpx.Response) -> Any:
-    try:
-        return response.json()
-    except ValueError:
-        raise SourceUnavailable(FMP.id, "FMP returned a response that is not JSON.") from None
 
 
 def _frame(rows: list[dict[str, Any]], dividends: list[dict[str, Any]]) -> pd.DataFrame:

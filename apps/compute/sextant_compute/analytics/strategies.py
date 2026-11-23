@@ -12,7 +12,6 @@ from dataclasses import dataclass, replace
 from typing import Literal
 
 from sextant_compute.analytics import options as bs
-from sextant_compute.analytics.errors import MetricError
 
 Instrument = Literal["call", "put", "underlying"]
 Greek = Literal["delta", "gamma", "vega", "theta", "rho"]
@@ -128,17 +127,26 @@ def _expiry_extremes(legs: Sequence[Leg], m: Market) -> tuple[float, float, floa
     return min(profits), max(profits), slope
 
 
+class Unlimited(Exception):
+    """The answer is a valid "unlimited", not a failure: the payoff has no bound.
+    The message says why."""
+
+
 def max_profit(legs: Sequence[Leg], m: Market) -> float:
-    """Highest profit at expiry over all underlying prices (net of the opening cost)."""
+    """Highest profit at expiry over all underlying prices (net of the opening cost).
+
+    Raises ``Unlimited`` when the profit has no ceiling."""
     _, high, slope = _expiry_extremes(legs, m)
     if slope > 1e-12:
-        raise MetricError("Unlimited: the profit keeps rising as the underlying rises.")
+        raise Unlimited("The profit keeps rising as the underlying rises.")
     return high
 
 
 def max_loss(legs: Sequence[Leg], m: Market) -> float:
-    """Largest loss at expiry, as a positive amount (0 if the strategy can't lose)."""
+    """Largest loss at expiry, as a positive amount (0 if the strategy can't lose).
+
+    Raises ``Unlimited`` when the loss has no floor."""
     low, _, slope = _expiry_extremes(legs, m)
     if slope < -1e-12:
-        raise MetricError("Unlimited: the loss keeps growing as the underlying rises.")
+        raise Unlimited("The loss keeps growing as the underlying rises.")
     return max(-low, 0.0)

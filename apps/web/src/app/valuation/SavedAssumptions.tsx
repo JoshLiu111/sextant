@@ -29,7 +29,7 @@ export function SavedAssumptions({
   onLoad: (assumptions: ValuationAssumptions) => void;
 }) {
   const v = getMessages().valuation.saved;
-  const [sets, setSets] = useState<AssumptionSet[] | "signedOut" | null>(null);
+  const [sets, setSets] = useState<AssumptionSet[] | "signed_out" | null>(null);
   const [name, setName] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export function SavedAssumptions({
   const refresh = useCallback(async () => {
     const outcome = await valuationAssumptionsApi.list(ticker);
     if (outcome.kind === "ok") setSets(outcome.value);
-    else if (outcome.kind === "signedOut") setSets("signedOut");
+    else if (outcome.kind === "signed_out") setSets("signed_out");
     else setError(outcome.message);
   }, [ticker]);
 
@@ -47,7 +47,7 @@ export function SavedAssumptions({
     valuationAssumptionsApi.list(ticker).then((outcome) => {
       if (!live) return;
       if (outcome.kind === "ok") setSets(outcome.value);
-      else if (outcome.kind === "signedOut") setSets("signedOut");
+      else if (outcome.kind === "signed_out") setSets("signed_out");
       else setError(outcome.message);
     });
     return () => {
@@ -68,7 +68,7 @@ export function SavedAssumptions({
       setFieldErrors({});
       setStatus(v.savedAs(outcome.value.name));
       await refresh();
-    } else if (outcome.kind === "signedOut") setSets("signedOut");
+    } else if (outcome.kind === "signed_out") setSets("signed_out");
     else {
       setFieldErrors(outcome.kind === "invalid" ? outcome.fields : {});
       setError(outcome.kind === "invalid" ? v.invalid : outcome.message);
@@ -87,7 +87,7 @@ export function SavedAssumptions({
     if (outcome.kind === "ok") {
       setStatus(v.deleted(set.name));
       await refresh();
-    } else if (outcome.kind !== "signedOut") setError(outcome.message);
+    } else if (outcome.kind !== "signed_out") setError(outcome.message);
   }
 
   return (
@@ -99,7 +99,7 @@ export function SavedAssumptions({
       <h2 id="saved-assumptions-heading" className="text-lg font-semibold">
         {v.heading}
       </h2>
-      {sets === null ? null : sets === "signedOut" ? (
+      {sets === null ? null : sets === "signed_out" ? (
         <p className="text-sm text-black/70 dark:text-white/70">
           {v.signInPrompt} <SignInLink className="font-medium underline" />
         </p>

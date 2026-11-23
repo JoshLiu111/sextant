@@ -89,3 +89,63 @@ test("the Valuation Calculator takes its My data price from FMP's latest close",
   await expect(market.locator('[data-metric-value="share_price"]')).toContainText("Latest close from FMP, 2024-02-12");
   await expect(main.getByText("Optional. Leave blank to use the latest close from FMP.")).toBeVisible();
 });
+
+test("with both keys the screener's price criteria run on the provider the user picks", async ({ page }) => {
+  await signInWithKeys(page, {
+    tiingo: "good0000000000000000000000000000000abcd",
+    fmp: "goodfmp000000000000000000000000fmp1",
+  });
+  await page.goto("/screener");
+  const main = page.getByRole("main");
+  // A cold screen fetches ~20 frames through the EDGAR limiter; by then the key list has loaded too.
+  await expect(main.getByTestId("screen-summary")).toBeVisible({ timeout: 30_000 });
+  const provider = main.getByLabel("Price provider");
+  await expect(provider).toHaveValue("tiingo");
+
+  await provider.selectOption({ label: "FMP" });
+  await expect(main.getByTestId("price-criteria-note")).toContainText("FMP");
+  await main.getByRole("button", { name: "Add criterion" }).click();
+  await main.getByLabel("Metric for criterion 4").selectOption({ label: "52-week change" });
+  await main.getByLabel("Value for criterion 4").fill("18");
+  await main.getByRole("button", { name: "Run screen" }).click();
+  // The FMP fake only knows AAPL, MSFT and SPY, so the screen asked FMP and got no prices for its matches.
+  await expect(main.getByTestId("prices-info")).toContainText("Prices: FMP", { timeout: 30_000 });
+
+  await provider.selectOption({ label: "Tiingo" });
+  await expect(main.getByTestId("prices-info")).toContainText("Prices: Tiingo, as of 2026-11-20", { timeout: 30_000 });
+});
+
+test("with both keys My Portfolio runs the demo and saved portfolios on the provider the user picks", async ({
+  page,
+}) => {
+  await signInWithKeys(page, {
+    tiingo: "good0000000000000000000000000000000abcd",
+    fmp: "goodfmp000000000000000000000000fmp1",
+  });
+  await page.goto("/portfolio");
+  const main = page.getByRole("main");
+  const demo = main.getByRole("region", { name: "Demo portfolio" });
+  await expect(demo.locator('[data-metric-value="annualized_return:portfolio"]')).toHaveAttribute("data-status", "ok");
+  await demo.getByTestId("data-mode").getByText("My data (FMP)").click();
+  await expect(demo.getByTestId("results").getByText("Source: FMP")).toBeVisible();
+  await expect(demo.locator('[data-metric-value="annualized_volatility:portfolio"]')).toHaveAttribute(
+    "data-status",
+    "ok",
+  );
+
+  const saved = main.getByRole("region", { name: "Your portfolios" });
+  await saved.getByLabel("Portfolio name").fill("Brokerage");
+  await saved.getByLabel("Ticker 1").fill("AAPL");
+  await saved.getByLabel("Quantity 1").fill("10");
+  await saved.getByLabel("Cost price 1").fill("90");
+  await saved.getByRole("button", { name: "Save portfolio" }).click();
+  await expect(saved.getByRole("status").first()).toContainText("Saved");
+  const results = saved.getByTestId("saved-results");
+  const toggle = results.getByTestId("data-mode");
+  // Real tickers open on the first My data provider; the user can pick the other.
+  await expect(toggle.getByLabel("My data (Tiingo)")).toBeChecked({ timeout: 20_000 });
+  await toggle.getByText("My data (FMP)").click();
+  await expect(toggle.getByLabel("My data (FMP)")).toBeChecked();
+  await expect(results.getByText("Source: FMP").first()).toBeVisible();
+  await expect(results.locator('[data-position-value="market_value:AAPL"]')).toHaveText("1,300.00");
+});
