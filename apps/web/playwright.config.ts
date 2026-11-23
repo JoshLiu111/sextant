@@ -85,8 +85,8 @@ const worldBankAndEcb = {
 // so the over-quota path is quick to reach.
 const ANTHROPIC_PORT = Number(process.env.ANTHROPIC_PORT || COMPUTE_PORT + 5);
 const ai = {
-  ANTHROPIC_API_KEY: "e2e-fake-anthropic-key-not-real",
-  ANTHROPIC_BASE_URL: `http://127.0.0.1:${ANTHROPIC_PORT}`,
+  AI_API_KEY: "e2e-fake-anthropic-key-not-real",
+  AI_BASE_URL: `http://127.0.0.1:${ANTHROPIC_PORT}`,
   AI_DAILY_QUOTA: "3",
   // The only account allowed into the operator view (/operator).
   OPERATOR_EMAILS: "operator@example.test",
@@ -144,7 +144,7 @@ export default defineConfig({
     },
     {
       command: "node e2e/fake-anthropic.mjs",
-      url: `${ai.ANTHROPIC_BASE_URL}/health`,
+      url: `${ai.AI_BASE_URL}/health`,
       reuseExistingServer: reuse,
       env: { ANTHROPIC_PORT: String(ANTHROPIC_PORT) },
     },
