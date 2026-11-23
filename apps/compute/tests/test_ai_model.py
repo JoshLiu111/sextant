@@ -74,3 +74,51 @@ def test_a_rejected_key_is_reported_as_unavailable_without_retrying():
     with pytest.raises(ModelUnavailable):
         AnthropicModel("bad", transport=fake(handler), sleep=lambda _s: None).complete("s", "p")
     assert calls == 1
+
+
+TOOL_REPLY = {
+    "id": "msg_02",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-test",
+    "content": [
+        {"type": "text", "text": "Let me price it."},
+        {"type": "tool_use", "id": "toolu_01", "name": "options_price", "input": {"spot": 100}},
+    ],
+    "stop_reason": "tool_use",
+    "usage": {"input_tokens": 1500, "output_tokens": 60},
+}
+
+
+def test_a_tool_use_conversation_sends_the_tools_and_returns_the_tool_calls():
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json=TOOL_REPLY)
+
+    tools = [{"name": "options_price", "description": "d", "input_schema": {"type": "object", "properties": {}}}]
+    messages = [{"role": "user", "content": "What is the call worth?"}]
+    turn = AnthropicModel("k", transport=fake(handler)).converse("system", messages, tools)
+
+    assert turn.stop_reason == "tool_use"
+    assert turn.tool_uses == [{"type": "tool_use", "id": "toolu_01", "name": "options_price", "input": {"spot": 100}}]
+    assert turn.text == "Let me price it."
+    assert (turn.input_tokens, turn.output_tokens) == (1500, 60)
+    assert seen[0]["tools"] == tools
+    assert seen[0]["messages"] == messages
+    assert seen[0]["system"] == "system"
+
+
+def test_a_conversation_without_tools_sends_no_tools_field():
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json=REPLY)
+
+    turn = AnthropicModel("k", transport=fake(handler)).converse("s", [{"role": "user", "content": "q"}], None)
+
+    assert "tools" not in seen[0]
+    assert turn.tool_uses == []
+    assert turn.text == "The call is worth 10.45."

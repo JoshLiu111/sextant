@@ -23,7 +23,7 @@ fields with ``check(...)`` so pydantic reports them verbatim.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -83,9 +83,10 @@ def error_response(status: int, code: str, message: str, fields: dict[str, str] 
     return JSONResponse(status_code=status, content=error_body(code, message, fields))
 
 
-def _field_errors(exc: RequestValidationError) -> dict[str, str]:
+def field_errors(errors: Sequence[Any]) -> dict[str, str]:
+    """Field -> message for pydantic/FastAPI validation errors, as the UI shows them."""
     fields: dict[str, str] = {}
-    for err in exc.errors():
+    for err in errors:
         loc = [str(part) for part in err.get("loc", ())]
         if loc and loc[0] in {"body", "query", "path"}:
             loc = loc[1:]
@@ -99,7 +100,7 @@ def _field_errors(exc: RequestValidationError) -> dict[str, str]:
 
 
 async def _validation_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
-    return error_response(422, "validation_error", "Some inputs are invalid. Fix the highlighted fields.", _field_errors(exc))
+    return error_response(422, "validation_error", "Some inputs are invalid. Fix the highlighted fields.", field_errors(exc.errors()))
 
 
 async def _api_error_handler(_request: Request, exc: ApiError) -> JSONResponse:

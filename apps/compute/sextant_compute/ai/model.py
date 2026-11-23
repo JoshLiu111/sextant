@@ -1,7 +1,8 @@
-"""The language model behind AI Explain: Claude, through the Anthropic Messages API.
+"""The language model behind AI Explain and AI Analyst: Claude, through the Anthropic Messages API.
 
-Everything that talks to a model goes through ``ExplainModel.complete``, so tests
-swap in a stub (``app.state.ai_model``) and never reach the network.
+Everything that talks to a model goes through ``ExplainModel.complete`` (one
+prompt, one answer) or ``AnalystModel.converse`` (a tool-use conversation), so
+tests swap in a stub (``app.state.ai_model``) and never reach the network.
 
 Configuration (environment, compute service only):
 
@@ -25,6 +26,7 @@ DEFAULT_MODEL = "claude-haiku-5-5"
 DEFAULT_BASE_URL = "https://api.anthropic.com"
 API_VERSION = "2023-06-01"
 MAX_OUTPUT_TOKENS = 700
+ANALYST_MAX_OUTPUT_TOKENS = 1500
 
 
 class Completion(NamedTuple):
@@ -33,12 +35,40 @@ class Completion(NamedTuple):
     output_tokens: int
 
 
+class Turn(NamedTuple):
+    """One model reply in a tool-use conversation.
+
+    ``content`` holds Messages API content blocks as JSON: ``{"type": "text", "text"}``
+    and ``{"type": "tool_use", "id", "name", "input"}``. ``stop_reason`` is
+    ``"tool_use"`` when the model wants the tools run, else e.g. ``"end_turn"``.
+    """
+
+    content: list[dict]
+    stop_reason: str
+    input_tokens: int
+    output_tokens: int
+
+    @property
+    def text(self) -> str:
+        return "".join(b["text"] for b in self.content if b.get("type") == "text").strip()
+
+    @property
+    def tool_uses(self) -> list[dict]:
+        return [b for b in self.content if b.get("type") == "tool_use"]
+
+
 class ModelUnavailable(Exception):
     """The model can't answer right now (not configured, outage, bad response)."""
 
 
 class ExplainModel(Protocol):
     def complete(self, system: str, prompt: str) -> Completion: ...
+
+
+class AnalystModel(Protocol):
+    def converse(self, system: str, messages: list[dict], tools: list[dict] | None) -> Turn:
+        """The next assistant turn. ``tools`` None means the model must answer in text."""
+        ...
 
 
 class AnthropicModel:
@@ -69,17 +99,45 @@ class AnthropicModel:
         )
 
     def complete(self, system: str, prompt: str) -> Completion:
+        data = self._post(
+            {
+                "max_tokens": MAX_OUTPUT_TOKENS,
+                "system": system,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        )
+        try:
+            text = "".join(block["text"] for block in data["content"] if block.get("type") == "text")
+            usage = data["usage"]
+            return Completion(text.strip(), int(usage["input_tokens"]), int(usage["output_tokens"]))
+        except (KeyError, TypeError) as exc:
+            raise ModelUnavailable("Claude API returned an unexpected response") from exc
+
+    def converse(self, system: str, messages: list[dict], tools: list[dict] | None) -> Turn:
+        body: dict = {"max_tokens": ANALYST_MAX_OUTPUT_TOKENS, "system": system, "messages": messages}
+        if tools:
+            body["tools"] = tools
+        data = self._post(body)
+        try:
+            content = [
+                {"type": "text", "text": b["text"]}
+                if b["type"] == "text"
+                else {"type": "tool_use", "id": b["id"], "name": b["name"], "input": b["input"]}
+                for b in data["content"]
+                if b.get("type") in ("text", "tool_use")
+            ]
+            usage = data["usage"]
+            return Turn(content, str(data["stop_reason"]), int(usage["input_tokens"]), int(usage["output_tokens"]))
+        except (KeyError, TypeError) as exc:
+            raise ModelUnavailable("Claude API returned an unexpected response") from exc
+
+    def _post(self, body: dict) -> dict:
         if not self._api_key:
             raise ModelUnavailable("ANTHROPIC_API_KEY is not set")
-        body = {
-            "model": self._model,
-            "max_tokens": MAX_OUTPUT_TOKENS,
-            "system": system,
-            "messages": [{"role": "user", "content": prompt}],
-        }
+        body = {"model": self._model, **body}
         headers = {"x-api-key": self._api_key, "anthropic-version": API_VERSION}
         try:
-            with httpx.Client(transport=self._transport, timeout=30.0) as http:
+            with httpx.Client(transport=self._transport, timeout=60.0) as http:
                 response = get_with_retries(
                     lambda: http.post(f"{self._base_url}/v1/messages", json=body, headers=headers),
                     attempts=3,
@@ -93,8 +151,8 @@ class AnthropicModel:
             raise ModelUnavailable(f"Claude API answered {response.status_code}")
         try:
             data = response.json()
-            text = "".join(block["text"] for block in data["content"] if block.get("type") == "text")
-            usage = data["usage"]
-            return Completion(text.strip(), int(usage["input_tokens"]), int(usage["output_tokens"]))
-        except (ValueError, KeyError, TypeError) as exc:
+        except ValueError as exc:
             raise ModelUnavailable("Claude API returned an unexpected response") from exc
+        if not isinstance(data, dict):
+            raise ModelUnavailable("Claude API returned an unexpected response")
+        return data
