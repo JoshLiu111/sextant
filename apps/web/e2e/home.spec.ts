@@ -40,7 +40,27 @@ test("footer shows the investment disclaimer and an attribution slot", async ({ 
 
   const footer = page.getByRole("contentinfo");
   await expect(footer).toContainText("Not investment advice");
+  await expect(footer).toContainText(
+    "Sextant uses cookieless, anonymous page-view analytics (Vercel Web Analytics).",
+  );
   await expect(footer.getByTestId("attribution-slot")).toBeAttached();
+});
+
+test("pages send no analytics outside Vercel", async ({ page }) => {
+  const analyticsRequests: string[] = [];
+  page.on("request", (request) => {
+    const url = request.url();
+    if (url.includes("/_vercel/insights") || url.includes("va.vercel-scripts.com")) analyticsRequests.push(url);
+  });
+
+  await page.goto("/");
+  await expect(page.getByTestId("compute-status")).toHaveText(/Compute service: online/);
+  await page.getByRole("link", { name: "Options Calculator" }).first().click();
+  await expect(page).toHaveURL(/\/options/);
+  await page.waitForLoadState("networkidle");
+
+  expect(analyticsRequests).toEqual([]);
+  expect(await page.locator('script[src*="insights"], script[src*="va.vercel-scripts.com"]').count()).toBe(0);
 });
 
 test("home page shows the compute service is online", async ({ page }) => {
