@@ -37,20 +37,34 @@ theoretical_value across spot prices (x = spot, y = option value).
 
 RISK_METRICS = """
 Metric names: annualized_return (compound annual total return), annualized_volatility
-(standard deviation of daily returns, annualized), max_drawdown (largest fall from a
+(standard deviation of returns, annualized), max_drawdown (largest fall from a
 peak, as a positive fraction; details give the peak, trough and recovery dates, recovery
 null = not yet recovered), sharpe and sortino (excess return per unit of total / downside
-risk, using meta.parameters.risk_free_rate), var and cvar (historical one-day Value at
-Risk and Conditional VaR at meta.parameters.confidence, as positive losses: var 0.03 =
-on the worst days the loss is at least 3%), beta (sensitivity to the benchmark's daily
-returns). Units: decimal = a fraction (0.12 means 12%); ratio = a plain number.
+risk, using meta.parameters.risk_free_rate), var and cvar (historical Value at Risk and
+Conditional VaR over one return period at meta.parameters.confidence, as positive losses:
+var 0.03 = in the worst periods the loss is at least 3%), parametric_var/cvar (normal
+distribution) and cornish_fisher_var/cvar (adjusted for skew and fat tails), beta
+(sensitivity to the benchmark's returns), alpha (CAPM, annualized), treynor,
+information_ratio, upside_capture and downside_capture (vs the benchmark). Units:
+decimal = a fraction (0.12 means 12%); ratio = a plain number.
 """
 
 RISK_GUIDE = f"""
 Risk & Performance: return and risk of each ticker, and of the benchmark, over
-meta.parameters.start to end. Metric ids are "<metric>:<ticker>".
+meta.parameters.start to end, using meta.parameters.period returns (daily, weekly or
+monthly). Metric ids are "<metric>:<ticker>".
 {RISK_METRICS.strip()}
-Series: drawdown:<ticker> is the fall below the running peak on each date (0 = at a peak).
+Also: skewness and excess_kurtosis of the returns; factor regressions ff3_* (Fama-French
+3-factor) and carhart_* (adds momentum): <model>_alpha (annualized decimal), the factor
+loadings (details.t_stat) and <model>_r_squared; VaR backtests backtest_var,
+backtest_parametric_var and backtest_cornish_fisher_var (value = breaches counted;
+details give expected_breaches, the Kupiec statistic, p_value and result accept or
+reject); garch_volatility (GARCH(1,1) current annualized volatility; details give the
+fitted omega, alpha, beta, persistence and long_run_volatility).
+Series: drawdown:<ticker> is the fall below the running peak on each date (0 = at a
+peak); rolling_volatility, rolling_sharpe and rolling_beta over
+meta.parameters.rolling_window trading days; return_distribution is a histogram;
+garch_volatility is the conditional volatility over time.
 """
 
 OPTIONS_STRATEGY_GUIDE = """
@@ -199,7 +213,9 @@ percentages, 0.1 = 10%, US dollars for revenue, a multiple for ratios). universe
 companies screened, matched = companies passing every criterion, excluded = companies
 left out because an input of a criterion was missing, per criterion with reasons.
 "rows" lists at most the first {rows} matches in the chosen sort order; "values" holds
-each row's figures for the "columns". There are no price-based criteria.
+each row's figures for the "columns". Price criteria (change_52w = 52-week price
+change; from_52w_high = last close vs the 52-week high, 0 or negative; both decimals)
+use the user's own price provider (meta.parameters.price_source); the others use SEC EDGAR.
 """
 
 FILINGS_GUIDE = """
