@@ -93,7 +93,7 @@ as the number of steps grows (x = steps).
 add_explainer("options", OptionsRequest, lambda req, _: options_price(req), OPTIONS_GUIDE)
 add_explainer("options-strategy", StrategyRequest, lambda req, _: strategy(req), OPTIONS_STRATEGY_GUIDE)
 add_explainer("options-american", AmericanRequest, lambda req, _: american(req), OPTIONS_AMERICAN_GUIDE)
-add_explainer("risk", RiskRequest, lambda req, i: risk_metrics(req, i.data, i.ctx), RISK_GUIDE)
+add_explainer("risk", RiskRequest, lambda req, i: risk_metrics(req, i.data, i.ctx, i.db), RISK_GUIDE)
 
 
 PORTFOLIO_GUIDE = f"""

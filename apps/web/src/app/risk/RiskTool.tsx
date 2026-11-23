@@ -12,6 +12,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { FactorFiles } from "./FactorFiles";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
 import { csvFilename } from "@/lib/csv";
 import { formatChartDate, formatChartPercent, formatCount, formatValue } from "@/lib/format";
@@ -108,13 +109,16 @@ function dateMarker(result: MetricResult | undefined, key: string, label: string
 }
 
 type FactorCopy = ReturnType<typeof getMessages>["risk"]["factors"];
+type PeriodCopy = ReturnType<typeof getMessages>["risk"]["timescale"]["periods"];
 
 /** The line under a factor regression value: its t-statistic, or for R² the returns used
- * (days, weeks, ... after the return period the result was computed with). */
-function factorNote(result: MetricResult | undefined, copy: FactorCopy, periodNoun: string): string | undefined {
+ * (days, weeks, ... after the regression's return period: the request's, or for a
+ * monthly uploaded factor file "monthly", named in `details.period`). */
+function factorNote(result: MetricResult | undefined, copy: FactorCopy, periods: PeriodCopy): string | undefined {
   if (result?.status !== "ok") return undefined;
-  const { t_stat: t, observations: n } = result.details;
-  if (typeof n === "number") return copy.observations(formatCount(n), periodNoun, n);
+  const { t_stat: t, observations: n, period } = result.details;
+  const noun = periods[typeof period === "string" && period in periods ? (period as keyof PeriodCopy) : "daily"].noun;
+  if (typeof n === "number") return copy.observations(formatCount(n), noun, n);
   if (typeof t === "number") return `${copy.tStat} ${formatValue(t, "ratio")}`;
   return copy.exactFit;
 }
@@ -197,6 +201,7 @@ export function RiskTool() {
           {r.inputsHeading}
         </h2>
         <DataModeToggle providers={providers} value={source} onChange={setChosen} />
+        {source !== DEMO_SOURCE && <FactorFiles onChange={run} />}
         <TextField
           name="tickers"
           label={r.inputs.tickers.label}
@@ -312,7 +317,7 @@ export function RiskTool() {
                             id: `${id}:${ticker}`,
                             label: label(ticker),
                             result: value,
-                            note: FACTOR_GROUPS.has(group) ? factorNote(value, r.factors, r.timescale.periods[params?.period ?? "daily"].noun) : undefined,
+                            note: FACTOR_GROUPS.has(group) ? factorNote(value, r.factors, r.timescale.periods) : undefined,
                           };
                         })
                       : [{ id: `${id}:pending`, result: undefined }]

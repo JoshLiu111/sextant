@@ -72,7 +72,7 @@ test("a user with a Tiingo key switches to My data and sees metrics from their o
   await expect(metric(page, "max_drawdown:AAPL")).toContainText("10.00%");
   await expect(main.getByTestId("demo-badge")).toHaveCount(0);
   await expect(main.getByText("Source: Tiingo")).toBeVisible();
-  // Factor regressions need factor data, which only the demo source has (ADR 0003): missing, not an error.
+  // Without an uploaded factor file My data has no factors (ADR 0003): missing, not an error.
   for (const id of ["ff3_alpha:AAPL", "carhart_mom:AAPL", "carhart_r_squared:SPY"]) {
     await expect(metric(page, id)).toHaveAttribute("data-status", "missing_data");
   }

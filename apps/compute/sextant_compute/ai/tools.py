@@ -26,6 +26,7 @@ from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import NoSuchData, SourceUnavailable
 from sextant_compute.data.service import DataService
 from sextant_compute.data.synthetic import HISTORY_END, HISTORY_START
+from sextant_compute.db import Database
 from sextant_compute.envelope import ResultEnvelope
 from sextant_compute.errors import SOURCE_UNAVAILABLE_MESSAGE, ApiError, field_errors
 from sextant_compute.macro.api import IndicatorsRequest, RatesRequest, headline_indicators, treasury_rates
@@ -36,7 +37,8 @@ from sextant_compute.risk.api import RiskRequest, risk_metrics
 from sextant_compute.screener.api import FilingsRequest, ScreenRequest, filings, screen
 from sextant_compute.valuation.api import DcfRequest, dcf
 
-Run = Callable[[Any, DataService, RequestContext], ResultEnvelope]
+Run = Callable[..., ResultEnvelope]
+"""``(request, data, ctx)``, plus ``db`` when the tool ``needs_db``."""
 
 
 @dataclass(frozen=True)
@@ -45,6 +47,8 @@ class Tool:
     description: str
     request_model: type[BaseModel]
     run: Run
+    needs_db: bool = False
+    """``run`` takes the database as a fourth argument (risk: a user's uploaded factor files)."""
 
     def spec(self) -> dict:
         """The tool as the Messages API takes it."""
@@ -95,6 +99,7 @@ TOOLS: list[Tool] = [
         "volatility, drawdown and VaR are decimals (0.18 = 18%). " + DEMO,
         RiskRequest,
         risk_metrics,
+        needs_db=True,
     ),
     Tool(
         "portfolio_metrics",
@@ -188,7 +193,9 @@ def _describe_fields(fields: dict[str, str]) -> str:
     return "Some inputs are invalid: " + "; ".join(f"{name}: {message}" for name, message in fields.items())
 
 
-def run_tool(name: str, arguments: Any, data: DataService, ctx: RequestContext) -> ToolOutcome:
+def run_tool(
+    name: str, arguments: Any, data: DataService, ctx: RequestContext, db: Database | None = None
+) -> ToolOutcome:
     """Run tool ``name`` on the model's ``arguments``. Bugs still raise."""
     tool = TOOLS_BY_NAME.get(name)
     if tool is None:
@@ -198,7 +205,8 @@ def run_tool(name: str, arguments: Any, data: DataService, ctx: RequestContext) 
     except ValidationError as exc:
         return ToolOutcome(None, _describe_fields(field_errors(exc.errors())))
     try:
-        return ToolOutcome(tool.run(req, data, ctx), None)
+        result = tool.run(req, data, ctx, db) if tool.needs_db else tool.run(req, data, ctx)
+        return ToolOutcome(result, None)
     except ApiError as exc:
         return ToolOutcome(None, _describe_fields(exc.fields) if exc.fields else exc.message)
     except NoSuchData as exc:

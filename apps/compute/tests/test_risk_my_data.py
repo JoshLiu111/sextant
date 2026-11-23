@@ -77,7 +77,7 @@ def test_my_data_names_tiingo_as_the_source_and_is_not_demo_data(client, alice):
 
 
 def test_factor_metrics_on_my_data_are_missing_data_not_errors(client, alice):
-    """ADR 0003: only the synthetic demo source serves factors."""
+    """ADR 0003: Sextant ships no real factors; without an upload My data has none."""
     response = risk(client, alice, tickers=["AAPL", "ZZZZ"])
 
     assert response.status_code == 200, response.text
@@ -85,7 +85,7 @@ def test_factor_metrics_on_my_data_are_missing_data_not_errors(client, alice):
     for model in ("ff3", "carhart"):
         for name in (f"{model}_alpha", f"{model}_market", f"{model}_r_squared"):
             assert metrics[f"{name}:AAPL"]["status"] == "missing_data"
-            assert metrics[f"{name}:AAPL"]["reason"] == "There is no factor data for Tiingo."
+            assert "until you upload a factor file" in metrics[f"{name}:AAPL"]["reason"]
             assert metrics[f"{name}:ZZZZ"]["status"] == "missing_data"
             assert metrics[f"{name}:ZZZZ"]["reason"] == "Tiingo has no ticker ZZZZ."
     assert metrics["carhart_mom:SPY"]["status"] == "missing_data"

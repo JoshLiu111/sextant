@@ -134,8 +134,10 @@ def tool_payload(result: ResultEnvelope) -> dict:
 class Conversation:
     """One question's tool-use loop: runs the tools, keeps the trace and the results."""
 
-    def __init__(self, model: AnalystModel, data: DataService, ctx: RequestContext) -> None:
-        self.model, self.data, self.ctx = model, data, ctx
+    def __init__(
+        self, model: AnalystModel, data: DataService, ctx: RequestContext, db: Database | None = None
+    ) -> None:
+        self.model, self.data, self.ctx, self.db = model, data, ctx, db
         self.calls: list[ToolCall] = []
         self.calculations: dict[str, ResultEnvelope] = {}
         self.input_tokens = self.output_tokens = 0
@@ -147,7 +149,7 @@ class Conversation:
         return turn
 
     def _run(self, use: dict) -> dict:
-        outcome = tools.run_tool(use["name"], use.get("input"), self.data, self.ctx)
+        outcome = tools.run_tool(use["name"], use.get("input"), self.data, self.ctx, self.db)
         result = outcome.result
         if result is not None:
             self.calculations[result.calculation_id] = result
@@ -192,7 +194,7 @@ def ask(body: Question, user: CurrentUser, db: Db, model: Model, data: Data, ctx
         usage_id = usage.reserve(conn, user.id, USAGE_TOOL, limit)
     if usage_id is None:
         raise _quota_exceeded(limit)
-    conversation = Conversation(model, data, ctx)
+    conversation = Conversation(model, data, ctx, db)
     try:
         text = conversation.answer(body.question)
     except ModelUnavailable as exc:

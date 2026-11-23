@@ -31,6 +31,7 @@ from sextant_compute.portfolio.imports import router as portfolio_transactions_r
 from sextant_compute.portfolio.returns import router as portfolio_returns_router
 from sextant_compute.portfolio.saved import router as saved_portfolios_router
 from sextant_compute.risk.api import router as risk_router
+from sextant_compute.risk.factor_api import router as risk_factor_files_router
 from sextant_compute.risk.technical import router as risk_technical_router
 from sextant_compute.screener.api import router as screener_router
 from sextant_compute.screener.calendar import router as screener_calendar_router
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix=API_PREFIX)
     app.include_router(options_router, prefix=f"{API_PREFIX}/options")
     app.include_router(risk_router, prefix=f"{API_PREFIX}/risk")
+    app.include_router(risk_factor_files_router, prefix=f"{API_PREFIX}/risk/factor-files")
     app.include_router(risk_technical_router, prefix=f"{API_PREFIX}/risk")
     app.include_router(company_router, prefix=f"{API_PREFIX}/company")
     app.include_router(company_ratios_router, prefix=f"{API_PREFIX}/company")

@@ -24,5 +24,5 @@ The spec's rule is that a data source whose terms we cannot verify is not connec
 ## Consequences
 
 - Visitors see factor regressions on demo data only, with the Demo badge.
-- The upload path has to parse the Ken French CSV layout (monthly and daily files, percent units, header and footer text) and reject files it cannot read with a clear error.
+- The upload path has to parse the Ken French CSV layout (monthly and daily files, percent units, header and footer text) and reject files it cannot read with a clear error. Built in #43: uploads are stored per user in `user_factor_files` (cascades on account deletion), read per request and never cached.
 - If the library ever publishes a licence that permits public display, revisit this ADR.

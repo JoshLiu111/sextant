@@ -427,11 +427,29 @@ export const en = {
       source: {
         synthetic:
           "Factors: synthetic demo factors (Mkt-RF, SMB, HML, MOM, RF) generated with the demo prices. DEMO-H and DEMO-I are built with known size, value and momentum loadings. Sextant shows no real factor data.",
+        user_upload:
+          "Factors: user-supplied, from the factor file you uploaded. Only you see these results; Sextant ships no real factor data.",
       },
       tStat: "t =",
       exactFit: "t: undefined (exact fit)",
       /** Under R²: how many returns of the chosen period the regression used, e.g. "1,303 days". */
       observations: (count: string, noun: string, n: number) => `${count} ${noun}${n === 1 ? "" : "s"}`,
+    },
+    /** My data only: the signed-in user's own factor files (ADR 0003). */
+    factorFiles: {
+      heading: "Your factor files",
+      body: "Factor regressions on My data use a factor file you download yourself from the Kenneth R. French Data Library. Sextant ships no real factor data. Your files are used only for you and are deleted with your account.",
+      none: "No factor file yet.",
+      upload: "Upload a factor file",
+      hint: "The library's CSV (unzipped): F-F_Research_Data_Factors.CSV (monthly) or its _daily version, plus F-F_Momentum_Factor.CSV for Carhart, at the same frequency. A monthly file gives monthly regressions (month-end to month-end returns) whatever the return period; a daily file follows the return period.",
+      kinds: { three_factor: "3-factor", momentum: "Momentum" },
+      frequency: { daily: "daily", monthly: "monthly" },
+      to: "to",
+      removeShort: "Remove",
+      remove: (kind: string) => `Remove ${kind} file`,
+      uploaded: (name: string) => `Uploaded ${name}.`,
+      removed: (name: string) => `Removed ${name}.`,
+      errorTitle: "Could not use this file",
     },
     sections: {
       metrics: "Return and risk",

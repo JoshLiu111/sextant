@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import date
 from functools import cache
+from typing import Literal
 
 import pandas as pd
 
@@ -142,20 +143,25 @@ def factor_metric_set(
     *,
     factor_source: str | None,
     period: ReturnPeriod = "daily",
+    frequency: Literal["daily", "monthly"] = "daily",
 ) -> dict[str, MetricResult]:
     """FF3 and Carhart regression metrics for one return series, keyed like ``factor_metric_names``.
 
     ``factors`` is any frame in the ``analytics.factors`` layout, whatever its origin, or
     the ``MissingData`` that explains why there is none (every metric then reports it).
-    Coefficients carry ``t_stat`` in details, R-squared carries ``observations``;
-    every metric names the ``factor_source``.
+    Coefficients carry ``t_stat`` in details, R-squared carries ``observations`` and the
+    regression's return ``period``; every metric names the ``factor_source``.
 
-    ``returns`` and ``factors`` are daily; ``period`` compounds both into that return
-    period first and annualizes alpha with its count per year, like ``risk_metric_set``.
+    ``returns`` and ``factors`` are at ``frequency``. Daily inputs: ``period`` compounds
+    both into that return period first and annualizes alpha with its count per year,
+    like ``risk_metric_set``. Monthly inputs (a user's monthly factor file) are already
+    the regression's period, so it is monthly whatever ``period`` says.
     """
+    if frequency == "monthly":
+        period = "monthly"
     per_year = PERIODS_PER_YEAR[period]
     r, f = returns, factors
-    if not isinstance(factors, MissingData) and period != "daily":
+    if not isinstance(factors, MissingData) and period != "daily" and frequency == "daily":
         # Compound over the same days on both sides, so each period pairs like with like.
         days = returns.index.intersection(factors.index)
         r = period_returns(returns.loc[days], period)
@@ -179,7 +185,10 @@ def factor_metric_set(
                 lambda column=column: coefficient(column, lambda f: f.loadings[column]), unit="ratio"
             )
         out[f"{model}_r_squared"] = metric(
-            lambda: Detailed(fit().r_squared, {"observations": fit().observations, "factor_source": factor_source}),
+            lambda: Detailed(
+                fit().r_squared,
+                {"observations": fit().observations, "period": period, "factor_source": factor_source},
+            ),
             unit="ratio",
         )
     return out
