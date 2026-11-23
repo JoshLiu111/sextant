@@ -75,3 +75,18 @@ test("drill into an annual ratio: formula, inputs and their 10-K", async ({ page
   await expect(inputs.getByText("173,857", { exact: true })).toBeVisible();
   await expect(inputs.getByRole("link", { name: "10-K filed 2026-11-03" }).first()).toBeVisible();
 });
+
+test("the toggle keeps the shared-link inputs in the URL", async ({ page }) => {
+  const main = await openCompany(page, "/company?companies=MSFT&ticker=MSFT");
+  const ratios = main.getByTestId("ratios");
+  const liquidity = ratios.getByRole("table", { name: "Liquidity" });
+  await expect(liquidity.getByRole("columnheader", { name: "FY2026", exact: true })).toBeVisible(COLD);
+
+  await main.getByRole("radio", { name: "Quarterly" }).check();
+  await expect(page).toHaveURL(/companies=MSFT/);
+  await expect(page).toHaveURL(/frequency=quarterly/);
+  await expect(liquidity.getByRole("columnheader", { name: "Q1 FY2027" })).toBeVisible();
+  await main.getByRole("radio", { name: "Annual" }).check();
+  await expect(page).not.toHaveURL(/frequency=/);
+  await expect(liquidity.getByRole("columnheader", { name: "FY2026", exact: true })).toBeVisible();
+});
