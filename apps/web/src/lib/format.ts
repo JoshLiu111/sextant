@@ -23,6 +23,11 @@ export function formatValue(value: number, unit: Unit | null): string {
 
 const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
+/** A whole-number count with thousands separators (1303 -> "1,303"). */
+export function formatCount(value: number): string {
+  return WHOLE.format(value);
+}
+
 /**
  * Financial-statement cell: `currency` and `shares` in millions (no decimals),
  * `per_share` with two decimals. Units are stated once in the table caption.
@@ -47,6 +52,13 @@ export function formatChartPercent(value: number): string {
 /** Epoch milliseconds (UTC midnight, from an envelope "YYYY-MM-DD" x) back to "YYYY-MM-DD". */
 export function formatChartDate(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
+}
+
+const UP_TO_TWO = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+
+/** A value in the series' own units (thousands of persons, an index): "157,995", "312.45". */
+export function formatSeriesNumber(value: number): string {
+  return UP_TO_TWO.format(value);
 }
 
 /** Compact two-decimal formatting for chart axes and tooltips. */
