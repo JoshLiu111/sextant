@@ -162,7 +162,8 @@ def test_a_series_too_short_for_the_regression_is_missing_data_without_breaking_
     assert body["metrics"]["beta:TILT"]["status"] == "ok"
 
 
-@pytest.mark.parametrize(("period", "per_year", "observations"), [("weekly", 52, 261), ("monthly", 12, 60)])
+# Weekly: the range ends on Wednesday 2025-12-31, so that partial last week is left out.
+@pytest.mark.parametrize(("period", "per_year", "observations"), [("weekly", 52, 260), ("monthly", 12, 60)])
 def test_the_regressions_follow_the_return_period(period, per_year, observations):
     """Returns and factors are both compounded into the period; alpha annualizes with its count."""
     body = metrics(tickers=["DEMO-H"], start="2021-01-01", end="2025-12-31", period=period)

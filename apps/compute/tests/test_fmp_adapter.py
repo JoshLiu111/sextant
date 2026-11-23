@@ -171,3 +171,18 @@ def test_latest_close_without_a_key_sends_nothing(fake):
     with pytest.raises(KeyRequired):
         fake.adapter().latest_close(RequestContext(user_id=None, keys={}), "MSFT")
     assert fake.requests == []
+
+
+def test_splits_since_a_date_come_oldest_first_as_new_shares_per_old_share(fake):
+    adapter = fake.adapter()
+
+    assert adapter.splits(ALICE, "AAPL", date(2014, 1, 1)) == [(date(2014, 6, 9), 7.0), (date(2024, 1, 30), 4.0)]
+    assert adapter.splits(ALICE, "AAPL", FIRST_DAY) == [(date(2024, 1, 30), 4.0)]
+    assert adapter.splits(ALICE, "AAPL", date(2024, 1, 31)) == []
+    assert adapter.splits(ALICE, "MSFT", FIRST_DAY) == []
+    request = fake.requests[-1]
+    assert request.url.path == "/stable/splits"
+    assert request.headers["apikey"] == KEY
+    with pytest.raises(NoSuchData) as unknown:
+        adapter.splits(ALICE, "ZZZZ", FIRST_DAY)
+    assert set(unknown.value.missing) == {"ZZZZ"}

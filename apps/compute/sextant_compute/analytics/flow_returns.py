@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 import numpy as np
@@ -65,13 +65,24 @@ class Book:
     """Money taken out by sells and dividends on each day."""
 
 
-def daily_book(prices: Mapping[str, pd.DataFrame], holdings: Mapping[str, float], trades: Sequence[Trade]) -> Book:
+def daily_book(
+    prices: Mapping[str, pd.DataFrame],
+    holdings: Mapping[str, float],
+    trades: Sequence[Trade],
+    splits: Mapping[str, Sequence[tuple[date, float]]] | None = None,
+) -> Book:
     """Rebuild each day's holdings from today's ``holdings`` by undoing ``trades`` backwards.
 
     ``prices`` frames have ``close`` and ``dividend`` columns on the same dates and
     cover every held or traded ticker. Trades up to the first date are part of the
     first day's value; trades after the last date are undone and ignored.
+
+    ``holdings`` and ``prices`` are in today's share count; a trade's quantity is in
+    the share count of its date. ``splits`` (ticker -> ``(ex-date, new shares per
+    old share)``) turns each trade into today's share count: its quantity times
+    every split after its date. A trade's cash does not change.
     """
+    trades = [_in_todays_shares(t, (splits or {}).get(t.ticker, ())) for t in trades]
     dates = next(iter(prices.values())).index
     first, last = dates[0].date(), dates[-1].date()
     quantity = dict.fromkeys(prices, 0.0) | dict(holdings)
@@ -102,6 +113,12 @@ def daily_book(prices: Mapping[str, pd.DataFrame], holdings: Mapping[str, float]
         cash_in.append(paid_in)
         cash_out.append(paid_out)
     return Book(pd.Series(value, index=dates), pd.Series(cash_in, index=dates), pd.Series(cash_out, index=dates))
+
+
+def _in_todays_shares(trade: Trade, splits: Sequence[tuple[date, float]]) -> Trade:
+    # A trade on the ex-date is already at the new share count.
+    factor = math.prod(ratio for ex_date, ratio in splits if ex_date > trade.date)
+    return trade if factor == 1 else replace(trade, quantity=trade.quantity * factor)
 
 
 def _check_not_short(quantity: Mapping[str, float], when: str) -> None:

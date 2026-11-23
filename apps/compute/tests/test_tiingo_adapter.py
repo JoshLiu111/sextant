@@ -39,13 +39,14 @@ def test_prices_are_split_adjusted_but_not_dividend_adjusted(fake):
     assert spy["close"].tolist() == pytest.approx([r["close"] for r in recorded_prices("spy")])
 
 
-def test_requests_carry_the_users_key_and_the_date_range(fake):
+def test_requests_carry_the_users_key_and_the_start_date(fake):
     fake.adapter().daily_prices(ALICE, ["MSFT"], date(2024, 1, 3), date(2024, 1, 10))
 
     request = fake.requests[-1]
     assert request.url.path == "/tiingo/daily/msft/prices"
     assert request.url.params["startDate"] == "2024-01-03"
-    assert request.url.params["endDate"] == "2024-01-10"
+    # No end date: Tiingo answers up to the latest day, so later splits are known.
+    assert "endDate" not in request.url.params
     assert request.headers["authorization"] == f"Token {KEY}"
 
 
@@ -81,3 +82,28 @@ def test_without_a_key_nothing_is_sent(fake):
     with pytest.raises(KeyRequired):
         fake.adapter().daily_prices(RequestContext.anonymous(), ["AAPL"], FIRST_DAY, LAST_DAY)
     assert fake.requests == []
+
+
+def test_a_range_ending_before_a_later_split_is_still_in_todays_share_count(fake):
+    # The 4:1 split on 2024-01-30 is after this range, but holdings are in today's share
+    # count, so prices must be divided by it too: the 400 raw close is 100.
+    frames = fake.adapter().daily_prices(ALICE, ["AAPL"], FIRST_DAY, date(2024, 1, 23))
+
+    aapl = frames["AAPL"]
+    assert aapl.index[-1].date() == date(2024, 1, 23)
+    assert aapl["close"].iloc[0] == pytest.approx(100.0)
+    assert aapl.loc["2024-01-16", "close"] == pytest.approx(120.0)
+    assert aapl.loc["2024-01-23", "close"] == pytest.approx(108.0)
+    assert aapl["volume"].iloc[0] == pytest.approx(200_000_000)
+
+
+def test_splits_come_from_the_split_factors_up_to_the_latest_day(fake):
+    adapter = fake.adapter()
+
+    assert adapter.splits(ALICE, "AAPL", FIRST_DAY) == [(date(2024, 1, 30), 4.0)]
+    assert "endDate" not in fake.requests[-1].url.params
+    assert adapter.splits(ALICE, "AAPL", date(2024, 1, 31)) == []
+    assert adapter.splits(ALICE, "MSFT", FIRST_DAY) == []
+    with pytest.raises(NoSuchData) as unknown:
+        adapter.splits(ALICE, "ZZZZ", FIRST_DAY)
+    assert set(unknown.value.missing) == {"ZZZZ"}

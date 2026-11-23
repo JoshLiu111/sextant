@@ -76,6 +76,30 @@ def test_a_saved_portfolios_returns_compute_on_tiingo_prices(client, alice):
     assert body["metrics"]["twr:portfolio"]["value"] == pytest.approx(0.30)
 
 
+def test_returns_before_a_later_split_are_in_todays_share_count(client, alice):
+    # AAPL splits 4:1 on 2024-01-30, after this range. 10 shares bought at 480 on
+    # 2024-01-16 are the 40 held today. In today's share count: nothing held at the
+    # start, the buy puts 4800 in for 40 x 120, and on 2024-01-23 they are worth
+    # 40 x 108 = 4320, so TWR = 4320 / 4800 - 1 = -10%.
+    aapl = {"ticker": "AAPL", "quantity": 40, "cost_price": 120, "currency": "USD"}
+    portfolio_id = saved_portfolio(client, alice, [aapl])
+    csv = "date,ticker,side,quantity,price\n2024-01-16,AAPL,buy,10,480\n"
+    imported = client.post(f"{SAVED}/{portfolio_id}/transactions", json={"csv": csv}, headers=alice)
+    assert imported.status_code == 201, imported.text
+    put = client.put(f"{SAVED}/{portfolio_id}", json={"name": "Brokerage", "holdings": [aapl]}, headers=alice)
+    assert put.status_code == 200, put.text
+
+    body = {"start": "2024-01-01", "end": "2024-01-23", "source": "tiingo"}
+    response = client.post(f"{SAVED}/{portfolio_id}/returns", json=body, headers=alice)
+
+    assert response.status_code == 200, response.text
+    twr = response.json()["metrics"]["twr:portfolio"]
+    assert twr["status"] == "ok", twr
+    assert twr["details"]["start_value"] == pytest.approx(0)
+    assert twr["details"]["end_value"] == pytest.approx(4320)
+    assert twr["value"] == pytest.approx(-0.10)
+
+
 def test_demo_tickers_are_rejected_on_my_data_without_asking_tiingo(client, tiingo, alice):  # noqa: F811
     demo = demo_portfolio(
         client, alice, [{"ticker": "AAPL", "weight": 0.5}, {"ticker": "DEMO-A", "weight": 0.5}], benchmark="DEMO-MKT"

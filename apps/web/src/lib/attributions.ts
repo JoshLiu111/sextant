@@ -1,6 +1,8 @@
-// Data-source attributions shown in the footer slot. A page lists the ids it
-// uses in its tool registry entry (src/lib/tools.ts); add new sources here.
-// Wording that a provider's terms require (e.g. FRED) must be copied verbatim.
+// Data-source attributions shown in the footer slot. The footer credits the
+// sources of the results on the page (`attributionFor`, via `PageSources`) plus
+// any a page always uses (its tool registry entry, src/lib/tools.ts); add new
+// sources here. Wording that a provider's terms require (e.g. FRED) must be
+// copied verbatim.
 export type Attribution = {
   text: string;
   href?: string;
@@ -19,6 +21,14 @@ export const ATTRIBUTIONS = {
   treasury: {
     text: "Source: U.S. Department of the Treasury, Daily Treasury Par Yield Curve Rates. Not endorsed by the U.S. Treasury.",
     href: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve",
+  },
+  // My data: prices fetched with the signed-in user's own key. Tiingo's terms
+  // name no attribution wording; FMP's docs suggest "Data provided by Financial
+  // Modeling Prep" linked to its developer docs.
+  tiingo: { text: "Prices from Tiingo, using your own API key.", href: "https://www.tiingo.com/" },
+  fmp: {
+    text: "Data provided by Financial Modeling Prep, using your own API key.",
+    href: "https://financialmodelingprep.com/developer/docs/",
   },
   frankfurter: {
     text: "Exchange rates: Frankfurter (frankfurter.dev).",
@@ -48,3 +58,15 @@ export const ATTRIBUTIONS = {
 } as const satisfies Record<string, Attribution>;
 
 export type AttributionId = keyof typeof ATTRIBUTIONS;
+
+/** Compute `DataSource.id`s whose attribution id differs from the source id. */
+const SOURCE_ATTRIBUTIONS: Record<string, AttributionId> = { synthetic: "demo", sec_edgar: "sec" };
+
+/**
+ * The attribution a result's `source` calls for, or null when none is owed
+ * (e.g. "user_input": numbers the visitor typed).
+ */
+export function attributionFor(sourceId: string): AttributionId | null {
+  if (Object.hasOwn(SOURCE_ATTRIBUTIONS, sourceId)) return SOURCE_ATTRIBUTIONS[sourceId];
+  return Object.hasOwn(ATTRIBUTIONS, sourceId) ? (sourceId as AttributionId) : null;
+}

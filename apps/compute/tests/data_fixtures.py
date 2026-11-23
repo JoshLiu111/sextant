@@ -35,8 +35,17 @@ class FixtureAdapter:
 
     version = "1"
 
-    def __init__(self, frames: dict[str, pd.DataFrame], source: DataSource = FIXTURE, scope: str = "shared") -> None:
+    def __init__(
+        self,
+        frames: dict[str, pd.DataFrame],
+        source: DataSource = FIXTURE,
+        scope: str = "shared",
+        splits: dict[str, dict[str, float]] | None = None,
+    ) -> None:
+        """``splits`` maps ticker -> {ex-date: new shares per old share}; ``frames`` are
+        already split-adjusted to today's share count, as every price source's are."""
         self.frames = frames
+        self.split_dates = splits or {}
         self.source = source
         self.scope = scope
         self.ttl = {"daily_prices": 3600}
@@ -48,6 +57,10 @@ class FixtureAdapter:
         if missing:
             raise NoSuchData(self.source.id, "Unknown ticker.", missing)
         return {t: self.frames[t].loc[pd.Timestamp(start) : pd.Timestamp(end)] for t in tickers}
+
+    def splits(self, ctx, ticker: str, start: date) -> list[tuple[date, float]]:
+        found = self.split_dates.get(ticker, {})
+        return sorted((d, r) for d, r in ((date.fromisoformat(k), v) for k, v in found.items()) if d >= start)
 
 
 class FactorFixtureAdapter(FixtureAdapter):
