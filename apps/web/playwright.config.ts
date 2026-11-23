@@ -26,6 +26,8 @@ const edgar = {
   SEC_USER_AGENT: "Sextant e2e admin@example.com",
   // The screener's default year follows the calendar; pin it to the recorded frames.
   SCREENER_DEFAULT_YEAR: "2025",
+  // The earnings calendar's "today": the recorded submissions end 2026-11-19.
+  SCREENER_TODAY: "2026-11-22",
 };
 const TREASURY_PORT = Number(process.env.TREASURY_PORT || COMPUTE_PORT + 4);
 const isCI = !!process.env.CI;

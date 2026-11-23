@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { getMessages } from "@/i18n";
+import { DividendHistory } from "./DividendHistory";
+import { EarningsCalendar } from "./EarningsCalendar";
 import { LatestFilings } from "./LatestFilings";
 import { Screener } from "./Screener";
 
@@ -12,6 +14,8 @@ export default function Page() {
       <h1 className="text-2xl font-semibold">{t.tools.screener.name}</h1>
       <p className="mt-2 text-black/70 dark:text-white/70">{t.screener.intro}</p>
       <Screener />
+      <EarningsCalendar />
+      <DividendHistory />
       <LatestFilings />
     </main>
   );
