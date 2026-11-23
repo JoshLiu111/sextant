@@ -719,6 +719,26 @@ export const en = {
         read: "Shown in percentage points (pp). Below zero means the curve is inverted; inversions have preceded most US recessions, though with long and variable lags.",
       },
     },
+    custom: {
+      heading: "Your series",
+      intro:
+        "Search FRED by name, keyword or series id and add more series to the board. Only public-domain series are offered: copyrighted series are excluded. The series you add are kept in the page address, so you can share the board.",
+      search: { label: "Search FRED", hint: "For example payroll, housing starts or PAYEMS." },
+      submit: "Search",
+      results: "Search results",
+      empty: (query: string) => `No public-domain FRED series match “${query}”.`,
+      add: (id: string) => `Add ${id}`,
+      addText: "Add",
+      added: "Added",
+      remove: (id: string) => `Remove ${id}`,
+      removeText: "Remove",
+      full: (max: number) => `The board holds up to ${max} added series. Remove one to add another.`,
+      explainer: (title: string, source: string, units: string) => ({
+        what: `${title}, a FRED series you added to the board.`,
+        how: `As published by ${source}${units ? ` (${units})` : ""}, retrieved from FRED, Federal Reserve Bank of St. Louis. The value is the latest observation.`,
+        read: "Read it in the units shown below the value; the chart shows its history and the latest period tells you how recent it is.",
+      }),
+    },
     indicators: {
       gdp_growth: {
         name: "Real GDP growth",
