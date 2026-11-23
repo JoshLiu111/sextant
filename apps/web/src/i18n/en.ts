@@ -121,6 +121,8 @@ export const en = {
       missing_data: "Missing data",
       error: "Can't compute",
     },
+    /** An ok metric with no bound (`details.bound === "unlimited"`), e.g. a straddle's max profit. */
+    unlimited: "Unlimited",
     units: {
       currency: "",
       decimal: "",

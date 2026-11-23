@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Annotated, Literal
 
 from fastapi import APIRouter
@@ -11,7 +12,7 @@ from pydantic_core import PydanticCustomError
 from sextant_compute.analytics import binomial
 from sextant_compute.analytics import options as bs
 from sextant_compute.analytics import strategies as st
-from sextant_compute.envelope import MetricError, MetricResult, ResultEnvelope, envelope, metric, series
+from sextant_compute.envelope import MetricError, MetricResult, MetricStatus, ResultEnvelope, envelope, metric, series
 from sextant_compute.errors import INPUT_ERROR, check
 
 router = APIRouter(tags=["options"])
@@ -139,14 +140,26 @@ GREEK_UNITS: dict[st.Greek, str] = {
 }
 
 
+def _extreme(compute: Callable[[], float]) -> MetricResult:
+    """A max profit/loss: a currency amount, or a valid "unlimited" (``value`` null,
+    ``details.bound`` ``"unlimited"`` and ``details.why``) when the payoff is unbounded."""
+    try:
+        amount = compute()
+    except st.Unlimited as exc:
+        return MetricResult(
+            value=None, status=MetricStatus.OK, unit="currency", details={"bound": "unlimited", "why": str(exc)}
+        )
+    return metric(lambda: amount, unit="currency")
+
+
 @router.post("/strategy")
 def strategy(req: StrategyRequest) -> ResultEnvelope:
     legs = [leg.to_leg() for leg in req.legs]
     market = st.Market(req.spot, req.time_to_expiry, req.volatility, req.risk_free_rate, req.dividend_yield)
     metrics = {
         "net_cost": metric(lambda: st.value(legs, market), unit="currency"),
-        "max_profit": metric(lambda: st.max_profit(legs, market), unit="currency"),
-        "max_loss": metric(lambda: st.max_loss(legs, market), unit="currency"),
+        "max_profit": _extreme(lambda: st.max_profit(legs, market)),
+        "max_loss": _extreme(lambda: st.max_loss(legs, market)),
     }
     curves = {
         "profit_at_expiry": series(
