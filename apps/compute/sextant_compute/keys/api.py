@@ -1,4 +1,4 @@
-"""Settings: a signed-in user's own data-provider keys (bring your own key).
+"""Settings: a signed-in user's own data-provider keys (bring your own key): Tiingo and FMP.
 
 Endpoints (all ``CurrentUser``: 401 when signed out), under ``/api/compute/keys``:
 
@@ -19,7 +19,7 @@ on the next request.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Protocol
 
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel, BeforeValidator
@@ -27,6 +27,7 @@ from pydantic import BaseModel, BeforeValidator
 from sextant_compute.auth import CurrentUser
 from sextant_compute.auth.deps import get_db
 from sextant_compute.data import user_cache
+from sextant_compute.data.fmp import FmpAdapter
 from sextant_compute.data.tiingo import TiingoAdapter
 from sextant_compute.db import Database
 from sextant_compute.errors import ApiError, check
@@ -36,12 +37,21 @@ from sextant_compute.keys.cipher import KeyCipher, KeysNotConfigured
 router = APIRouter(tags=["keys"])
 
 Db = Annotated[Database, Depends(get_db)]
-Provider = Literal["tiingo"]
-PROVIDER_NAMES: dict[str, str] = {"tiingo": "Tiingo"}
+Provider = Literal["tiingo", "fmp"]
+PROVIDER_NAMES: dict[str, str] = {"tiingo": "Tiingo", "fmp": "FMP"}
 MAX_KEY_LENGTH = 200
 HINT_LENGTH = 4
 
+
+class KeyVerifier(Protocol):
+    def verify_key(self, key: str) -> bool:
+        """True if the provider accepts ``key``, False if it rejects it; raises
+        ``SourceUnavailable`` when it can't tell."""
+        ...
+
+
 _tiingo: TiingoAdapter | None = None
+_fmp: FmpAdapter | None = None
 
 
 def get_tiingo() -> TiingoAdapter:
@@ -50,6 +60,21 @@ def get_tiingo() -> TiingoAdapter:
     if _tiingo is None:
         _tiingo = TiingoAdapter.from_env()
     return _tiingo
+
+
+def get_fmp() -> FmpAdapter:
+    """FastAPI dependency. Tests swap it with ``app.dependency_overrides``."""
+    global _fmp
+    if _fmp is None:
+        _fmp = FmpAdapter.from_env()
+    return _fmp
+
+
+def get_verifiers(
+    tiingo: Annotated[TiingoAdapter, Depends(get_tiingo)], fmp: Annotated[FmpAdapter, Depends(get_fmp)]
+) -> dict[str, KeyVerifier]:
+    """Provider -> the adapter that checks its keys."""
+    return {"tiingo": tiingo, "fmp": fmp}
 
 
 def _strip(value: object) -> object:
@@ -93,10 +118,14 @@ def list_keys(user: CurrentUser, db: Db) -> list[SavedKey]:
 
 @router.put("/{provider}")
 def save_key(
-    provider: Provider, body: KeyIn, user: CurrentUser, db: Db, tiingo: Annotated[TiingoAdapter, Depends(get_tiingo)]
+    provider: Provider,
+    body: KeyIn,
+    user: CurrentUser,
+    db: Db,
+    verifiers: Annotated[dict[str, KeyVerifier], Depends(get_verifiers)],
 ) -> SavedKey:
     cipher = _cipher()
-    if not tiingo.verify_key(body.key):  # SourceUnavailable -> 503 source_unavailable
+    if not verifiers[provider].verify_key(body.key):  # SourceUnavailable -> 503 source_unavailable
         message = f"This key is invalid: {PROVIDER_NAMES[provider]} rejected it. Check that you copied the whole key."
         raise ApiError(422, "invalid_key", message, fields={"key": message})
     sealed = cipher.seal(user.id, provider, body.key)
