@@ -7,13 +7,16 @@ import { defineConfig, devices } from "@playwright/test";
 //
 // Accounts: sign-in goes to a fake OIDC provider (e2e/fake-oidc.mjs) on
 // OIDC_PORT (default COMPUTE_PORT + 1). FRED requests go to a fake FRED API
-// (e2e/fake-fred.mjs) on FRED_PORT (default COMPUTE_PORT + 2). The compute service uses
+// (e2e/fake-fred.mjs) on FRED_PORT (default COMPUTE_PORT + 2), Treasury yield curve
+// requests to a fake (e2e/fake-treasury.mjs) on TREASURY_PORT (default COMPUTE_PORT + 3).
+// The compute service uses
 // E2E_DATABASE_URL if set (CI: the postgres service container); otherwise it
 // starts a throwaway local Postgres (needs initdb/pg_ctl, e.g. Homebrew).
 const WEB_PORT = Number(process.env.WEB_PORT || 3000);
 const COMPUTE_PORT = Number(process.env.COMPUTE_PORT || 8000);
 const OIDC_PORT = Number(process.env.OIDC_PORT || COMPUTE_PORT + 1);
 const FRED_PORT = Number(process.env.FRED_PORT || COMPUTE_PORT + 2);
+const TREASURY_PORT = Number(process.env.TREASURY_PORT || COMPUTE_PORT + 3);
 const isCI = !!process.env.CI;
 const reuse = !isCI && process.env.PW_REUSE_SERVERS === "1";
 const computeUrl = `http://127.0.0.1:${COMPUTE_PORT}`;
@@ -30,6 +33,8 @@ const fred = {
   FRED_API_KEY: "e2efakefredkeynotreal0000000000",
   FRED_API_BASE_URL: `http://127.0.0.1:${FRED_PORT}/fred`,
 };
+// Treasury: compute fetches the yield curve CSVs from a fake (e2e/fake-treasury.mjs).
+const treasury = { TREASURY_BASE_URL: `http://127.0.0.1:${TREASURY_PORT}` };
 const uvicorn = `uv run uvicorn main:app --host 127.0.0.1 --port ${COMPUTE_PORT}`;
 const e2eDatabaseUrl = process.env.E2E_DATABASE_URL;
 
@@ -58,6 +63,12 @@ export default defineConfig({
       env: { FRED_PORT: String(FRED_PORT) },
     },
     {
+      command: "node e2e/fake-treasury.mjs",
+      url: `${treasury.TREASURY_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { TREASURY_PORT: String(TREASURY_PORT) },
+    },
+    {
       command: e2eDatabaseUrl
         ? uvicorn
         : `uv run python scripts/ephemeral_postgres.py -- ${uvicorn}`,
@@ -69,6 +80,7 @@ export default defineConfig({
       env: {
         SESSION_SECRET: auth.SESSION_SECRET,
         ...fred,
+        ...treasury,
         ...(e2eDatabaseUrl ? { DATABASE_URL: e2eDatabaseUrl } : {}),
       },
     },

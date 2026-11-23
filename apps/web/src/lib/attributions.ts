@@ -16,6 +16,10 @@ export const ATTRIBUTIONS = {
     href: "https://fred.stlouisfed.org/",
     links: [{ label: "FRED API Terms of Use", href: "https://fred.stlouisfed.org/docs/api/terms_of_use.html" }],
   },
+  treasury: {
+    text: "Source: U.S. Department of the Treasury, Daily Treasury Par Yield Curve Rates. Not endorsed by the U.S. Treasury.",
+    href: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve",
+  },
 } as const satisfies Record<string, Attribution>;
 
 export type AttributionId = keyof typeof ATTRIBUTIONS;

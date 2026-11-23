@@ -15,6 +15,7 @@ const PERCENT = new Intl.NumberFormat("en-US", {
 export function formatValue(value: number, unit: Unit | null): string {
   if (unit === "decimal") return PERCENT.format(value);
   if (unit === "percent") return `${TWO.format(value)}%`;
+  if (unit === "percentage_points") return `${TWO.format(value)} pp`;
   if (unit === "ratio") return TWO.format(value);
   return FOUR.format(value);
 }
@@ -51,4 +52,17 @@ export function formatChartPercentValue(value: number): string {
 export function formatTimestampUtc(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+/** Percentage points (a spread between two percent values) for charts: "-0.25 pp". */
+export function formatChartPercentPoints(value: number): string {
+  return `${TWO.format(value)} pp`;
+}
+
+const MATURITY = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
+
+/** A maturity in years for charts: under a year in months ("1.5 mo"), else years ("10 yr"). */
+export function formatChartMaturity(years: number): string {
+  if (years < 1) return `${MATURITY.format(Math.round(years * 12 * 10) / 10)} mo`;
+  return `${MATURITY.format(years)} yr`;
 }

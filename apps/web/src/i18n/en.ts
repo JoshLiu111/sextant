@@ -91,6 +91,7 @@ export const en = {
       per_day: "per calendar day",
       per_rate_point: "per 1 percentage point",
       percent: "",
+      percentage_points: "percentage points",
       ratio: "",
     } as Record<string, string>,
     errors: {
@@ -276,9 +277,10 @@ export const en = {
   },
   macro: {
     intro:
-      "The latest reading and history of four headline US indicators, from public-domain series on FRED. Hover a chart to see exact values.",
+      "The latest reading and history of four headline US indicators, from public-domain series on FRED, and the US Treasury yield curve and 10Y–2Y spread, from the Treasury's daily par yield curve. Hover a chart to see exact values.",
     sections: {
       indicators: "US headline indicators",
+      rates: "US Treasury yields",
     },
     meta: {
       source: "Source",
@@ -287,10 +289,35 @@ export const en = {
       frequency: "Frequency",
       lastUpdated: "Last updated",
       latestPeriod: "Latest period",
+      retrieved: "retrieved by Sextant",
     },
     chart: {
       history: "history",
       x: "Date",
+      maturity: "Maturity",
+    },
+    rates: {
+      curveLabels: {
+        latest: "Latest",
+        "1m_ago": "1 month earlier",
+        "1y_ago": "1 year earlier",
+      },
+      inverted: "Inverted (10Y below 2Y)",
+      curveChart: "US Treasury yield curve",
+      spreadChart: "10Y–2Y spread history",
+      yieldLabels: { yield_2y: "2-year", yield_10y: "10-year" },
+      yield_curve: {
+        name: "US Treasury yield curve",
+        what: "The yields on US Treasury securities across maturities, from 1 month to 30 years, on one day. The chart overlays the latest curve with the curves one month and one year earlier.",
+        how: "Treasury's daily par yield curve: par yields fitted to indicative bid-side quotes for recently auctioned securities, collected by the New York Fed at about 3:30 PM ET each business day. When the comparison date is a weekend or holiday, the previous business day's curve is used. The card shows the latest 2-year and 10-year yields.",
+        read: "Shown in percent per year. A curve that slopes up (long maturities above short ones) is normal; a flat or downward-sloping curve means markets expect lower rates ahead.",
+      },
+      spread_10y_2y: {
+        name: "10Y–2Y term spread",
+        what: "The difference between the 10-year and the 2-year Treasury yield, a common measure of the yield curve's slope.",
+        how: "10-year par yield minus 2-year par yield on each business day, computed by Sextant from Treasury's daily par yield curve. Shaded periods are runs of days when the spread was below zero.",
+        read: "Shown in percentage points (pp). Below zero means the curve is inverted; inversions have preceded most US recessions, though with long and variable lags.",
+      },
     },
     indicators: {
       gdp_growth: {
