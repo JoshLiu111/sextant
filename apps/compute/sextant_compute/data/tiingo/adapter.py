@@ -11,7 +11,7 @@ Two jobs:
   every later "My data" tool), with ``ctx.key_for("tiingo")``.
 - ``latest_close``: the last close, for the Valuation Calculator's margin of
   safety. The same URL without ``startDate``/``endDate`` answers only the latest
-  day (documented; unverified without a real key).
+  day (checked with a real key on 2026-11-23).
 
 Key check: ``GET /api/test``. Checked 2026-11-22: it answers HTTP 200 for every
 token and says in ``message`` whether the token worked:
@@ -27,10 +27,12 @@ ex-date; ``splitFactor`` is the split ratio on the split date (4.0 for 4:1),
 1.0 otherwise. We return prices *split*-adjusted (so a split is not a crash)
 but not dividend-adjusted (``DailyPricesAdapter``'s contract: tools add the
 dividends back themselves). Data URLs answer 403 ``{"detail":"Invalid token."}``
-for a bad token (probed 2026-11-22). Unverified (no real key at hand): an
-unknown ticker answers 404 ``{"detail": "Error: Ticker 'X' not found"}``, a
-range without prices answers ``[]``, and the hourly/daily request limits answer
-429. Any other unexpected answer is ``SourceUnavailable``.
+for a bad token (probed 2026-11-22). Checked with a real key on 2026-11-23: an
+unknown ticker answers 404 ``{"detail":"Error: Ticker 'X' not found"}``, a
+range without prices (e.g. a weekend) answers ``[]``, and prices are only
+published after the close (on a Monday morning the latest day was Friday).
+Unverified: the hourly/daily request limits answering 429. Any other unexpected
+answer is ``SourceUnavailable``.
 
 The key is never logged or put in an error message.
 """
