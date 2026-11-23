@@ -12,6 +12,7 @@ import { getMessages } from "@/i18n";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
+import { TechnicalAnalysis, type RiskSelection } from "./TechnicalAnalysis";
 
 // Metric ids are "<metric>:<ticker>", series ids "drawdown:<ticker>".
 // Cards are grouped by section; the order within a group is the display order.
@@ -252,6 +253,7 @@ export function RiskTool() {
             </p>
           )}
         </div>
+        {result && <TechnicalAnalysis selection={result.meta.parameters as RiskSelection} />}
         {result && <CalculationInfo result={result} />}
       </section>
     </div>
