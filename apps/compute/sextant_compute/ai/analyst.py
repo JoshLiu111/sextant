@@ -154,22 +154,13 @@ class Conversation:
         raise AssertionError("unreachable: the last round always answers")
 
 
-def _quota_exceeded(limit: int) -> ApiError:
-    calls = "call" if limit == 1 else "calls"
-    return ApiError(
-        429,
-        "quota_exceeded",
-        f"You have used all {limit} AI {calls} for today. Your quota resets at 00:00 UTC.",
-    )
-
-
 @router.post("/analyst")
 def ask(body: Question, user: CurrentUser, db: Db, model: Model, data: Data, ctx: Ctx) -> AnalystAnswer:
     limit = usage.daily_limit()
     with db.connection() as conn:
         usage_id = usage.reserve(conn, user.id, USAGE_TOOL, limit)
     if usage_id is None:
-        raise _quota_exceeded(limit)
+        raise usage.quota_exceeded(limit, "AI")
     conversation = Conversation(model, data, ctx, db)
     try:
         text = conversation.answer(body.question)

@@ -9,11 +9,13 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
+from sextant_compute.ai import usage
 from sextant_compute.ai.model import AnthropicModel, Completion, ModelUnavailable
 from tests.auth_helpers import bearer, sign_in
 
@@ -166,9 +168,11 @@ def test_calls_over_the_daily_quota_are_refused_with_a_clear_message(client, mod
     assert refused.status_code == 429
     error = refused.json()["error"]
     assert error["code"] == "quota_exceeded"
-    assert error["message"] == (
-        "You have used all 2 AI Explain calls for today. Your quota resets at 00:00 UTC."
-    )
+    # Time-zone neutral: the page may show this before it knows the reset time to localize.
+    assert re.fullmatch(
+        r"You have used all 2 AI Explain calls for today\. Your quota resets in (\d+ minutes?|about \d+ hours?)\.",
+        error["message"],
+    ), error["message"]
     assert len(model.prompts) == 2  # the model is never asked once the quota is used up
     assert quota(client, token)["remaining"] == 0
 
@@ -266,3 +270,17 @@ def test_without_an_api_key_ai_explain_is_unavailable(client, monkeypatch):
 
     assert response.status_code == 503
     assert response.json()["error"]["message"] == "AI Explain is temporarily unavailable. Please retry in a moment."
+
+
+@pytest.mark.parametrize(
+    ("now", "phrase"),
+    [
+        (datetime(2026, 11, 23, 18, 40, tzinfo=UTC), "about 5 hours"),
+        (datetime(2026, 11, 23, 0, 0, 1, tzinfo=UTC), "about 24 hours"),
+        (datetime(2026, 11, 23, 22, 31, tzinfo=UTC), "about 1 hour"),
+        (datetime(2026, 11, 23, 23, 35, tzinfo=UTC), "25 minutes"),
+        (datetime(2026, 11, 23, 23, 59, 30, tzinfo=UTC), "1 minute"),
+    ],
+)
+def test_the_quota_message_says_how_long_until_the_reset(now, phrase):
+    assert usage.time_until_reset(now) == phrase

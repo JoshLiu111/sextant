@@ -79,21 +79,12 @@ def get_quota(user: CurrentUser, db: Db) -> QuotaOut:
         return QuotaOut(**usage.quota(conn, user.id, usage.daily_limit()).as_json())
 
 
-def _quota_exceeded(limit: int) -> ApiError:
-    calls = "call" if limit == 1 else "calls"
-    return ApiError(
-        429,
-        "quota_exceeded",
-        f"You have used all {limit} AI Explain {calls} for today. Your quota resets at 00:00 UTC.",
-    )
-
-
 def explain(tool: str, guide: str, result: ResultEnvelope, user_id, db: Database, model: ExplainModel) -> Explanation:
     limit = usage.daily_limit()
     with db.connection() as conn:
         usage_id = usage.reserve(conn, user_id, tool, limit)
     if usage_id is None:
-        raise _quota_exceeded(limit)
+        raise usage.quota_exceeded(limit, "AI Explain")
     try:
         completion = model.complete(prompts.SYSTEM, prompts.user_prompt(guide, result))
     except ModelUnavailable as exc:
