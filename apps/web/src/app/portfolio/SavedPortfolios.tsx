@@ -9,6 +9,7 @@ import {
   type PortfolioSummary,
   type SavedPortfolio,
 } from "@/lib/portfolios";
+import { ImportTransactions } from "./ImportTransactions";
 import { SavedPortfolioResults } from "./SavedPortfolioResults";
 
 // Inputs are kept as strings; `toBody` converts them to the API's numbers.
@@ -150,6 +151,12 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
     show(saved);
     setSelectedId(saved.id);
     setNotice(s.saved);
+  }
+
+  function onImported(portfolio: SavedPortfolio) {
+    setList((l) => l.map((p) => (p.id === portfolio.id ? summaryOf(portfolio) : p)));
+    setNotice(null);
+    show(portfolio);
   }
 
   async function onDelete() {
@@ -342,6 +349,8 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
           )}
         </div>
       </div>
+
+      {loaded && <ImportTransactions key={loaded.id} portfolioId={loaded.id} onImported={onImported} />}
     </section>
   );
 }
