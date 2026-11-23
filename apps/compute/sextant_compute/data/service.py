@@ -29,6 +29,9 @@ from sextant_compute.auth import OptionalUser
 from sextant_compute.auth.deps import get_db
 from sextant_compute.data.adapters import (
     Adapter,
+    CountryIndicator,
+    CountryIndicatorAdapter,
+    CountrySeries,
     CrossSectionsAdapter,
     DailyPricesAdapter,
     DividendsAdapter,
@@ -44,6 +47,7 @@ from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCach
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.dividends import DividendHistory
+from sextant_compute.data.ecb import EcbAdapter
 from sextant_compute.data.edgar import EdgarAdapter
 from sextant_compute.data.errors import KeyRequired, NoSuchData
 from sextant_compute.data.filings import FilingList
@@ -53,6 +57,7 @@ from sextant_compute.data.synthetic import SyntheticAdapter
 from sextant_compute.data.tiingo import TiingoAdapter
 from sextant_compute.data.treasury import TreasuryAdapter
 from sextant_compute.data.user_cache import PostgresUserCache
+from sextant_compute.data.world_bank import WorldBankAdapter
 from sextant_compute.db import Database
 from sextant_compute.envelope import DataSource
 from sextant_compute.keys.vault import user_keys
@@ -370,6 +375,31 @@ class DataService:
             curves=[(when, curve) for y in years for when, curve in y.curves if start <= when <= end],
         )
 
+    def country_indicator(
+        self,
+        ctx: RequestContext,
+        indicator_id: str,
+        countries: Sequence[str],
+        *,
+        start_year: int,
+        end_year: int,
+        source: str,
+    ) -> CountryIndicator:
+        """One indicator's annual values for several economies; see ``CountryIndicatorAdapter``.
+        Cached per (indicator, country set, years): ask for a fixed country set and
+        filter, so every selection shares one entry."""
+        adapter = cast(CountryIndicatorAdapter, self._adapter(source))
+        wanted = sorted({c.strip().upper() for c in countries})
+        return self._cached(
+            ctx,
+            adapter,
+            "country_indicator",
+            {"indicator": indicator_id, "countries": wanted, "start_year": start_year, "end_year": end_year},
+            lambda: adapter.country_indicator(ctx, indicator_id, wanted, start_year, end_year),
+            _encode_country_indicator,
+            _decode_country_indicator,
+        )
+
 
 def cache_key(adapter: Adapter, dataset: str, params: Mapping[str, Any], *, user_id: object | None = None) -> str:
     """``v<CACHE_VERSION>:<shared|user:<id>>:<source>@<adapter version>:<dataset>:<params hash>``."""
@@ -429,18 +459,43 @@ def _decode_curves(raw: Mapping[str, Any]) -> YieldCurves:
     )
 
 
+def _encode_country_indicator(found: CountryIndicator) -> dict[str, Any]:
+    return {
+        "source": found.source.model_dump(),
+        "meta": dataclasses.asdict(found.meta),
+        "countries": [
+            [c.country, c.name, [[year, value] for year, value in c.observations]] for c in found.countries.values()
+        ],
+    }
+
+
+def _decode_country_indicator(raw: Mapping[str, Any]) -> CountryIndicator:
+    return CountryIndicator(
+        source=DataSource(**raw["source"]),
+        meta=SeriesMeta(**raw["meta"]),
+        countries={
+            code: CountrySeries(code, name, [(int(year), value) for year, value in observations])
+            for code, name, observations in raw["countries"]
+        },
+    )
+
+
 def default_adapters() -> dict[str, Adapter]:
     synthetic = SyntheticAdapter()
     fred = FredAdapter.from_env()
     edgar = EdgarAdapter()
     treasury = TreasuryAdapter.from_env()
     tiingo = TiingoAdapter.from_env()
+    world_bank = WorldBankAdapter.from_env()
+    ecb = EcbAdapter.from_env()
     return {
         tiingo.source.id: tiingo,
         synthetic.source.id: synthetic,
         fred.source.id: fred,
         edgar.source.id: edgar,
         treasury.source.id: treasury,
+        world_bank.source.id: world_bank,
+        ecb.source.id: ecb,
     }
 
 

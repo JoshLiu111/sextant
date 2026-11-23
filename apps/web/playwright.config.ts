@@ -9,7 +9,9 @@ import { defineConfig, devices } from "@playwright/test";
 // OIDC_PORT (default COMPUTE_PORT + 1). FRED requests go to a fake FRED API
 // (e2e/fake-fred.mjs) on FRED_PORT (default COMPUTE_PORT + 2), Treasury yield curve
 // requests to a fake (e2e/fake-treasury.mjs) on TREASURY_PORT (default COMPUTE_PORT + 4),
-// Tiingo key checks to a fake (e2e/fake-tiingo.mjs) on TIINGO_PORT (default COMPUTE_PORT + 6).
+// Tiingo key checks to a fake (e2e/fake-tiingo.mjs) on TIINGO_PORT (default COMPUTE_PORT + 6),
+// World Bank requests to e2e/fake-world-bank.mjs on WORLD_BANK_PORT (default COMPUTE_PORT + 7)
+// and ECB requests to e2e/fake-ecb.mjs on ECB_PORT (default COMPUTE_PORT + 8).
 // The compute service uses
 // E2E_DATABASE_URL if set (CI: the postgres service container); otherwise it
 // starts a throwaway local Postgres (needs initdb/pg_ctl, e.g. Homebrew).
@@ -58,8 +60,15 @@ const fred = {
 };
 // Treasury: compute fetches the yield curve CSVs from a fake (e2e/fake-treasury.mjs).
 const treasury = { TREASURY_BASE_URL: `http://127.0.0.1:${TREASURY_PORT}` };
+// World Bank and ECB: compute fetches from fakes serving the recorded responses.
+const WORLD_BANK_PORT = Number(process.env.WORLD_BANK_PORT || COMPUTE_PORT + 7);
+const ECB_PORT = Number(process.env.ECB_PORT || COMPUTE_PORT + 8);
+const worldBankAndEcb = {
+  WORLD_BANK_BASE_URL: `http://127.0.0.1:${WORLD_BANK_PORT}`,
+  ECB_BASE_URL: `http://127.0.0.1:${ECB_PORT}`,
+};
 // AI Explain: compute talks to a fake Claude Messages API (e2e/fake-anthropic.mjs)
-// on ANTHROPIC_PORT (default COMPUTE_PORT + 6). The key is a dummy; the quota is small
+// on ANTHROPIC_PORT (default COMPUTE_PORT + 5). The key is a dummy; the quota is small
 // so the over-quota path is quick to reach.
 const ANTHROPIC_PORT = Number(process.env.ANTHROPIC_PORT || COMPUTE_PORT + 5);
 const ai = {
@@ -109,6 +118,18 @@ export default defineConfig({
       env: { TREASURY_PORT: String(TREASURY_PORT) },
     },
     {
+      command: "node e2e/fake-world-bank.mjs",
+      url: `${worldBankAndEcb.WORLD_BANK_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { WORLD_BANK_PORT: String(WORLD_BANK_PORT) },
+    },
+    {
+      command: "node e2e/fake-ecb.mjs",
+      url: `${worldBankAndEcb.ECB_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { ECB_PORT: String(ECB_PORT) },
+    },
+    {
       command: "node e2e/fake-anthropic.mjs",
       url: `${ai.ANTHROPIC_BASE_URL}/health`,
       reuseExistingServer: reuse,
@@ -134,6 +155,7 @@ export default defineConfig({
         ...edgar,
         ...fred,
         ...treasury,
+        ...worldBankAndEcb,
         ...ai,
         ...tiingo,
         ...(e2eDatabaseUrl ? { DATABASE_URL: e2eDatabaseUrl } : {}),
