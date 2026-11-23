@@ -8,7 +8,8 @@ import { defineConfig, devices } from "@playwright/test";
 // Accounts: sign-in goes to a fake OIDC provider (e2e/fake-oidc.mjs) on
 // OIDC_PORT (default COMPUTE_PORT + 1). FRED requests go to a fake FRED API
 // (e2e/fake-fred.mjs) on FRED_PORT (default COMPUTE_PORT + 2), Treasury yield curve
-// requests to a fake (e2e/fake-treasury.mjs) on TREASURY_PORT (default COMPUTE_PORT + 4).
+// requests to a fake (e2e/fake-treasury.mjs) on TREASURY_PORT (default COMPUTE_PORT + 4),
+// Tiingo key checks to a fake (e2e/fake-tiingo.mjs) on TIINGO_PORT (default COMPUTE_PORT + 6).
 // The compute service uses
 // E2E_DATABASE_URL if set (CI: the postgres service container); otherwise it
 // starts a throwaway local Postgres (needs initdb/pg_ctl, e.g. Homebrew).
@@ -28,6 +29,13 @@ const edgar = {
   SCREENER_DEFAULT_YEAR: "2025",
 };
 const TREASURY_PORT = Number(process.env.TREASURY_PORT || COMPUTE_PORT + 4);
+// Tiingo: users' key checks go to a fake (e2e/fake-tiingo.mjs). PROVIDER_KEY_SECRET
+// encrypts saved keys; test-only value.
+const TIINGO_PORT = Number(process.env.TIINGO_PORT || COMPUTE_PORT + 6);
+const tiingo = {
+  TIINGO_BASE_URL: `http://127.0.0.1:${TIINGO_PORT}`,
+  PROVIDER_KEY_SECRET: "e2e-provider-key-secret-not-for-production-0123456789",
+};
 const isCI = !!process.env.CI;
 const reuse = !isCI && process.env.PW_REUSE_SERVERS === "1";
 const computeUrl = `http://127.0.0.1:${COMPUTE_PORT}`;
@@ -49,7 +57,7 @@ const fred = {
 // Treasury: compute fetches the yield curve CSVs from a fake (e2e/fake-treasury.mjs).
 const treasury = { TREASURY_BASE_URL: `http://127.0.0.1:${TREASURY_PORT}` };
 // AI Explain: compute talks to a fake Claude Messages API (e2e/fake-anthropic.mjs)
-// on ANTHROPIC_PORT (default COMPUTE_PORT + 5). The key is a dummy; the quota is small
+// on ANTHROPIC_PORT (default COMPUTE_PORT + 6). The key is a dummy; the quota is small
 // so the over-quota path is quick to reach.
 const ANTHROPIC_PORT = Number(process.env.ANTHROPIC_PORT || COMPUTE_PORT + 5);
 const ai = {
@@ -103,6 +111,12 @@ export default defineConfig({
       env: { ANTHROPIC_PORT: String(ANTHROPIC_PORT) },
     },
     {
+      command: "node e2e/fake-tiingo.mjs",
+      url: `${tiingo.TIINGO_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { TIINGO_PORT: String(TIINGO_PORT) },
+    },
+    {
       command: e2eDatabaseUrl
         ? uvicorn
         : `uv run python scripts/ephemeral_postgres.py -- ${uvicorn}`,
@@ -117,6 +131,7 @@ export default defineConfig({
         ...fred,
         ...treasury,
         ...ai,
+        ...tiingo,
         ...(e2eDatabaseUrl ? { DATABASE_URL: e2eDatabaseUrl } : {}),
       },
     },

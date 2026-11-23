@@ -8,6 +8,7 @@ import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice"
 import { MetricExplainer } from "@/components/MetricExplainer";
 import { getMessages } from "@/i18n";
 import type { ResultEnvelope } from "@/lib/envelope";
+import { decodeRows, encodeRows, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
 // Mirrors ScreenEnvelope in apps/compute/sextant_compute/screener/api.py.
@@ -73,7 +74,8 @@ const DEFAULT_ROWS: FormRow[] = [
 function toCriterion(row: FormRow): Criterion {
   const raw = row.value.trim();
   const n = raw === "" ? null : Number(raw);
-  const value = n === null || Number.isNaN(n) ? null : n / SCALE[UNIT[row.metric]];
+  // An unknown metric (from a hand-edited link) goes as is: the API names the field.
+  const value = n === null || Number.isNaN(n) ? null : n / (SCALE[UNIT[row.metric]] ?? 1);
   return { metric: row.metric, op: row.op, value };
 }
 
@@ -98,6 +100,43 @@ const DEFAULT_QUERY: Query = {
   sort: "revenue",
   direction: "desc",
 };
+
+// Shareable links: `/screener?criteria=revenue_growth:min:10,roe:min:15&year=2024&sort=roe&direction=desc`.
+// Criteria values are in the form's units (percent, USD millions).
+type UrlForm = { rows: FormRow[]; year: string; sort: string; direction: string };
+const URL_CODEC: UrlCodec<UrlForm> = {
+  keys: ["criteria", "year", "sort", "direction"],
+  read(params) {
+    const raw = params.get("criteria");
+    const rows =
+      raw === null
+        ? DEFAULT_ROWS
+        : decodeRows(raw, 3).map(([metric, op, value], i) => ({ key: i + 1, metric: metric as MetricId, op: op as Op, value }));
+    return {
+      rows,
+      year: params.get("year") ?? "",
+      sort: params.get("sort") ?? DEFAULT_QUERY.sort,
+      direction: params.get("direction") ?? DEFAULT_QUERY.direction,
+    };
+  },
+  write: ({ rows, year, sort, direction }) => ({
+    criteria: encodeRows(rows.map((r) => [r.metric, r.op, r.value])),
+    year: year || null,
+    sort,
+    direction,
+  }),
+};
+
+/** The screen a link asks for. Bad values go as typed so the API reports them. */
+function toQuery({ rows, year, sort, direction }: UrlForm): Query {
+  const n = Number(year);
+  return {
+    criteria: rows.map(toCriterion),
+    year: year === "" ? null : Number.isInteger(n) ? n : (year as unknown as number),
+    sort: sort as SortColumn,
+    direction: direction as Direction,
+  };
+}
 
 /** The default (latest complete) year and the seven before it. */
 function yearOptions(latest: number | undefined): number[] {
@@ -142,11 +181,14 @@ const inputClass =
 export function Screener() {
   const t = getMessages();
   const s = t.screener;
-  const [rows, setRows] = useState<FormRow[]>(DEFAULT_ROWS);
-  const [nextKey, setNextKey] = useState(DEFAULT_ROWS.length + 1);
-  const [year, setYear] = useState("");
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [rows, setRows] = useState<FormRow[]>(initial.rows);
+  const [nextKey, setNextKey] = useState(initial.rows.length + 1);
+  const [year, setYear] = useState(initial.year);
   // Only a submitted screen is fetched: editing criteria doesn't hit EDGAR.
-  const [query, setQuery] = useState<Query>(DEFAULT_QUERY);
+  const [query, setQuery] = useState<Query>(() => toQuery(initial));
+  // The form as last submitted: sorting re-shares it, not unsubmitted edits.
+  const [submitted, setSubmitted] = useState({ rows: initial.rows, year: initial.year });
   const { result, fieldErrors, error, pending, run } = useCompute("/screener/screen", query);
   const screen = result as ScreenResult | null;
 
@@ -165,15 +207,19 @@ export function Screener() {
       sort,
       direction: sort === query.sort ? query.direction : "desc",
     };
+    setSubmitted({ rows, year });
+    share({ rows, year, sort: next.sort, direction: next.direction });
     if (JSON.stringify(next) === JSON.stringify(query)) run();
     else setQuery(next);
   }
 
   function sortBy(column: SortColumn) {
-    setQuery((q) => {
-      if (q.sort === column) return { ...q, direction: q.direction === "asc" ? "desc" : "asc" };
-      return { ...q, sort: column, direction: column === "ticker" || column === "name" ? "asc" : "desc" };
-    });
+    const next: Query =
+      query.sort === column
+        ? { ...query, direction: query.direction === "asc" ? "desc" : "asc" }
+        : { ...query, sort: column, direction: column === "ticker" || column === "name" ? "asc" : "desc" };
+    share({ ...submitted, sort: next.sort, direction: next.direction });
+    setQuery(next);
   }
 
   const sortProps = { sort: query.sort, direction: query.direction, onSort: sortBy };

@@ -7,14 +7,25 @@ import { SignInLink } from "./SignInLink";
 async function AccountMenuContent() {
   const t = getMessages();
   const user = await getCurrentUser();
+  const settings = (
+    <Link href="/settings" className="text-sm hover:underline">
+      {t.auth.settings}
+    </Link>
+  );
   if (!user) {
-    return <SignInLink className="rounded border border-black/15 px-3 py-1 text-sm hover:underline dark:border-white/20" />;
+    return (
+      <div className="flex items-center gap-3">
+        {settings}
+        <SignInLink className="rounded border border-black/15 px-3 py-1 text-sm hover:underline dark:border-white/20" />
+      </div>
+    );
   }
   return (
     <div className="flex items-center gap-3 text-sm">
       <span data-testid="signed-in-user" className="max-w-40 truncate font-medium">
         {user.name || user.email}
       </span>
+      {settings}
       <Link href="/account" className="hover:underline">
         {t.auth.account}
       </Link>

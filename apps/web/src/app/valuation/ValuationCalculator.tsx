@@ -11,7 +11,9 @@ import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
 import { formatMoneyValue } from "@/lib/format";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { DEFAULT_TICKER } from "./defaults";
 
 // Mirrors ValuationEnvelope in apps/compute/sextant_compute/valuation/api.py.
 // Sensitivity cells are metrics "sensitivity:<growth index>:<discount index>".
@@ -53,6 +55,10 @@ const DEFAULTS: Form = {
   debt_weight: "",
   share_price: "",
 };
+// Shareable links: `/valuation?ticker=MSFT&growth_rate=8` (the screener links
+// with just the ticker). Submitting writes the ticker and every assumption.
+const URL_CODEC = fieldsCodec({ ticker: DEFAULT_TICKER, ...DEFAULTS });
+
 const DCF_FIELDS: NumberFieldId[] = ["forecast_years", "growth_rate", "terminal_growth", "discount_rate"];
 const WACC_FIELDS: NumberFieldId[] = [
   "risk_free_rate",
@@ -207,13 +213,16 @@ function FcfTable({ result }: { result: ValuationResult }) {
   );
 }
 
-export function ValuationCalculator({ initialTicker }: { initialTicker: string }) {
+export function ValuationCalculator() {
   const t = getMessages();
   const v = t.valuation;
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const { ticker: linkedTicker, ...initialForm } = initial;
+  const initialTicker = linkedTicker.trim().toUpperCase() || DEFAULT_TICKER;
   const [ticker, setTicker] = useState(initialTicker);
   // Only a submitted ticker is fetched (typing doesn't call EDGAR); assumptions update live.
   const [query, setQuery] = useState(initialTicker);
-  const [form, setForm] = useState<Form>(DEFAULTS);
+  const [form, setForm] = useState<Form>(initialForm);
   const { result, fieldErrors, error, pending, run } = useCompute("/valuation/dcf", toRequest(query, form));
   const valuation = result as ValuationResult | null;
   const m = valuation?.metrics;
@@ -222,7 +231,7 @@ export function ValuationCalculator({ initialTicker }: { initialTicker: string }
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     const next = ticker.trim().toUpperCase();
-    window.history.replaceState(null, "", `?ticker=${encodeURIComponent(next)}`);
+    share({ ticker: next, ...form });
     if (next === query) run();
     else setQuery(next);
   }

@@ -6,15 +6,14 @@ import { ErrorNotice } from "@/components/ErrorNotice";
 import { LineChart } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { getMessages } from "@/i18n";
-import type { MetricResult, SeriesResult } from "@/lib/envelope";
+import type { MetricResult, ResultEnvelope, SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercentValue, formatTimestampUtc } from "@/lib/format";
-import { useCompute } from "@/lib/useCompute";
 
 // Envelope ids: metric "latest:<key>" (details carry the series metadata), series "history:<key>".
 const INDICATORS = ["gdp_growth", "cpi_inflation", "unemployment_rate", "fed_funds_rate"] as const;
 type IndicatorKey = (typeof INDICATORS)[number];
-type MetricId = `latest:${IndicatorKey}`;
-type SeriesId = `history:${IndicatorKey}`;
+export type IndicatorMetricId = `latest:${IndicatorKey}`;
+export type IndicatorSeriesId = `history:${IndicatorKey}`;
 
 const COLORS: Record<IndicatorKey, string> = {
   gdp_growth: "#2563eb",
@@ -23,17 +22,20 @@ const COLORS: Record<IndicatorKey, string> = {
   fed_funds_rate: "#059669",
 };
 
-// The page has no inputs yet; the endpoint's defaults pick the history range.
-const REQUEST = {};
-
 function chartPoints(series: SeriesResult | undefined) {
   if (!series || series.status !== "ok") return [];
   return series.points.map((p) => ({ x: Date.parse(String(p.x)), y: p.y }));
 }
 
-export function MacroDashboard() {
+/** POST /macro/indicators results; `MacroTool` owns the request (the chart range). */
+export function MacroDashboard({
+  result,
+  error,
+}: {
+  result: ResultEnvelope<IndicatorMetricId, IndicatorSeriesId> | null;
+  error: string | null;
+}) {
   const t = getMessages();
-  const { result, error } = useCompute<MetricId, SeriesId>("/macro/indicators", REQUEST);
 
   return (
     <section data-testid="results" aria-labelledby="macro-indicators" className="mt-6 space-y-6">
