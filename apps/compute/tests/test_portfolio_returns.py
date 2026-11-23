@@ -55,8 +55,8 @@ def import_csv(client, headers, portfolio_id, csv):
     assert response.json()["errors"] == []
 
 
-def returns(client, headers, portfolio_id, frames, body=RANGE):
-    with serving(FixtureAdapter(frames), on=client.app):
+def returns(client, headers, portfolio_id, frames, body=RANGE, splits=None):
+    with serving(FixtureAdapter(frames, splits=splits), on=client.app):
         return client.post(f"{BASE}/{portfolio_id}/returns", json=body, headers=headers)
 
 
@@ -163,6 +163,28 @@ def test_holdings_edited_by_hand_below_the_traded_amount_give_missing_data(clien
     for metric_id in ("twr:portfolio", "twr_annualized:portfolio", "irr:portfolio"):
         assert metrics[metric_id]["status"] == "missing_data"
         assert "DEMO-A" in metrics[metric_id]["reason"]
+
+
+def test_a_buy_before_a_split_counts_in_todays_share_count(client, alice):
+    # 10 DEMO-A bought at 400 on 2024-01-02; a 4:1 split on 2024-06-03 makes them the
+    # 40 held today. Prices are in today's share count: 100 = 400 / 4 on the buy date.
+    # Nothing is held on the first day; the buy puts 4000 in, worth 40 x 100 = 4000,
+    # and 40 x 110 = 4400 at the end. TWR: 4000 / 4000 x 4400 / 4000 - 1 = 10%.
+    # IRR: -4000 a year in, +4400 a year later: 10%.
+    portfolio_id = new_portfolio(client, alice, [holding("DEMO-A", 40)])
+    import_csv(client, alice, portfolio_id, "date,ticker,side,quantity,price\n2024-01-02,DEMO-A,buy,10,400\n")
+    put = client.put(f"{BASE}/{portfolio_id}", json={"name": "Brokerage", "holdings": [holding("DEMO-A", 40)]}, headers=alice)
+    assert put.status_code == 200
+
+    response = returns(
+        client, alice, portfolio_id, {"DEMO-A": yearly([100, 100, 110])}, splits={"DEMO-A": {"2024-06-03": 4.0}}
+    )
+
+    metrics = response.json()["metrics"]
+    assert metrics["twr:portfolio"]["status"] == "ok", metrics["twr:portfolio"]
+    assert metrics["twr:portfolio"]["details"]["start_value"] == pytest.approx(0)
+    assert metrics["twr:portfolio"]["value"] == pytest.approx(0.10)
+    assert metrics["irr:portfolio"]["value"] == pytest.approx(0.10)
 
 
 def test_returns_are_private_to_the_owner(client, alice, bob):

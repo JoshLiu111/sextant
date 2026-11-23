@@ -4,7 +4,7 @@ Tiingo's terms forbid showing its data to anyone but the key holder, so the
 adapter's scope is ``"user"``: ``DataService`` caches what it fetches under that
 user only, never in the shared cache, and only while the user has a key.
 
-Two jobs:
+Its jobs:
 
 - ``verify_key``: Settings checks a key before saving it.
 - ``daily_prices``: end-of-day prices for Risk & Performance on My data (and
@@ -12,6 +12,8 @@ Two jobs:
 - ``latest_close``: the last close, for the Valuation Calculator's margin of
   safety. The same URL without ``startDate``/``endDate`` answers only the latest
   day (checked with a real key on 2026-11-23).
+- ``splits``: the stock splits since a date (Portfolio returns turn a past trade
+  into today's share count), from the ``splitFactor`` of the prices up to today.
 
 Key check: ``GET /api/test``. Checked 2026-11-22: it answers HTTP 200 for every
 token and says in ``message`` whether the token worked:
@@ -19,14 +21,17 @@ token and says in ``message`` whether the token worked:
 - ``"You successfully sent a request"``: the token is valid.
 - ``"Auth Token was not correct"``: the token is wrong.
 
-Prices: ``GET /tiingo/daily/<ticker>/prices?startDate=&endDate=&format=json``,
+Prices: ``GET /tiingo/daily/<ticker>/prices?startDate=&format=json``,
 one request per ticker, answering a JSON list of ``{date, open, high, low,
 close, volume, adjOpen, ..., adjClose, adjVolume, divCash, splitFactor}``
 (documented shape). ``close`` is raw; ``divCash`` is the cash dividend on its
 ex-date; ``splitFactor`` is the split ratio on the split date (4.0 for 4:1),
-1.0 otherwise. We return prices *split*-adjusted (so a split is not a crash)
-but not dividend-adjusted (``DailyPricesAdapter``'s contract: tools add the
-dividends back themselves). Data URLs answer 403 ``{"detail":"Invalid token."}``
+1.0 otherwise. We return prices *split*-adjusted to today's share count (so a
+split is not a crash, and the prices match holdings, which are in today's share
+count): ``daily_prices`` asks for ``startDate`` only, so Tiingo answers up to
+the latest day and every later split is in the rows, then drops the rows after
+the range's end. Prices are not dividend-adjusted (``DailyPricesAdapter``'s
+contract: tools add the dividends back themselves). Data URLs answer 403 ``{"detail":"Invalid token."}``
 for a bad token (probed 2026-11-22). Checked with a real key on 2026-11-23: an
 unknown ticker answers 404 ``{"detail":"Error: Ticker 'X' not found"}``, a
 range without prices (e.g. a weekend) answers ``[]``, and prices are only
@@ -66,8 +71,9 @@ class TiingoAdapter(UserKeyHttpAdapter):
     no_key_message = NO_KEY_MESSAGE
     # End-of-day data changes once a day; half a day keeps a user's repeat requests
     # off their hourly Tiingo quota without serving yesterday's close for long.
-    ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600}
-    version = "1"
+    ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600, "splits": 12 * 3600}
+    # 2: prices are split-adjusted to today's share count (cached series may not be).
+    version = "2"
 
     def __init__(
         self,
@@ -112,14 +118,25 @@ class TiingoAdapter(UserKeyHttpAdapter):
         key = self._key(ctx)
 
         def fetch(ticker: str) -> pd.DataFrame | str:
-            rows = self._prices(key, ticker, start, end)
+            # Up to today, not just ``end``: a split after ``end`` still changes the share count.
+            rows = self._prices(key, ticker, start, None)
             if rows is None:
                 return f"Tiingo has no ticker {ticker}."
-            if not rows:
+            frame = _frame(rows).loc[: pd.Timestamp(end)] if rows else None
+            if frame is None or frame.empty:
                 return f"No Tiingo prices for {ticker} between {start} and {end}."
-            return _frame(rows)
+            return frame
 
         return self._per_ticker(tickers, fetch)
+
+    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[tuple[date, float]]:
+        """See ``SplitsAdapter``. The ``splitFactor`` of every row from ``start`` to the latest day."""
+        rows = self._prices(self._key(ctx), ticker, start, None)
+        if rows is None:
+            message = f"Tiingo has no ticker {ticker}."
+            raise NoSuchData(TIINGO.id, message, {ticker: message})
+        split = _raw(rows)["split"] if rows else pd.Series(dtype=float)
+        return [(d.date(), float(ratio)) for d, ratio in split.items() if ratio != 1.0]
 
     def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
         """See ``LatestCloseAdapter``. Tiingo's prices URL without dates answers the latest day."""
@@ -134,10 +151,13 @@ class TiingoAdapter(UserKeyHttpAdapter):
         raise NoSuchData(TIINGO.id, message, {ticker: message})
 
     def _prices(self, key: str, ticker: str, start: date | None, end: date | None) -> list[dict[str, Any]] | None:
-        """The raw rows, or None for a ticker Tiingo doesn't know. No dates: the latest day."""
+        """The raw rows, or None for a ticker Tiingo doesn't know. No dates: the latest day;
+        a start without an end: up to the latest day."""
         params = {"format": "json"}
-        if start is not None and end is not None:
-            params |= {"startDate": start.isoformat(), "endDate": end.isoformat()}
+        if start is not None:
+            params["startDate"] = start.isoformat()
+        if end is not None:
+            params["endDate"] = end.isoformat()
         response = self._tiingo_get(f"/tiingo/daily/{quote(ticker.lower(), safe='')}/prices", key, params)
         if response.status_code in (401, 403):
             raise KeyRequired(TIINGO.id, REJECTED_KEY_MESSAGE)
@@ -152,7 +172,20 @@ class TiingoAdapter(UserKeyHttpAdapter):
 
 
 def _frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    """Rows -> a ``PRICE_COLUMNS`` frame, split-adjusted to the last row's share count."""
+    """Rows -> a ``PRICE_COLUMNS`` frame, split-adjusted to the last row's share count
+    (today's, when the rows run up to the latest day)."""
+    raw = _raw(rows)
+    # A row's prices are divided by every split that happens *after* it.
+    later_splits = raw["split"][::-1].cumprod()[::-1].shift(-1, fill_value=1.0)
+    out = raw[PRICE_COLUMNS].copy()
+    for column in ("open", "high", "low", "close", "dividend"):
+        out[column] = raw[column] / later_splits
+    out["volume"] = raw["volume"] * later_splits
+    return out
+
+
+def _raw(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    """Rows -> ``PRICE_COLUMNS`` as Tiingo sent them, plus ``split``, oldest first."""
     try:
         raw = pd.DataFrame(
             {
@@ -168,10 +201,4 @@ def _frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
         ).sort_index()
     except (KeyError, TypeError, ValueError):
         raise SourceUnavailable(TIINGO.id, "Tiingo returned prices in an unexpected shape.") from None
-    # A row's prices are divided by every split that happens *after* it.
-    later_splits = raw["split"][::-1].cumprod()[::-1].shift(-1, fill_value=1.0)
-    out = raw[PRICE_COLUMNS].copy()
-    for column in ("open", "high", "low", "close", "dividend"):
-        out[column] = raw[column] / later_splits
-    out["volume"] = raw["volume"] * later_splits
-    return out
+    return raw
