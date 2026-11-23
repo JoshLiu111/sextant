@@ -16,7 +16,8 @@ Trimming keeps the files small but real (values are never edited):
   and ``SCREEN_TICKERS``.
 - companyfacts: ``cik``, ``entityName``, and for every tag named in
   ``line_items.toml`` only annual-report facts (10-K family) filed since
-  ``SINCE``. ``description`` texts are dropped.
+  ``SINCE`` and quarterly-report facts (10-Q) filed since ``QUARTERLY_SINCE``.
+  ``description`` texts are dropped.
 - frames (screener): ``frames/<taxonomy>/<Tag>/<unit>/<period>.json``, one per tag
   the screener metrics need, for ``FRAME_YEARS``, keeping only the rows of
   ``SCREEN_TICKERS`` companies. A tag without a frame (404) gets no file.
@@ -56,6 +57,14 @@ SUBMISSION_TICKERS = ["AAPL", "MSFT"]
 SUBMISSIONS_KEEP = 60
 ANNUAL_FORMS = {"10-K", "10-K/A", "10-KT", "20-F", "40-F"}
 SINCE = "2016-01-01"
+QUARTERLY_FORMS = {"10-Q", "10-Q/A"}
+# Quarterly views need trailing-twelve-month windows and year-ago comparisons.
+QUARTERLY_SINCE = "2023-01-01"
+
+
+def keep_fact(row: dict) -> bool:
+    form, filed = row.get("form"), row.get("filed", "")
+    return (form in ANNUAL_FORMS and filed >= SINCE) or (form in QUARTERLY_FORMS and filed >= QUARTERLY_SINCE)
 
 
 def trim_tickers(raw: dict) -> dict:
@@ -77,7 +86,7 @@ def trim_companyfacts(raw: dict) -> dict:
                 continue
             units = {}
             for unit, rows in concept["units"].items():
-                kept = [r for r in rows if r.get("form") in ANNUAL_FORMS and r.get("filed", "") >= SINCE]
+                kept = [r for r in rows if keep_fact(r)]
                 if kept:
                     units[unit] = kept
             if units:
