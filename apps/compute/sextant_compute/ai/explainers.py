@@ -73,7 +73,8 @@ the underlying; long or short; quantity; strike) on one underlying, valued with
 Black-Scholes. Market inputs are decimals as in the single-option tab (volatility 0.2 =
 20%, time_to_expiry in years). net_cost is what the position costs today (negative = a
 credit received); max_profit and max_loss (a positive amount) are at expiry, net of
-that cost; when either is unlimited its status is "error" with the reason "Unlimited...".
+that cost; when either is unlimited it is status "ok" with a null value and
+details.bound "unlimited" (details.why says why): a valid answer, not a failure.
 Greeks delta, gamma, vega, theta, rho are for the whole position (per_dollar, per_vol_point
 = per 1 percentage point of volatility, per_day, per_rate_point). Series profit_at_expiry
 and profit_today are profit across spot prices; <greek>_vs_spot and <greek>_vs_time show

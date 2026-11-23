@@ -68,8 +68,8 @@ def test_the_options_strategy_builder_explains_the_position(client, model):
     assert result["tool"] == "options"
     assert result["metrics"]["net_cost"]["value"] == pytest.approx(10.4506, abs=1e-4)
     max_profit = result["metrics"]["max_profit"]
-    assert max_profit["status"] == "error"
-    assert max_profit["reason"].startswith("Unlimited")
+    assert max_profit["status"] == "ok" and max_profit["value"] is None
+    assert max_profit["details"]["bound"] == "unlimited"
     assert "synthetic demo data" not in prompt
 
 
