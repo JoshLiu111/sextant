@@ -1,0 +1,23 @@
+{
+ "realtime_start": "2026-11-22",
+ "realtime_end": "2026-11-22",
+ "seriess": [
+  {
+   "id": "FEDFUNDS",
+   "realtime_start": "2026-11-22",
+   "realtime_end": "2026-11-22",
+   "title": "Federal Funds Effective Rate",
+   "observation_start": "1954-07-01",
+   "observation_end": "2026-10-01",
+   "frequency": "Monthly",
+   "frequency_short": "M",
+   "units": "Percent",
+   "units_short": "%",
+   "seasonal_adjustment": "Not Seasonally Adjusted",
+   "seasonal_adjustment_short": "NSA",
+   "last_updated": "2026-11-03 15:16:01-06",
+   "popularity": 96,
+   "notes": "Averages of daily figures. For additional historical federal funds rate data, please see Daily Federal Funds Rate from 1928-1954. The federal funds rate is the interest rate at which depository institutions trade federal funds (balances held at Federal Reserve Banks) with each other overnight."
+  }
+ ]
+}

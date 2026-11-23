@@ -54,3 +54,38 @@ def annualized_volatility(returns: pd.Series, periods_per_year: int = TRADING_DA
     """Sample standard deviation of returns (ddof=1) scaled by ``sqrt(periods_per_year)``."""
     r = _require(returns, 2)
     return float(r.std(ddof=1)) * math.sqrt(periods_per_year)
+
+
+def periodic_rate(annual_rate: float, periods_per_year: int = TRADING_DAYS) -> float:
+    """De-annualize an effective annual rate: ``(1 + annual) ** (1 / periods_per_year) - 1``."""
+    return (1 + annual_rate) ** (1 / periods_per_year) - 1
+
+
+def _excess(returns: pd.Series, risk_free_rate: float, periods_per_year: int) -> pd.Series:
+    return _require(returns, 2) - periodic_rate(risk_free_rate, periods_per_year)
+
+
+def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, periods_per_year: int = TRADING_DAYS) -> float:
+    """Annualized Sharpe ratio: ``mean(excess) / std(excess, ddof=1) * sqrt(periods_per_year)``.
+
+    ``risk_free_rate`` is an effective annual rate (decimal), de-annualized with
+    ``periodic_rate`` and subtracted from every return.
+    """
+    excess = _excess(returns, risk_free_rate, periods_per_year)
+    std = float(excess.std(ddof=1))
+    if std == 0:
+        raise MissingData("returns do not vary, so the Sharpe ratio is undefined")
+    return float(excess.mean()) / std * math.sqrt(periods_per_year)
+
+
+def sortino_ratio(returns: pd.Series, risk_free_rate: float = 0.0, periods_per_year: int = TRADING_DAYS) -> float:
+    """Annualized Sortino ratio: ``mean(excess) / downside_deviation * sqrt(periods_per_year)``.
+
+    Downside deviation = ``sqrt(mean(min(excess, 0) ** 2))`` over *all* observations
+    (Sortino & Price 1994), with the risk-free rate as the target return.
+    """
+    excess = _excess(returns, risk_free_rate, periods_per_year)
+    downside = math.sqrt(float((excess.clip(upper=0) ** 2).mean()))
+    if downside == 0:
+        raise MissingData("no daily return fell below the risk-free rate, so the Sortino ratio is undefined")
+    return float(excess.mean()) / downside * math.sqrt(periods_per_year)

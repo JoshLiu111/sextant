@@ -11,6 +11,7 @@ and never import adapters directly::
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
@@ -22,10 +23,18 @@ import pandas as pd
 from fastapi import Depends
 
 from sextant_compute.auth import OptionalUser
-from sextant_compute.data.adapters import Adapter, DailyPricesAdapter, FinancialStatementsAdapter
+from sextant_compute.data.adapters import (
+    Adapter,
+    DailyPricesAdapter,
+    EconomicSeries,
+    EconomicSeriesAdapter,
+    FinancialStatementsAdapter,
+    SeriesMeta,
+)
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.edgar import EdgarAdapter
+from sextant_compute.data.fred import FredAdapter
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
 from sextant_compute.envelope import DataSource
@@ -74,6 +83,10 @@ class DataService:
             return self._adapters[source]
         except KeyError:
             raise ValueError(f"No adapter registered for source {source!r}") from None
+
+    def source_info(self, source: str) -> DataSource:
+        """The ``DataSource`` behind a source id (for the envelope when no data came back)."""
+        return self._adapter(source).source
 
     def _cached(
         self,
@@ -133,6 +146,21 @@ class DataService:
             FinancialStatements.from_json,
         )
 
+    def economic_series(
+        self, ctx: RequestContext, series_id: str, *, start: date, units: str = "lin", source: str
+    ) -> EconomicSeries:
+        """One economic time series with its metadata; see ``EconomicSeriesAdapter``."""
+        adapter = cast(EconomicSeriesAdapter, self._adapter(source))
+        return self._cached(
+            ctx,
+            adapter,
+            "economic_series",
+            {"series_id": series_id, "start": start.isoformat(), "units": units},
+            lambda: adapter.economic_series(ctx, series_id, start, units),
+            _encode_series,
+            _decode_series,
+        )
+
 
 def cache_key(adapter: Adapter, dataset: str, params: Mapping[str, Any], *, user_id: object | None = None) -> str:
     """``v<CACHE_VERSION>:<shared|user:<id>>:<source>@<adapter version>:<dataset>:<params hash>``."""
@@ -160,10 +188,27 @@ def _decode_frames(raw: Mapping[str, Any]) -> dict[str, pd.DataFrame]:
     }
 
 
+def _encode_series(series: EconomicSeries) -> dict[str, Any]:
+    return {
+        "source": series.source.model_dump(),
+        "meta": dataclasses.asdict(series.meta),
+        "observations": [[when.isoformat(), value] for when, value in series.observations],
+    }
+
+
+def _decode_series(raw: Mapping[str, Any]) -> EconomicSeries:
+    return EconomicSeries(
+        source=DataSource(**raw["source"]),
+        meta=SeriesMeta(**raw["meta"]),
+        observations=[(date.fromisoformat(when), value) for when, value in raw["observations"]],
+    )
+
+
 def default_adapters() -> dict[str, Adapter]:
     synthetic = SyntheticAdapter()
+    fred = FredAdapter.from_env()
     edgar = EdgarAdapter()
-    return {synthetic.source.id: synthetic, edgar.source.id: edgar}
+    return {synthetic.source.id: synthetic, fred.source.id: fred, edgar.source.id: edgar}
 
 
 _service: DataService | None = None

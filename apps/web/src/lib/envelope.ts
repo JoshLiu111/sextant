@@ -17,6 +17,8 @@ export type Unit =
   | "per_rate_point"
   | "per_share"
   | "shares"
+  | "percent"
+  | "ratio"
   | "date"
   | (string & {});
 

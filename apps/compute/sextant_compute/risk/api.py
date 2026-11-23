@@ -39,6 +39,14 @@ class RiskRequest(BaseModel):
     benchmark: Ticker = "DEMO-MKT"
     start: date
     end: date
+    confidence: Annotated[
+        float, check(lambda v: 0.5 <= v <= 0.999, "Enter a confidence level between 50% and 99.9%.")
+    ] = 0.95
+    """VaR/CVaR confidence level as a decimal (0.95 = 95%)."""
+    risk_free_rate: Annotated[
+        float, check(lambda v: -0.05 <= v <= 0.2, "Enter a risk-free rate between -5% and 20%.")
+    ] = 0.0
+    """Effective annual risk-free rate as a decimal, used by Sharpe and Sortino."""
     source: Literal["synthetic"] = "synthetic"
     """Which DataService adapter backs the result. Add ids here as adapters arrive."""
 
@@ -83,15 +91,29 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
 
     metrics: dict[str, MetricResult] = {}
     charts: dict[str, SeriesResult] = {}
+    def returns_of(ticker: str) -> pd.Series:
+        frame = prices.frames[ticker]
+        return performance.total_returns(frame["close"], frame["dividend"])
+
+    benchmark_returns = returns_of(req.benchmark)
     for ticker in symbols:
         frame = prices.frames[ticker]
-        returns = performance.total_returns(frame["close"], frame["dividend"])
+        returns = returns_of(ticker)
         wealth = performance.total_return_index(frame["close"], frame["dividend"])
         metrics[f"annualized_return:{ticker}"] = metric(lambda: performance.annualized_return(returns), unit="decimal")
         metrics[f"annualized_volatility:{ticker}"] = metric(
             lambda: performance.annualized_volatility(returns), unit="decimal"
         )
         metrics[f"max_drawdown:{ticker}"] = metric(lambda: _max_drawdown(wealth), unit="decimal")
+        metrics[f"sharpe:{ticker}"] = metric(
+            lambda: performance.sharpe_ratio(returns, req.risk_free_rate), unit="ratio"
+        )
+        metrics[f"sortino:{ticker}"] = metric(
+            lambda: performance.sortino_ratio(returns, req.risk_free_rate), unit="ratio"
+        )
+        metrics[f"var:{ticker}"] = metric(lambda: risk.historical_var(returns, req.confidence), unit="decimal")
+        metrics[f"cvar:{ticker}"] = metric(lambda: risk.historical_cvar(returns, req.confidence), unit="decimal")
+        metrics[f"beta:{ticker}"] = metric(lambda: risk.beta(returns, benchmark_returns), unit="ratio")
         charts[f"drawdown:{ticker}"] = series(
             lambda: [(ts.date().isoformat(), float(v)) for ts, v in risk.drawdown(wealth).items()],
             x_unit="date",

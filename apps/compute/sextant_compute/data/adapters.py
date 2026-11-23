@@ -19,6 +19,7 @@ method takes ``ctx`` first, does its own rate limiting / retries, and raises onl
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import date
 from typing import Literal, Protocol
 
@@ -58,4 +59,53 @@ class FinancialStatementsAdapter(Adapter, Protocol):
         first (see ``data/statements.py``). Raises ``NoSuchData`` (``missing`` keyed
         by the ticker as given) for an unknown ticker or a company without
         financial statements."""
+        ...
+
+
+@dataclass(frozen=True)
+class SeriesMeta:
+    """What a page must show next to an economic series (spec: source, units,
+    frequency, last updated).
+
+    ``source`` is the agency that publishes the data (e.g. "U.S. Bureau of Labor
+    Statistics"), not the API it came through. ``units`` describes the values as
+    returned, so a transformed series (FRED ``units=pc1``) reports the
+    transformation. ``last_updated`` is ISO 8601 with the provider's UTC offset.
+    """
+
+    id: str
+    title: str
+    source: str
+    units: str
+    frequency: str
+    seasonal_adjustment: str
+    last_updated: str
+
+
+@dataclass(frozen=True)
+class EconomicSeries:
+    """One time series: metadata plus ``(date, value)`` observations, ascending.
+    ``None`` is a period the provider has no value for."""
+
+    source: DataSource
+    meta: SeriesMeta
+    observations: list[tuple[date, float | None]]
+
+    @property
+    def latest(self) -> tuple[date, float] | None:
+        """The most recent observation that has a value."""
+        for when, value in reversed(self.observations):
+            if value is not None:
+                return when, value
+        return None
+
+
+class EconomicSeriesAdapter(Adapter, Protocol):
+    def economic_series(
+        self, ctx: RequestContext, series_id: str, start: date, units: str = "lin"
+    ) -> EconomicSeries:
+        """Metadata and observations from ``start`` on. ``units`` is a provider
+        transformation (FRED: ``lin`` as published, ``pc1`` percent change from a
+        year ago, ...). Raises ``NoSuchData`` (``missing`` keyed by series id) for
+        unknown series and for series we may not republish (copyright)."""
         ...

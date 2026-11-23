@@ -14,6 +14,8 @@ const PERCENT = new Intl.NumberFormat("en-US", {
 /** Format a metric value by its envelope unit. `decimal` values render as percentages. */
 export function formatValue(value: number, unit: Unit | null): string {
   if (unit === "decimal") return PERCENT.format(value);
+  if (unit === "percent") return `${TWO.format(value)}%`;
+  if (unit === "ratio") return TWO.format(value);
   return FOUR.format(value);
 }
 
@@ -48,4 +50,17 @@ export function formatChartDate(ms: number): string {
 /** Compact two-decimal formatting for chart axes and tooltips. */
 export function formatChartNumber(value: number): string {
   return TWO.format(value);
+}
+
+const CHART_ONE = fixed(1);
+
+/** A value already in percent (4.5 means 4.5%) for chart axes and tooltips: "4.5%". */
+export function formatChartPercentValue(value: number): string {
+  return `${CHART_ONE.format(value)}%`;
+}
+
+/** ISO 8601 timestamp with offset to "YYYY-MM-DD HH:MM UTC". */
+export function formatTimestampUtc(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 }
