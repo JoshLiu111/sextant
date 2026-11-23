@@ -2,7 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Defaults: DEMO-A, DEMO-B, DEMO-D vs DEMO-MKT, 2021-01-01 to 2025-12-31 (synthetic demo data).
 const DEFAULT_TICKERS = ["DEMO-A", "DEMO-B", "DEMO-D", "DEMO-MKT"];
-const METRICS = ["annualized_return", "annualized_volatility", "max_drawdown"];
+const PERCENT_METRICS = ["annualized_return", "annualized_volatility", "max_drawdown", "var", "cvar"];
+const RATIO_METRICS = ["sharpe", "sortino", "beta"];
+const METRICS = [...PERCENT_METRICS, ...RATIO_METRICS];
 
 async function openRisk(page: Page) {
   await page.goto("/risk");
@@ -21,9 +23,13 @@ test("smoke: open the page, submit the defaults, see the results and the Demo ba
 
   const results = main.getByTestId("results");
   for (const ticker of DEFAULT_TICKERS) {
-    for (const id of METRICS) {
+    for (const id of PERCENT_METRICS) {
       await expect(metric(results, `${id}:${ticker}`)).toHaveAttribute("data-status", "ok");
       await expect(metric(results, `${id}:${ticker}`)).toContainText("%");
+    }
+    for (const id of RATIO_METRICS) {
+      await expect(metric(results, `${id}:${ticker}`)).toHaveAttribute("data-status", "ok");
+      await expect(metric(results, `${id}:${ticker}`)).toContainText(/\d\.\d{2}/);
     }
   }
   await expect(main.getByTestId("demo-badge")).toBeVisible();
@@ -72,6 +78,31 @@ test("a reversed date range is shown inline next to the end date", async ({ page
   await main.getByLabel("End date").fill("2020-01-01");
 
   await expect(main.getByTestId("field-error-end")).toContainText("End date must be after the start date.");
+});
+
+test("VaR and CVaR update when the confidence level changes", async ({ page }) => {
+  const main = await openRisk(page);
+  const varB = metric(main, "var:DEMO-B");
+  await expect(varB).toHaveAttribute("data-status", "ok");
+  await expect(main.getByLabel("VaR confidence level (%)")).toHaveValue("95");
+  const at95 = await varB.textContent();
+  const cvarAt95 = await metric(main, "cvar:DEMO-B").textContent();
+
+  await main.getByLabel("VaR confidence level (%)").fill("99");
+
+  await expect(varB).not.toHaveText(at95 ?? "");
+  await expect(metric(main, "cvar:DEMO-B")).not.toHaveText(cvarAt95 ?? "");
+  const percent = (text: string | null) => parseFloat(/(-?[\d.]+)%/.exec(text ?? "")?.[1] ?? "NaN");
+  expect(percent(await varB.textContent())).toBeGreaterThan(percent(at95));
+});
+
+test("an out-of-range confidence level is shown inline", async ({ page }) => {
+  const main = await openRisk(page);
+  await expect(metric(main, "var:DEMO-A")).toHaveAttribute("data-status", "ok");
+
+  await main.getByLabel("VaR confidence level (%)").fill("100");
+
+  await expect(main.getByTestId("field-error-confidence")).toContainText("between 50% and 99.9%");
 });
 
 test("a data source outage asks the visitor to retry", async ({ page }) => {

@@ -90,6 +90,7 @@ export const en = {
       per_vol_point: "per 1 volatility point",
       per_day: "per calendar day",
       per_rate_point: "per 1 percentage point",
+      ratio: "",
     } as Record<string, string>,
     errors: {
       heading: "Something went wrong",
@@ -190,7 +191,7 @@ export const en = {
   },
   risk: {
     intro:
-      "Compare the return, volatility and worst fall of a few tickers against a benchmark over a date range. Change any input and the results update.",
+      "Compare the return, volatility, worst fall, tail risk and risk-adjusted return of a few tickers against a benchmark over a date range. Change any input and the results update.",
     inputsHeading: "Inputs",
     submit: "Calculate",
     inputs: {
@@ -198,6 +199,11 @@ export const en = {
       benchmark: { label: "Benchmark", hint: "Demo benchmark: DEMO-MKT." },
       start: { label: "Start date", hint: "Demo data covers 2016-01-04 to 2025-12-31." },
       end: { label: "End date", hint: "Must be after the start date." },
+      confidence: { label: "VaR confidence level (%)", hint: "For VaR and CVaR. 50 to 99.9; 95 is common." },
+      risk_free_rate: {
+        label: "Risk-free rate (%)",
+        hint: "Annual, effective. For Sharpe and Sortino. 0 compares returns with cash earning nothing.",
+      },
     },
     benchmarkSuffix: "(benchmark)",
     sections: {
@@ -234,6 +240,36 @@ export const en = {
         what: "The largest fall from a previous high to a later low within the date range, with dividends reinvested.",
         how: "Wealth W starts at 1 and grows by each daily total return. Drawdown = W / running peak of W − 1. Max drawdown is the size of the most negative drawdown, shown as a positive percentage; its start is the last high before the low and its end is the low.",
         read: "A max drawdown of 45% means that at the worst moment the investment was worth 45% less than at its prior peak. A 45% fall needs an 82% gain to get back. The underwater chart shows when it happened.",
+      },
+      var: {
+        name: "Historical VaR (1 day)",
+        what: "Value at Risk: a one-day loss that was exceeded only on the worst (100 − confidence)% of days in the date range.",
+        how: "Sort the n daily total returns from worst to best and take the k-th worst, where k = ⌈n × (1 − confidence)⌉ (no interpolation). VaR is that return with the sign flipped, so a loss shows as a positive percentage. It needs at least 1 / (1 − confidence) returns, for example 100 at 99%.",
+        read: "A 95% VaR of 3% means that on 95% of days in the range the investment lost less than 3%. It is not the worst case: it says nothing about how bad the other 5% of days were (see CVaR). A higher confidence level gives a larger VaR.",
+      },
+      cvar: {
+        name: "Historical CVaR (1 day)",
+        what: "Conditional VaR, also called expected shortfall: the average one-day loss on the days at or beyond the VaR.",
+        how: "The mean of the k worst daily total returns (the same k as VaR), with the sign flipped so a loss is positive.",
+        read: "A 95% CVaR of 4.5% means that on the worst 5% of days the investment lost 4.5% on average. CVaR is always at least as large as VaR; a big gap means a fat tail with rare, severe losses.",
+      },
+      sharpe: {
+        name: "Sharpe ratio",
+        what: "Return in excess of the risk-free rate per unit of total volatility, annualized.",
+        how: "Daily excess return e = r − rf_daily, with rf_daily = (1 + annual risk-free rate)^(1/252) − 1. Sharpe = mean(e) / standard deviation of e (n − 1) × √252. Unit: a ratio, no unit.",
+        read: "Higher is better. Around 0.5 is typical for a broad stock market over long periods, above 1 is strong. A negative Sharpe means the investment earned less than the risk-free rate.",
+      },
+      sortino: {
+        name: "Sortino ratio",
+        what: "Like Sharpe, but it only counts downside volatility: returns below the risk-free rate.",
+        how: "Same daily excess return e as Sharpe. Downside deviation = √(mean of min(e, 0)²) over all days. Sortino = mean(e) / downside deviation × √252. Unit: a ratio, no unit.",
+        read: "Higher is better. It is usually larger than Sharpe because upside swings are not penalized. A Sortino far above the Sharpe means the volatility was mostly on the upside.",
+      },
+      beta: {
+        name: "Beta vs benchmark",
+        what: "How much the ticker tends to move when the benchmark moves.",
+        how: "Covariance of the ticker's and the benchmark's daily total returns divided by the variance of the benchmark's returns, on the days both have data (raw returns, not excess). Unit: a ratio, no unit. The benchmark's beta to itself is 1.",
+        read: "1 means it moves with the benchmark; 1.4 means it tends to move 1.4% when the benchmark moves 1%; 0.2 means it barely follows it. Beta only captures the part of the risk that comes from the benchmark.",
       },
     },
   },

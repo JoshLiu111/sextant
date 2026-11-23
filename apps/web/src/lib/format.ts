@@ -14,6 +14,7 @@ const PERCENT = new Intl.NumberFormat("en-US", {
 /** Format a metric value by its envelope unit. `decimal` values render as percentages. */
 export function formatValue(value: number, unit: Unit | null): string {
   if (unit === "decimal") return PERCENT.format(value);
+  if (unit === "ratio") return TWO.format(value);
   return FOUR.format(value);
 }
 

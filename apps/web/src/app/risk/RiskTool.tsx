@@ -6,6 +6,7 @@ import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { LineChart, type ChartMarker, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
+import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
@@ -13,16 +14,41 @@ import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
 
 // Metric ids are "<metric>:<ticker>", series ids "drawdown:<ticker>".
-const METRICS = ["annualized_return", "annualized_volatility", "max_drawdown"] as const;
+const METRICS = [
+  "annualized_return",
+  "annualized_volatility",
+  "max_drawdown",
+  "var",
+  "cvar",
+  "sharpe",
+  "sortino",
+  "beta",
+] as const;
 
-type Form = { tickers: string; benchmark: string; start: string; end: string };
+// confidence and risk_free_rate are kept in percent; the API takes decimals.
+type Form = {
+  tickers: string;
+  benchmark: string;
+  start: string;
+  end: string;
+  confidence: string;
+  risk_free_rate: string;
+};
 
 const DEFAULTS: Form = {
   tickers: "DEMO-A, DEMO-B, DEMO-D",
   benchmark: "DEMO-MKT",
   start: "2021-01-01",
   end: "2025-12-31",
+  confidence: "95",
+  risk_free_rate: "0",
 };
+
+function percentToDecimal(raw: string): number | null {
+  if (raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n / 100 : null;
+}
 
 /** Empty inputs go to the API as null so it reports the field. */
 function toRequest(form: Form) {
@@ -34,6 +60,8 @@ function toRequest(form: Form) {
     benchmark: form.benchmark.trim() || null,
     start: form.start || null,
     end: form.end || null,
+    confidence: percentToDecimal(form.confidence),
+    risk_free_rate: percentToDecimal(form.risk_free_rate),
   };
 }
 
@@ -126,6 +154,24 @@ export function RiskTool() {
             value={form.end}
             onChange={set("end")}
             error={fieldErrors.end}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-1">
+          <NumberField
+            name="confidence"
+            label={r.inputs.confidence.label}
+            hint={r.inputs.confidence.hint}
+            value={form.confidence}
+            onChange={set("confidence")}
+            error={fieldErrors.confidence}
+          />
+          <NumberField
+            name="risk_free_rate"
+            label={r.inputs.risk_free_rate.label}
+            hint={r.inputs.risk_free_rate.hint}
+            value={form.risk_free_rate}
+            onChange={set("risk_free_rate")}
+            error={fieldErrors.risk_free_rate}
           />
         </div>
         <button
