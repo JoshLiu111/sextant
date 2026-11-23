@@ -139,3 +139,56 @@ test("every result table on each tool has an export button", async ({ page }) =>
     });
   }
 });
+
+test("a saved portfolio exports its value, positions and returns, named after the portfolio", async ({ page }) => {
+  await page.goto("/portfolio");
+  await page.getByRole("banner").getByRole("link", { name: "Sign in with Google" }).click();
+  await page.getByLabel("Email").fill(`csv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).toHaveURL(/\/portfolio$/);
+  const saved = page.getByRole("main").getByRole("region", { name: "Your portfolios" });
+  await saved.getByLabel("Portfolio name").fill("Brokerage");
+  await saved.getByLabel("Ticker 1").fill("DEMO-C");
+  await saved.getByLabel("Quantity 1").fill("2");
+  await saved.getByLabel("Cost price 1").fill("50");
+  await saved.getByRole("button", { name: "Save portfolio" }).click();
+  await expect(saved.getByRole("status").first()).toContainText("Saved");
+  // Saved: value, positions, returns, risk.
+  const results = saved.getByTestId("saved-results");
+  await expect(results.getByRole("button", { name: /Export CSV/ })).toHaveCount(4, { timeout: 30_000 });
+
+  await expect(results.locator('[data-position-value="cost_basis:DEMO-C"]')).toHaveText("100.00");
+  const positions = await download(page, results.getByRole("button", { name: "Export CSV: Positions" }));
+  expect(positions.name).toBe("sextant-portfolio-positions-Brokerage.csv");
+  // Demo tickers mark the file as synthetic; drop that leading column.
+  expect(positions.rows[0][0]).toBe("Data");
+  const p = positions.rows.map((row) => row.slice(1));
+  expect(p[0]).toEqual([
+    "Ticker",
+    "Quantity",
+    "Cost basis",
+    "Market value",
+    "Weight",
+    "Unrealized P&L",
+    "Realized P&L",
+  ]);
+  const demoC = byFirstCell(p, "DEMO-C")!;
+  expect(demoC.slice(1, 3)).toEqual(["2", "100"]);
+  expect(Number(demoC[4])).toBe(1); // weight as a decimal
+  const total = byFirstCell(p, "Total")!;
+  expect(total[1]).toBe("");
+  expect(Number(total[2])).toBe(100);
+
+  const returns = saved.getByRole("region", { name: "Your return" });
+  await expect(returns.locator('[data-metric-value="irr:portfolio"]')).toHaveAttribute("data-status", "ok");
+  const r = await download(page, returns.getByRole("button", { name: /Export CSV/ }));
+  expect(r.name).toBe("sextant-portfolio-returns-Brokerage.csv");
+  const ret = r.rows.map((row) => row.slice(1));
+  expect(ret.map((row) => row[0])).toEqual([
+    "Metric",
+    "Time-weighted return",
+    "Time-weighted return per year",
+    "Money-weighted return (IRR)",
+  ]);
+  for (const row of ret.slice(1)) expect(row[1]).toMatch(/^-?\d/);
+});

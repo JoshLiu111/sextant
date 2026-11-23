@@ -12,7 +12,7 @@ import type { SavedPortfolio } from "@/lib/portfolios";
 import { useCompute } from "@/lib/useCompute";
 import { PortfolioResults, portfolioCsvInput } from "./PortfolioResults";
 import { PortfolioReturns } from "./PortfolioReturns";
-import { PositionsTable } from "./PositionsTable";
+import { PositionsTable, positionsCsvTable } from "./PositionsTable";
 
 /** Value metrics only the saved portfolio has (it knows quantities, cost prices and imported sells). */
 const VALUE_METRICS = ["market_value", "cost_basis", "unrealized_pnl", "unrealized_return", "realized_pnl"] as const;
@@ -104,12 +104,22 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
         </div>
       </div>
       <div>
-        <h2 className="text-lg font-semibold">{s.sections.positions}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">{s.sections.positions}</h2>
+          {result && (
+            <ExportCsvButton
+              label={s.sections.positions}
+              filename={csvFilename("portfolio", "positions", portfolioCsvInput(result))}
+              demo={result.source.is_demo}
+              table={positionsCsvTable(result)}
+            />
+          )}
+        </div>
         <div className="mt-2">
           <PositionsTable result={result} currency={currency} />
         </div>
       </div>
-      <PortfolioReturns portfolioId={portfolio.id} start={settings.start} end={settings.end} />
+      <PortfolioReturns portfolioId={portfolio.id} name={portfolio.name} start={settings.start} end={settings.end} />
       <PortfolioResults result={result} metricsNote={s.sections.metricsNote} />
     </section>
   );
