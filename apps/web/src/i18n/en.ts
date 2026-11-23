@@ -674,6 +674,14 @@ export const en = {
       indicators: "US headline indicators",
       rates: "US Treasury yields",
     },
+    inputsHeading: "Chart range",
+    inputs: {
+      start: {
+        label: "History from",
+        hint: "Leave blank for the defaults: indicators from 2015, Treasury yields from 2018. Treasury data starts 1990-01-02.",
+      },
+    },
+    submit: "Update charts",
     meta: {
       source: "Source",
       via: "via FRED, series",

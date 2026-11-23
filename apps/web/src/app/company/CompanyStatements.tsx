@@ -1,6 +1,5 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
@@ -9,6 +8,7 @@ import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
 import { formatStatementValue } from "@/lib/format";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
 // Mirrors StatementsEnvelope in apps/compute/sextant_compute/company/api.py.
@@ -34,6 +34,8 @@ type StatementsResult = ResultEnvelope & {
 
 const STATEMENTS: Statement[] = ["income", "balance", "cash_flow"];
 const DEFAULT_TICKER = "AAPL";
+// Shareable links: `/company?ticker=MSFT` (the screener links here too).
+const URL_CODEC = fieldsCodec({ ticker: DEFAULT_TICKER });
 
 function Cell({ id, label, result }: { id: string; label: string; result: MetricResult | undefined }) {
   const c = getMessages().company;
@@ -130,8 +132,8 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
 export function CompanyStatements() {
   const t = getMessages();
   const c = t.company;
-  // `?ticker=MSFT` (links from the screener) prefills and loads that company.
-  const initialTicker = useSearchParams().get("ticker")?.trim().toUpperCase() || DEFAULT_TICKER;
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const initialTicker = initial.ticker.trim().toUpperCase() || DEFAULT_TICKER;
   const [ticker, setTicker] = useState(initialTicker);
   // Only a submitted ticker is fetched: typing doesn't fire EDGAR requests.
   const [query, setQuery] = useState({ ticker: initialTicker });
@@ -141,6 +143,7 @@ export function CompanyStatements() {
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     const next = { ticker: ticker.trim() };
+    share({ ticker: next.ticker.toUpperCase() });
     if (next.ticker === query.ticker) run();
     else setQuery(next);
   }
