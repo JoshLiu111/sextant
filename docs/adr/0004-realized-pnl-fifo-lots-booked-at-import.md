@@ -22,4 +22,4 @@ We decided:
 - Sells imported before this ADR have no booked P&L (`realized_pnl` NULL); their position and the portfolio total report `missing_data` with a reason.
 - Realized P&L covers every imported sell to date, not only the analysis date range.
 - Lots are not shown or editable yet. A user who needs exact lots edits nothing by hand and imports the full history.
-- Realized P&L in a currency other than the portfolio's is shown on its position but left out of the total until FX conversion (story 51) exists.
+- Realized P&L in a currency other than the reporting currency converts at each sell's date (ADR 0005, which superseded the earlier rule that left it out of the total).
