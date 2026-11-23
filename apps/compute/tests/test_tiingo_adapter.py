@@ -97,6 +97,19 @@ def test_a_range_ending_before_a_later_split_is_still_in_todays_share_count(fake
     assert aapl["volume"].iloc[0] == pytest.approx(200_000_000)
 
 
+def test_splits_right_after_the_prices_reuse_the_price_request(fake):
+    # Portfolio returns fetch the prices, then the splits since each trade: one Tiingo request.
+    adapter = fake.adapter()
+    adapter.daily_prices(ALICE, ["AAPL"], FIRST_DAY, date(2024, 1, 23))
+
+    assert adapter.splits(ALICE, "AAPL", date(2024, 1, 16)) == [(date(2024, 1, 30), 4.0)]
+    assert fake.price_requests[(KEY, "aapl")] == 1
+    # Another key is another user: never served from the first user's request.
+    fake.valid.add("other-key")
+    adapter.splits(RequestContext(keys={"tiingo": "other-key"}), "AAPL", FIRST_DAY)
+    assert fake.price_requests[("other-key", "aapl")] == 1
+
+
 def test_splits_come_from_the_split_factors_up_to_the_latest_day(fake):
     adapter = fake.adapter()
 
