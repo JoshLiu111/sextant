@@ -574,6 +574,13 @@ export const en = {
         hint: "Annual, effective. For Sharpe and Sortino.",
       },
     },
+    myDataInputs: {
+      holdings: {
+        hint: "Real tickers, e.g. AAPL, MSFT. Weights are a share of the portfolio and must add up to 100%. The portfolio is rebalanced to these weights every day.",
+      },
+      benchmark: { hint: "A real ticker, e.g. SPY." },
+      start: { hint: "Any range your provider has prices for." },
+    },
     portfolioLabel: "Portfolio",
     benchmarkSuffix: "(benchmark)",
     demoHeading: "Demo portfolio",
@@ -583,7 +590,7 @@ export const en = {
     saved: {
       heading: "Your portfolios",
       intro:
-        "Enter your holdings and save them as a named portfolio. Each portfolio is held at its quantities (bought and held, dividends reinvested) and compared with a benchmark. Prices come from demo data until you can connect your own data source.",
+        "Enter your holdings and save them as a named portfolio. Each portfolio is held at its quantities (bought and held, dividends reinvested) and compared with a benchmark. Prices come from demo data, or with My data from your own provider once you save its key in Settings.",
       empty: "You have no saved portfolios yet.",
       switcher: "Saved portfolio",
       newPortfolio: "New portfolio",
@@ -591,7 +598,7 @@ export const en = {
       name: { label: "Portfolio name", placeholder: "For example: Retirement account" },
       holdings: {
         heading: "Holdings",
-        hint: "Demo tickers: DEMO-A to DEMO-G. Cost price is the average price you paid per unit. Use one currency per portfolio for now.",
+        hint: "Demo tickers (DEMO-A to DEMO-G) price on Demo data; real tickers (like AAPL) on My data. Cost price is the average price you paid per unit. Use one currency per portfolio for now.",
         ticker: "Ticker",
         quantity: "Quantity",
         cost_price: "Cost price",

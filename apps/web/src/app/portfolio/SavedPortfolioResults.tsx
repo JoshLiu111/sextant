@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DataModeToggle } from "@/components/DataModeToggle";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
@@ -8,6 +9,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import { csvFilename } from "@/lib/csv";
+import { DEMO_SOURCE, useMyDataProviders, type PriceSource } from "@/lib/myData";
 import type { SavedPortfolio } from "@/lib/portfolios";
 import { useCompute } from "@/lib/useCompute";
 import { PortfolioResults, portfolioCsvInput } from "./PortfolioResults";
@@ -20,6 +22,9 @@ const SETTINGS = ["benchmark", "start", "end"] as const;
 type Settings = Record<(typeof SETTINGS)[number], string>;
 
 const DEFAULTS: Settings = { benchmark: "DEMO-MKT", start: "2021-01-01", end: "2025-12-31" };
+/** My data starts against a real benchmark; each mode keeps its own settings. */
+const MY_DATA_DEFAULTS: Settings = { ...DEFAULTS, benchmark: "SPY" };
+const defaultsFor = (source: PriceSource): Settings => (source === DEMO_SOURCE ? DEFAULTS : MY_DATA_DEFAULTS);
 
 /**
  * Performance, risk and value of one saved portfolio, from
@@ -29,22 +34,33 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
   const t = getMessages();
   const p = t.portfolio;
   const s = p.saved;
-  const [settings, setSettings] = useState<Settings>(DEFAULTS);
+  const providers = useMyDataProviders();
+  const [chosen, setChosen] = useState<PriceSource>(DEMO_SOURCE);
+  // A provider whose key is gone falls back to demo data.
+  const source: PriceSource = chosen !== DEMO_SOURCE && !providers.includes(chosen) ? DEMO_SOURCE : chosen;
+  const [allSettings, setAllSettings] = useState<Partial<Record<PriceSource, Settings>>>({});
+  const settings = allSettings[source] ?? defaultsFor(source);
+  const setSetting = (field: keyof Settings) => (value: string) =>
+    setAllSettings((all) => ({ ...all, [source]: { ...(all[source] ?? defaultsFor(source)), [field]: value } }));
   const { result, fieldErrors, error } = useCompute<string, string>(`/portfolios/${portfolio.id}/metrics`, {
+    source,
     benchmark: settings.benchmark.trim() || null,
     start: settings.start || null,
     end: settings.end || null,
   });
   const currency = String(result?.metrics["market_value:portfolio"]?.details?.currency ?? portfolio.holdings[0]?.currency ?? "");
-  // Unknown tickers come back on their holding row; list them in the notice.
+  // Unknown tickers come back on their holding row; list them in the notice (unless it already says them).
   const holdingErrors = Object.entries(fieldErrors)
-    .filter(([field]) => field.startsWith("holdings."))
+    .filter(([field, message]) => field.startsWith("holdings.") && !error?.includes(message))
     .map(([, message]) => message);
 
   return (
     <section data-testid="saved-results" aria-label={s.sections.value} className="min-w-0 space-y-6">
       <div>
         <h3 className="text-sm font-medium">{s.analysisHeading}</h3>
+        <div className="mt-2">
+          <DataModeToggle providers={providers} value={source} onChange={setChosen} />
+        </div>
         <div className="mt-2 grid gap-4 sm:grid-cols-3">
           {SETTINGS.map((field) => (
             <TextField
@@ -53,7 +69,7 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
               name={`saved-${field}`}
               label={p.inputs[field].label}
               value={settings[field]}
-              onChange={(value) => setSettings((v) => ({ ...v, [field]: value }))}
+              onChange={setSetting(field)}
               error={fieldErrors[field]}
             />
           ))}
@@ -119,7 +135,13 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
           <PositionsTable result={result} currency={currency} />
         </div>
       </div>
-      <PortfolioReturns portfolioId={portfolio.id} name={portfolio.name} start={settings.start} end={settings.end} />
+      <PortfolioReturns
+        portfolioId={portfolio.id}
+        name={portfolio.name}
+        source={source}
+        start={settings.start}
+        end={settings.end}
+      />
       <PortfolioResults result={result} metricsNote={s.sections.metricsNote} />
     </section>
   );
