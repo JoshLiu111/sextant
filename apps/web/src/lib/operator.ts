@@ -2,7 +2,7 @@ import "server-only";
 
 import { computeFetchAsUser } from "@/lib/auth/session";
 
-// Operator view of AI usage (compute: /api/compute/operator/...). Only accounts in
+// Operator view of AI usage and users (compute: /api/compute/operator/...). Only accounts in
 // the compute service's OPERATOR_EMAILS get in; for everyone else both endpoints
 // answer 404, and so does /operator (see src/proxy.ts).
 
@@ -37,16 +37,36 @@ export async function isOperator(token: string | null): Promise<boolean> {
   }
 }
 
-export type AiUsageResult = { kind: "ok"; report: AiUsageReport } | { kind: "not_found" } | { kind: "failed" };
+export type OperatorResult<T> = { kind: "ok"; report: T } | { kind: "not_found" } | { kind: "failed" };
 
-export async function fetchAiUsage(token: string | null): Promise<AiUsageResult> {
+async function fetchReport<T>(token: string | null, path: `/${string}`): Promise<OperatorResult<T>> {
   if (!token) return { kind: "not_found" };
   try {
-    const res = await computeFetchAsUser(token, "/operator/ai-usage", { signal: AbortSignal.timeout(10000) });
+    const res = await computeFetchAsUser(token, path, { signal: AbortSignal.timeout(10000) });
     if (res.status === 404) return { kind: "not_found" };
     if (!res.ok) return { kind: "failed" };
-    return { kind: "ok", report: (await res.json()) as AiUsageReport };
+    return { kind: "ok", report: (await res.json()) as T };
   } catch {
     return { kind: "failed" };
   }
+}
+
+export type AiUsageResult = OperatorResult<AiUsageReport>;
+
+export function fetchAiUsage(token: string | null): Promise<AiUsageResult> {
+  return fetchReport(token, "/operator/ai-usage");
+}
+
+export type UsersReport = {
+  since: string;
+  until: string;
+  total_users: number;
+  /** Every UTC day in the window, newest first, including days without sign-ups. */
+  sign_ups: { day: string; users: number }[];
+  /** Users whose last sign-in falls within N days (7 and 30). Undercounts daily use. */
+  signed_in_within: { days: number; users: number }[];
+};
+
+export function fetchUsers(token: string | null): Promise<OperatorResult<UsersReport>> {
+  return fetchReport(token, "/operator/users");
 }

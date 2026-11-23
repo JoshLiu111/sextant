@@ -2145,7 +2145,8 @@ export const en = {
     sourcesLabel: "Data sources",
   },
   operator: {
-    heading: "AI usage",
+    heading: "Operator",
+    aiUsageHeading: "AI usage",
     intro: (since: string, until: string) =>
       `AI calls, tokens and estimated cost per user, ${since} to ${until} (UTC days). Operator only.`,
     pricing: (input: string, output: string) =>
@@ -2164,6 +2165,18 @@ export const en = {
     },
     errorHeading: "AI usage could not be loaded",
     unavailable: "The usage log is unavailable right now. Please retry in a moment.",
+    users: {
+      heading: "Users",
+      total: "Registered users",
+      signedInWithin: (days: number) => `Signed in within ${days} days`,
+      signedInNote:
+        "Counts the last sign-in only. Sessions last 30 days, so these figures undercount daily use.",
+      signUps: "Sign-ups per day",
+      signUpsIntro: (since: string, until: string) => `New sign-ups per UTC day, ${since} to ${until}.`,
+      columns: { day: "Day (UTC)", signUps: "New sign-ups" },
+      errorHeading: "User counts could not be loaded",
+      unavailable: "User counts are unavailable right now. Please retry in a moment.",
+    },
   },
   notFound: {
     heading: "Page not found",
