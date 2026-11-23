@@ -48,6 +48,15 @@ const fred = {
 };
 // Treasury: compute fetches the yield curve CSVs from a fake (e2e/fake-treasury.mjs).
 const treasury = { TREASURY_BASE_URL: `http://127.0.0.1:${TREASURY_PORT}` };
+// AI Explain: compute talks to a fake Claude Messages API (e2e/fake-anthropic.mjs)
+// on ANTHROPIC_PORT (default COMPUTE_PORT + 5). The key is a dummy; the quota is small
+// so the over-quota path is quick to reach.
+const ANTHROPIC_PORT = Number(process.env.ANTHROPIC_PORT || COMPUTE_PORT + 5);
+const ai = {
+  ANTHROPIC_API_KEY: "e2e-fake-anthropic-key-not-real",
+  ANTHROPIC_BASE_URL: `http://127.0.0.1:${ANTHROPIC_PORT}`,
+  AI_DAILY_QUOTA: "3",
+};
 const uvicorn = `uv run uvicorn main:app --host 127.0.0.1 --port ${COMPUTE_PORT}`;
 const e2eDatabaseUrl = process.env.E2E_DATABASE_URL;
 
@@ -88,6 +97,12 @@ export default defineConfig({
       env: { TREASURY_PORT: String(TREASURY_PORT) },
     },
     {
+      command: "node e2e/fake-anthropic.mjs",
+      url: `${ai.ANTHROPIC_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { ANTHROPIC_PORT: String(ANTHROPIC_PORT) },
+    },
+    {
       command: e2eDatabaseUrl
         ? uvicorn
         : `uv run python scripts/ephemeral_postgres.py -- ${uvicorn}`,
@@ -101,6 +116,7 @@ export default defineConfig({
         ...edgar,
         ...fred,
         ...treasury,
+        ...ai,
         ...(e2eDatabaseUrl ? { DATABASE_URL: e2eDatabaseUrl } : {}),
       },
     },
