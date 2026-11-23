@@ -447,7 +447,10 @@ export function Screener() {
                         ))}
                         <td className="px-2 py-1.5 text-right font-mono text-xs">{r.period_end ?? "–"}</td>
                         <td className="whitespace-nowrap px-2 py-1.5">
-                          <Link href={`/company?ticker=${encodeURIComponent(r.ticker)}`} className="underline">
+                          <Link
+                            href={`/company?companies=${encodeURIComponent(r.ticker)}&ticker=${encodeURIComponent(r.ticker)}`}
+                            className="underline"
+                          >
                             {s.healthCheck}
                           </Link>{" "}
                           ·{" "}

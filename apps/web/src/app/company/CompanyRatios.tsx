@@ -58,18 +58,14 @@ const columnKey = (p: Period) => p.fiscal_year * 4 + (p.fiscal_quarter ?? 0);
 const columnLabel = (p: Period) => (p.fiscal_quarter ? p.label : `FY${p.fiscal_year}`);
 
 // Shareable links: `/company?companies=MSFT:400,AAPL` (ticker:price). The
-// screener links with `?ticker=MSFT`, which the statements below share; it is
-// used here only when `companies` is absent.
+// statements form below owns `ticker`, so a link without `companies` shows the
+// default company here (the screener links with both).
 const URL_CODEC: UrlCodec<Row[]> = {
   keys: ["companies"],
   read(params) {
     const companies = params.get("companies");
-    if (companies !== null) {
-      const rows = decodeRows(companies, 2).map(([ticker, price]) => ({ ticker: ticker.toUpperCase(), price }));
-      return rows.length ? rows : DEFAULT_ROWS;
-    }
-    const linked = params.get("ticker")?.trim().toUpperCase();
-    return linked ? [{ ticker: linked, price: "" }] : DEFAULT_ROWS;
+    const rows = companies === null ? [] : decodeRows(companies, 2);
+    return rows.length ? rows.map(([ticker, price]) => ({ ticker: ticker.toUpperCase(), price })) : DEFAULT_ROWS;
   },
   write: (rows) => ({ companies: encodeRows(rows.map((r) => [r.ticker.toUpperCase(), r.price])) }),
 };
