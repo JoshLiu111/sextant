@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Annotated, Literal
+from typing import Annotated
 
 import pandas as pd
 from fastapi import APIRouter
@@ -13,9 +13,10 @@ from pydantic_core import PydanticCustomError
 from sextant_compute.analytics import performance, risk
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
+from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
 from sextant_compute.envelope import MetricResult, ResultEnvelope, SeriesResult, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
-from sextant_compute.risk.metrics import date_series, risk_metric_set
+from sextant_compute.risk.metrics import date_series, missing_metric_set, missing_series, risk_metric_set
 
 router = APIRouter(tags=["risk"])
 
@@ -48,8 +49,8 @@ class RiskRequest(BaseModel):
         float, check(lambda v: -0.05 <= v <= 0.2, "Enter a risk-free rate between -5% and 20%.")
     ] = 0.0
     """Effective annual risk-free rate as a decimal, used by Sharpe and Sortino."""
-    source: Literal["synthetic"] = "synthetic"
-    """Which DataService adapter backs the result. Add ids here as adapters arrive."""
+    source: PriceSource = DEMO_SOURCE
+    """Demo data (``"synthetic"``) or the user's own provider (My data, e.g. ``"tiingo"``)."""
 
     @field_validator("end")
     @classmethod
@@ -75,20 +76,32 @@ def _fields_for(exc: NoSuchData, req: RiskRequest) -> dict[str, str]:
 
 @router.post("/metrics")
 def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
+    """Demo data rejects an unknown ticker inline (the demo set is small and
+    listed). On My data an unknown real ticker only marks its own metrics
+    ``missing_data``; the benchmark must exist either way."""
     symbols = list(dict.fromkeys([*req.tickers, req.benchmark]))
     try:
-        prices = data.daily_prices(ctx, symbols, req.start, req.end, source=req.source)
+        prices = data.daily_prices(
+            ctx, symbols, req.start, req.end, source=req.source, partial=req.source != DEMO_SOURCE
+        )
     except NoSuchData as exc:
         raise ApiError(422, "no_such_data", exc.message, _fields_for(exc, req)) from exc
+    if req.benchmark in prices.missing:
+        message = prices.missing[req.benchmark]
+        raise ApiError(422, "no_such_data", message, {"benchmark": message})
 
     metrics: dict[str, MetricResult] = {}
     charts: dict[str, SeriesResult] = {}
+    for ticker, reason in prices.missing.items():
+        metrics.update({f"{name}:{ticker}": result for name, result in missing_metric_set(reason).items()})
+        charts[f"drawdown:{ticker}"] = missing_series(reason)
+
     def returns_of(ticker: str) -> pd.Series:
         frame = prices.frames[ticker]
         return performance.total_returns(frame["close"], frame["dividend"])
 
     benchmark_returns = returns_of(req.benchmark)
-    for ticker in symbols:
+    for ticker in prices.frames:
         frame = prices.frames[ticker]
         wealth = performance.total_return_index(frame["close"], frame["dividend"])
         ticker_metrics = risk_metric_set(

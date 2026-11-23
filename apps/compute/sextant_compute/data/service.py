@@ -17,13 +17,13 @@ import json
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from types import MappingProxyType
 from typing import Annotated, Any, TypeVar, cast
 
 import pandas as pd
-from fastapi import Depends
+from fastapi import Depends, Request
 
 from sextant_compute.auth import OptionalUser
 from sextant_compute.auth.deps import get_db
@@ -45,11 +45,14 @@ from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.dividends import DividendHistory
 from sextant_compute.data.edgar import EdgarAdapter
+from sextant_compute.data.errors import KeyRequired, NoSuchData
 from sextant_compute.data.filings import FilingList
 from sextant_compute.data.fred import FredAdapter
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
+from sextant_compute.data.tiingo import TiingoAdapter
 from sextant_compute.data.treasury import TreasuryAdapter
+from sextant_compute.data.user_cache import PostgresUserCache
 from sextant_compute.db import Database
 from sextant_compute.envelope import DataSource
 from sextant_compute.keys.vault import user_keys
@@ -59,10 +62,14 @@ T = TypeVar("T")
 
 @dataclass(frozen=True)
 class PriceHistory:
-    """Daily prices per ticker, plus the source they came from (put it in the envelope)."""
+    """Daily prices per ticker, plus the source they came from (put it in the envelope).
+
+    ``missing`` (filled only with ``partial=True``): ticker -> why the source has
+    no prices for it. Those tickers are not in ``frames``."""
 
     source: DataSource
     frames: dict[str, pd.DataFrame]
+    missing: dict[str, str] = field(default_factory=dict)
 
     @property
     def last_date(self) -> date | None:
@@ -80,6 +87,10 @@ class DataService:
     ``user_cache`` (or without a signed-in user) they are not cached at all.
     An adapter opts a dataset into caching by listing its TTL in ``adapter.ttl``.
     Errors are never cached.
+
+    User-scope sources need the visitor's own key: without
+    ``ctx.key_for(source.id)`` a call raises ``KeyRequired`` before the cache is
+    consulted, so a deleted key also stops cached data from being served.
 
     Single flight: concurrent misses on the same key share one fetch (the others
     wait for it and get its result, or its error), so a burst of identical
@@ -121,6 +132,10 @@ class DataService:
     ) -> T:
         ttl = adapter.ttl.get(dataset)
         if adapter.scope == "user":
+            if not ctx.key_for(adapter.source.id):
+                raise KeyRequired(
+                    adapter.source.id, f"My data needs your own {adapter.source.name} key. Add one in Settings."
+                )
             cache = self.user_cache if ctx.user_id is not None else None
             tags = [f"user:{ctx.user_id}"]
         else:
@@ -159,12 +174,41 @@ class DataService:
                 self._in_flight.pop(key, None)
 
     def daily_prices(
-        self, ctx: RequestContext, tickers: Sequence[str], start: date, end: date, *, source: str
+        self,
+        ctx: RequestContext,
+        tickers: Sequence[str],
+        start: date,
+        end: date,
+        *,
+        source: str,
+        partial: bool = False,
     ) -> PriceHistory:
-        """Daily OHLCV + dividends per ticker in [start, end]; see ``DailyPricesAdapter``."""
+        """Daily OHLCV + dividends per ticker in [start, end]; see ``DailyPricesAdapter``.
+
+        By default one unknown ticker fails the whole call with ``NoSuchData``.
+        With ``partial=True`` each ticker is fetched and cached on its own, and
+        tickers the source has no prices for land in ``PriceHistory.missing``
+        instead (for real tickers: a typo shouldn't cost the rest, nor the user's
+        provider quota be spent refetching them). ``SourceUnavailable`` and
+        ``KeyRequired`` still fail the call."""
         adapter = cast(DailyPricesAdapter, self._adapter(source))
         wanted = list(dict.fromkeys(tickers))
-        frames = self._cached(
+        if partial:
+            found: dict[str, pd.DataFrame] = {}
+            missing: dict[str, str] = {}
+            for ticker in wanted:
+                try:
+                    found[ticker] = self._prices(ctx, adapter, [ticker], start, end)[ticker]
+                except NoSuchData as exc:
+                    missing[ticker] = exc.missing.get(ticker, exc.message)
+            return PriceHistory(source=adapter.source, frames=found, missing=missing)
+        frames = self._prices(ctx, adapter, wanted, start, end)
+        return PriceHistory(source=adapter.source, frames={t: frames[t] for t in wanted})
+
+    def _prices(
+        self, ctx: RequestContext, adapter: DailyPricesAdapter, wanted: list[str], start: date, end: date
+    ) -> dict[str, pd.DataFrame]:
+        return self._cached(
             ctx,
             adapter,
             "daily_prices",
@@ -173,7 +217,6 @@ class DataService:
             _encode_frames,
             _decode_frames,
         )
-        return PriceHistory(source=adapter.source, frames={t: frames[t] for t in wanted})
 
     def financial_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
         """Standardized annual statements for one company; see ``FinancialStatementsAdapter``.
@@ -391,7 +434,9 @@ def default_adapters() -> dict[str, Adapter]:
     fred = FredAdapter.from_env()
     edgar = EdgarAdapter()
     treasury = TreasuryAdapter.from_env()
+    tiingo = TiingoAdapter.from_env()
     return {
+        tiingo.source.id: tiingo,
         synthetic.source.id: synthetic,
         fred.source.id: fred,
         edgar.source.id: edgar,
@@ -399,20 +444,31 @@ def default_adapters() -> dict[str, Adapter]:
     }
 
 
-_service: DataService | None = None
+def make_data_service(db: Database, adapters: Mapping[str, Adapter] | None = None) -> DataService:
+    """The production wiring: the shared cache (Runtime Cache on Vercel) plus the
+    per-user Postgres cache in ``db``. Tests pass their own ``adapters``."""
+    return DataService(
+        adapters if adapters is not None else default_adapters(),
+        shared_cache=default_shared_cache(),
+        user_cache=PostgresUserCache(db),
+    )
+
+
 _service_lock = threading.Lock()
 
 
-def get_data_service() -> DataService:
-    """FastAPI dependency. Tests swap it with ``app.dependency_overrides``.
-    Created once under a lock: concurrent first requests must share one service
-    (one cache, one single-flight map), or a cold burst fetches everything N times."""
-    global _service
-    if _service is None:
+def get_data_service(request: Request) -> DataService:
+    """FastAPI dependency: one service per app, built on first use. Tests swap it
+    with ``app.dependency_overrides`` (``serving``) or set ``app.state.data_service``.
+    Built under a lock: concurrent first requests must share one service (one
+    cache, one single-flight map), or a cold burst fetches everything N times."""
+    service = getattr(request.app.state, "data_service", None)
+    if service is None:
         with _service_lock:
-            if _service is None:
-                _service = DataService(default_adapters(), shared_cache=default_shared_cache())
-    return _service
+            service = getattr(request.app.state, "data_service", None)
+            if service is None:
+                service = request.app.state.data_service = make_data_service(request.app.state.db)
+    return service
 
 
 def get_request_context(user: OptionalUser, db: Annotated[Database, Depends(get_db)]) -> RequestContext:
