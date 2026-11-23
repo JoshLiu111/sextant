@@ -4,6 +4,7 @@ import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { MetricCard } from "@/components/MetricCard";
 import { getMessages } from "@/i18n";
 import { csvFilename } from "@/lib/csv";
+import type { PriceSource } from "@/lib/myData";
 import { useCompute } from "@/lib/useCompute";
 
 const RETURN_METRICS = ["twr", "twr_annualized", "irr"] as const;
@@ -18,12 +19,14 @@ type ReturnMetricId = `${(typeof RETURN_METRICS)[number]}:portfolio`;
 export function PortfolioReturns({
   portfolioId,
   name,
+  source,
   start,
   end,
   reportingCurrency,
 }: {
   portfolioId: string;
   name: string;
+  source: PriceSource;
   start: string;
   end: string;
   /** Values and trades in other currencies convert into this one; null: the first holding's. */
@@ -32,6 +35,7 @@ export function PortfolioReturns({
   const t = getMessages();
   const r = t.portfolio.saved.returns;
   const { result } = useCompute<ReturnMetricId, never>(`/portfolios/${portfolioId}/returns`, {
+    source,
     start: start || null,
     end: end || null,
     reporting_currency: reportingCurrency,

@@ -15,3 +15,11 @@ from typing import Literal
 PriceSource = Literal["synthetic", "tiingo"]
 
 DEMO_SOURCE = "synthetic"
+
+DEMO_TICKER_PREFIX = "DEMO-"
+"""Every Demo data ticker starts with this (``DEMO-MKT``, ``DEMO-A``...)."""
+
+
+def is_demo_ticker(ticker: str) -> bool:
+    """A made-up Demo data ticker, which no My data provider has."""
+    return ticker.upper().startswith(DEMO_TICKER_PREFIX)

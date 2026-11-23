@@ -1,8 +1,9 @@
 """My Portfolio construction views (stories 55, 56): rebalancing backtest and efficient frontier.
 
 Both take the demo portfolio's ticker + weight holdings (``PortfolioRequest``) and
-work on demo data without sign-in. Prices come through ``api.load_prices``, so
-unknown tickers and empty ranges report the same field errors as ``/metrics``.
+work on demo data without sign-in, or on My data (``source``) like ``/metrics``. Prices
+come through ``api.load_prices``, so unknown tickers, demo tickers on My data and empty
+ranges report the same field errors as ``/metrics``.
 
 - ``POST /rebalancing``: the target weights rebalanced by a rule vs bought and held.
   Ids ``<metric>:rebalanced`` / ``<metric>:buy_and_hold``, series

@@ -5,7 +5,8 @@ import { RebalancingBacktest } from "./RebalancingBacktest";
 
 /**
  * Portfolio construction views for the demo portfolio (stories 55, 56). They take
- * the demo form's request body, so editing the holdings above re-runs both.
+ * the demo form's request body (including its Demo / My data `source`), so editing
+ * the holdings above or switching the data mode re-runs both.
  */
 export function PortfolioConstruction({ portfolio }: { portfolio: Record<string, unknown> }) {
   return (

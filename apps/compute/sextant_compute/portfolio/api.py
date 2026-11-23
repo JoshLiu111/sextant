@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import date
-from typing import Annotated, Literal
+from typing import Annotated
 
 import pandas as pd
 from fastapi import APIRouter
@@ -22,6 +22,7 @@ from sextant_compute.analytics import performance, portfolio
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data, DataService, PriceHistory
+from sextant_compute.data.sources import DEMO_SOURCE, PriceSource, is_demo_ticker
 from sextant_compute.envelope import MetricResult, ResultEnvelope, SeriesResult, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
 from sextant_compute.risk.api import Ticker
@@ -61,7 +62,8 @@ class AnalysisSettings(BaseModel):
     risk_free_rate: Annotated[
         float, check(lambda v: -0.05 <= v <= 0.2, "Enter a risk-free rate between -5% and 20%.")
     ] = 0.0
-    source: Literal["synthetic"] = "synthetic"
+    source: PriceSource = DEMO_SOURCE
+    """Demo data (``"synthetic"``) or the user's own provider (My data, e.g. ``"tiingo"``)."""
 
     @field_validator("end")
     @classmethod
@@ -101,6 +103,32 @@ def _fields_for(exc: NoSuchData, tickers: Sequence[str], benchmark: str) -> dict
     return fields
 
 
+def fetch_prices(
+    data: DataService, ctx: RequestContext, symbols: Sequence[str], start: date, end: date, source: str
+) -> PriceHistory:
+    """Prices for every symbol, or ``NoSuchData`` naming each symbol that has none.
+
+    A portfolio can't be scored with a holding missing, so unlike Risk & Performance
+    an unknown ticker fails the request on My data too. On My data each ticker is
+    still fetched and cached on its own (``partial``), sharing entries with Risk &
+    Performance, and demo tickers are refused before the provider is asked.
+    """
+    if source == DEMO_SOURCE:
+        return data.daily_prices(ctx, symbols, start, end, source=source)
+    provider = data.source_info(source).name
+    demo = {
+        s: f"{s} is a demo ticker, so it only has Demo data. My data uses real tickers from {provider}, like AAPL."
+        for s in symbols
+        if is_demo_ticker(s)
+    }
+    if demo:
+        raise NoSuchData(source, " ".join(demo.values()), demo)
+    prices = data.daily_prices(ctx, symbols, start, end, source=source, partial=True)
+    if prices.missing:
+        raise NoSuchData(source, " ".join(prices.missing.values()), prices.missing)
+    return prices
+
+
 def load_prices(
     data: DataService, ctx: RequestContext, tickers: Sequence[str], settings: AnalysisSettings
 ) -> tuple[PriceHistory, dict[str, pd.DataFrame]]:
@@ -111,7 +139,7 @@ def load_prices(
     """
     symbols = list(dict.fromkeys([*tickers, settings.benchmark]))
     try:
-        prices = data.daily_prices(ctx, symbols, settings.start, settings.end, source=settings.source)
+        prices = fetch_prices(data, ctx, symbols, settings.start, settings.end, settings.source)
     except NoSuchData as exc:
         raise ApiError(422, "no_such_data", exc.message, _fields_for(exc, tickers, settings.benchmark)) from exc
     common = prices.frames[symbols[0]].index

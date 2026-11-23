@@ -22,7 +22,6 @@ a negative quantity, every metric is ``missing_data`` with the ticker in the rea
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter
@@ -33,10 +32,11 @@ from sextant_compute.analytics import flow_returns
 from sextant_compute.auth import CurrentUser
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
+from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
 from sextant_compute.envelope import Detailed, ResultEnvelope, envelope, metric
 from sextant_compute.errors import INPUT_ERROR, ApiError
 from sextant_compute.portfolio import store
-from sextant_compute.portfolio.api import TOOL
+from sextant_compute.portfolio.api import TOOL, fetch_prices
 from sextant_compute.portfolio.fx import Converter
 from sextant_compute.portfolio.saved import Currency, Db, load
 
@@ -46,7 +46,7 @@ router = APIRouter(tags=["portfolios"])
 class ReturnsSettings(BaseModel):
     start: date
     end: date
-    source: Literal["synthetic"] = "synthetic"
+    source: PriceSource = DEMO_SOURCE
     reporting_currency: Currency | None = None
     """Currency the values and cash flows are measured in; None: the first holding's currency."""
 
@@ -87,7 +87,7 @@ def portfolio_returns(
     currency_of = {r["ticker"]: r["currency"] for r in rows} | {h.ticker: h.currency for h in saved.holdings}
     tickers = list(dict.fromkeys([*(h.ticker for h in saved.holdings), *(r["ticker"] for r in rows)]))
     try:
-        prices = data.daily_prices(ctx, tickers, settings.start, settings.end, source=settings.source)
+        prices = fetch_prices(data, ctx, tickers, settings.start, settings.end, settings.source)
     except NoSuchData as exc:
         raise ApiError(422, "no_such_data", exc.message, {"start": exc.message}) from exc
     common = prices.frames[tickers[0]].index
