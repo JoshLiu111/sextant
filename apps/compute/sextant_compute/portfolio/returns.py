@@ -22,42 +22,28 @@ On My data, so is a ticker the provider has no prices for (the request still suc
 
 from __future__ import annotations
 
-from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter
-from pydantic import BaseModel, ValidationInfo, field_validator
-from pydantic_core import PydanticCustomError
 
 from sextant_compute.analytics import flow_returns
 from sextant_compute.auth import CurrentUser
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
-from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
 from sextant_compute.envelope import Detailed, MetricResult, MetricStatus, ResultEnvelope, envelope, metric
-from sextant_compute.errors import INPUT_ERROR, ApiError
+from sextant_compute.errors import ApiError
 from sextant_compute.portfolio import store
 from sextant_compute.portfolio.api import TOOL, fetch_prices
 from sextant_compute.portfolio.fx import Converter
 from sextant_compute.portfolio.saved import Currency, Db, load
+from sextant_compute.request_models import PriceRangeRequest
 
 router = APIRouter(tags=["portfolios"])
 
 
-class ReturnsSettings(BaseModel):
-    start: date
-    end: date
-    source: PriceSource = DEMO_SOURCE
+class ReturnsSettings(PriceRangeRequest):
     reporting_currency: Currency | None = None
     """Currency the values and cash flows are measured in; None: the first holding's currency."""
-
-    @field_validator("end")
-    @classmethod
-    def _end_after_start(cls, end: date, info: ValidationInfo) -> date:
-        start = info.data.get("start")
-        if start is not None and end <= start:
-            raise PydanticCustomError(INPUT_ERROR, "End date must be after the start date.")
-        return end
 
 
 class ReturnsParameters(ReturnsSettings):

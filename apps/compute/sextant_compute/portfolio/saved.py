@@ -28,7 +28,7 @@ from sextant_compute.portfolio import store
 from sextant_compute.portfolio.fx import Converter
 from sextant_compute.portfolio.api import MAX_HOLDINGS, AnalysisSettings, load_prices, score
 from sextant_compute.portfolio.positions import position_metrics
-from sextant_compute.risk.api import Ticker
+from sextant_compute.request_models import Ticker
 
 router = APIRouter(tags=["portfolios"])
 

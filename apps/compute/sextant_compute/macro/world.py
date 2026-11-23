@@ -9,8 +9,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter
-from pydantic import BaseModel, BeforeValidator, ValidationInfo, field_validator
-from pydantic_core import PydanticCustomError
+from pydantic import BaseModel, BeforeValidator, field_validator
 
 from sextant_compute.analytics import macro
 from sextant_compute.data.adapters import CountryIndicator, EconomicSeries
@@ -27,7 +26,8 @@ from sextant_compute.envelope import (
     metric,
     series,
 )
-from sextant_compute.errors import INPUT_ERROR, check
+from sextant_compute.errors import check
+from sextant_compute.request_models import EndOnOrAfterStart
 
 router = APIRouter(tags=["macro"])
 
@@ -180,20 +180,12 @@ EURO_AREA = [
 ]
 
 
-class EuroAreaRequest(BaseModel):
+class EuroAreaRequest(EndOnOrAfterStart):
     start: Annotated[date, check(lambda v: v >= ECB_FIRST, "ECB data starts on 1999-01-01.")] = EURO_START
     """First day of the histories."""
     end: date | None = None
     """Last day considered (default: today, UTC)."""
     source: Literal["ecb"] = "ecb"
-
-    @field_validator("end")
-    @classmethod
-    def _end_after_start(cls, end: date | None, info: ValidationInfo) -> date | None:
-        start = info.data.get("start")
-        if end is not None and start is not None and end < start:
-            raise PydanticCustomError(INPUT_ERROR, "End date must be on or after the start date.")
-        return end
 
 
 def _series_details(found: EconomicSeries) -> dict[str, Detail]:

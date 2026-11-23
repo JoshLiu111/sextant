@@ -20,7 +20,7 @@ from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import APIRouter
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, Field
 
 from sextant_compute.analytics.ratios import RATIOS, Ratio, Trace, WithDetails, Year
 from sextant_compute.analytics.scores import MODELS
@@ -31,6 +31,7 @@ from sextant_compute.data.service import Ctx, Data
 from sextant_compute.data.statements import FinancialStatements, FiscalPeriod, Frequency, Missing
 from sextant_compute.envelope import Detailed, MetricResult, ResultEnvelope, envelope, metric
 from sextant_compute.errors import ApiError, check
+from sextant_compute.request_models import Ticker
 
 router = APIRouter(tags=["company"])
 
@@ -38,12 +39,8 @@ TOOL = "company"
 MAX_COMPANIES = 5
 
 
-def _normalize_ticker(value: object) -> object:
-    return value.strip().upper() if isinstance(value, str) else value
-
-
 class CompanyInput(BaseModel):
-    ticker: Annotated[str, BeforeValidator(_normalize_ticker), check(lambda v: v != "", "Enter a ticker.")]
+    ticker: Ticker
     price: Annotated[float | None, check(lambda v: v > 0, "Price must be greater than 0.")] = None
 
 
@@ -232,7 +229,7 @@ RATIOS_BY_ID = {r.id: r for r in (*RATIOS, *MODELS)}
 
 
 class InputsRequest(BaseModel):
-    ticker: Annotated[str, BeforeValidator(_normalize_ticker), check(lambda v: v != "", "Enter a ticker.")]
+    ticker: Ticker
     ratio: Annotated[str, check(lambda v: v in RATIOS_BY_ID, "Unknown ratio.")]
     period: str  # the period id (its end date), as in the ratio's metric id
     frequency: Frequency = "annual"

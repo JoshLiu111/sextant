@@ -21,7 +21,7 @@ from datetime import date, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter
-from pydantic import BaseModel, BeforeValidator, ValidationInfo, field_validator
+from pydantic import BaseModel, ValidationInfo, field_validator
 from pydantic_core import PydanticCustomError
 
 from sextant_compute.analytics.screener import METRICS, PRICE_METRICS, PRICE_WINDOW_DAYS, items_for
@@ -31,6 +31,7 @@ from sextant_compute.data.service import Ctx, Data
 from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
 from sextant_compute.envelope import DataSource, MetricError, MissingData, ResultEnvelope, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
+from sextant_compute.request_models import TickerOrBlank
 
 router = APIRouter(tags=["screener"])
 
@@ -364,14 +365,10 @@ def _sort(rows: list[RowOut], column: str, direction: str) -> None:
 # --- Latest SEC filings -------------------------------------------------------
 
 
-def _normalize_ticker(value: object) -> object:
-    return value.strip().upper() if isinstance(value, str) else value
-
-
 class FilingsRequest(BaseModel):
     """``ticker`` "" lists the newest filings market-wide."""
 
-    ticker: Annotated[str, BeforeValidator(_normalize_ticker)] = ""
+    ticker: TickerOrBlank = ""
     form: FilingForm = ""
     limit: Annotated[int, check(lambda v: 1 <= v <= 100, "Show between 1 and 100 filings.")] = 40
     source: Literal["sec_edgar"] = "sec_edgar"

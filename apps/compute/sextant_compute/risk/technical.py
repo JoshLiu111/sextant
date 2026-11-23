@@ -20,10 +20,11 @@ from pydantic_core import PydanticCustomError
 from sextant_compute.analytics import performance, technical
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
-from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
+from sextant_compute.data.sources import DEMO_SOURCE
 from sextant_compute.envelope import MetricResult, MetricStatus, ResultEnvelope, SeriesResult, envelope, metric, series
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
-from sextant_compute.risk.api import TOOL, RiskRequest, Ticker, _fields_for
+from sextant_compute.request_models import PriceRangeRequest, Ticker
+from sextant_compute.risk.api import TOOL, RiskRequest, _fields_for
 
 router = APIRouter(tags=["risk"])
 
@@ -63,27 +64,15 @@ class MacdParams(BaseModel):
         return slow
 
 
-class IndicatorRequest(BaseModel):
+class IndicatorRequest(PriceRangeRequest):
     """One ticker's price chart; each indicator is drawn when its parameters are given (null = off)."""
 
     ticker: Ticker
-    start: date
-    end: date
     sma: SmaParams | None = None
     ema: EmaParams | None = None
     bollinger: BollingerParams | None = None
     rsi: RsiParams | None = None
     macd: MacdParams | None = None
-    source: PriceSource = DEMO_SOURCE
-    """Demo data (``"synthetic"``) or the user's own provider (My data, e.g. ``"tiingo"``)."""
-
-    @field_validator("end")
-    @classmethod
-    def _end_after_start(cls, end: date, info: ValidationInfo) -> date:
-        start = info.data.get("start")
-        if start is not None and end <= start:
-            raise PydanticCustomError(INPUT_ERROR, "End date must be after the start date.")
-        return end
 
     def lookback_days(self) -> int:
         """Trading days of history the requested indicators need before ``start``."""

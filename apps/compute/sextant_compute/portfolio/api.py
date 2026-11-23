@@ -15,17 +15,17 @@ from typing import Annotated
 
 import pandas as pd
 from fastapi import APIRouter
-from pydantic import BaseModel, ValidationInfo, field_validator
+from pydantic import BaseModel, field_validator
 from pydantic_core import PydanticCustomError
 
 from sextant_compute.analytics import performance, portfolio
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data, DataService, PriceHistory
-from sextant_compute.data.sources import DEMO_SOURCE, PriceSource, is_demo_ticker
+from sextant_compute.data.sources import DEMO_SOURCE, is_demo_ticker
 from sextant_compute.envelope import MetricResult, ResultEnvelope, SeriesResult, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
-from sextant_compute.risk.api import Ticker
+from sextant_compute.request_models import PriceRangeRequest, Ticker
 from sextant_compute.risk.metrics import date_series, risk_metric_set
 
 router = APIRouter(tags=["portfolio"])
@@ -50,28 +50,16 @@ def _percent(x: float) -> str:
     return f"{x * 100:.2f}".rstrip("0").rstrip(".") + "%"
 
 
-class AnalysisSettings(BaseModel):
+class AnalysisSettings(PriceRangeRequest):
     """How a portfolio is scored: benchmark, date range, VaR confidence, risk-free rate, data source."""
 
     benchmark: Ticker = "DEMO-MKT"
-    start: date
-    end: date
     confidence: Annotated[
         float, check(lambda v: 0.5 <= v <= 0.999, "Enter a confidence level between 50% and 99.9%.")
     ] = 0.95
     risk_free_rate: Annotated[
         float, check(lambda v: -0.05 <= v <= 0.2, "Enter a risk-free rate between -5% and 20%.")
     ] = 0.0
-    source: PriceSource = DEMO_SOURCE
-    """Demo data (``"synthetic"``) or the user's own provider (My data, e.g. ``"tiingo"``)."""
-
-    @field_validator("end")
-    @classmethod
-    def _end_after_start(cls, end: date, info: ValidationInfo) -> date:
-        start = info.data.get("start")
-        if start is not None and end <= start:
-            raise PydanticCustomError(INPUT_ERROR, "End date must be after the start date.")
-        return end
 
 
 class PortfolioRequest(AnalysisSettings):
