@@ -434,8 +434,6 @@ export const en = {
       },
       tStat: "t =",
       exactFit: "t: undefined (exact fit)",
-      /** Under R² and every period-dependent value: how many returns of the period it used, e.g. "1,303 days". */
-      observations: (count: string, noun: string, n: number) => `${count} ${noun}${n === 1 ? "" : "s"}`,
     },
     /** My data only: the signed-in user's own factor files (ADR 0003). */
     factorFiles: {
@@ -495,6 +493,8 @@ export const en = {
         quarterly: { label: "Quarterly", noun: "quarter", perYear: 4 },
         yearly: { label: "Yearly", noun: "year", perYear: 1 },
       },
+      /** Under R² and every period-dependent value: how many returns of the period it used, e.g. "1,303 days". */
+      observations: (count: string, noun: string, n: number) => `${count} ${noun}${n === 1 ? "" : "s"}`,
       periodNote: (adjective: string, perYear: number, noun: string) =>
         `Statistics use ${adjective} returns, annualized with ${perYear} period${perYear === 1 ? "" : "s"} a year. A partial first or last period (a range that starts or ends inside one) is left out; each value shows how many ${noun}s it used. VaR and CVaR are one-${noun} losses; the factor regressions use ${adjective} returns and factors. Annualized return and max drawdown use the daily prices whatever the period.`,
       rolling: {
