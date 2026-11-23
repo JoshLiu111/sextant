@@ -32,6 +32,7 @@ function TotalCells({ row }: { row: UsageTotals }) {
   return (
     <>
       <td className={tdNum}>{WHOLE.format(row.calls)}</td>
+      <td className={tdNum}>{WHOLE.format(row.failed_calls)}</td>
       <td className={tdNum}>{WHOLE.format(row.input_tokens)}</td>
       <td className={tdNum}>{WHOLE.format(row.output_tokens)}</td>
       <td className={tdNum}>{USD.format(row.estimated_cost_usd)}</td>
@@ -43,6 +44,7 @@ function TotalHeaders() {
   return (
     <>
       <th scope="col" className={thNum}>{c.calls}</th>
+      <th scope="col" className={thNum}>{c.failedCalls}</th>
       <th scope="col" className={thNum}>{c.inputTokens}</th>
       <th scope="col" className={thNum}>{c.outputTokens}</th>
       <th scope="col" className={thNum}>{c.cost}</th>
@@ -133,6 +135,7 @@ async function AiUsage() {
           PRICE.format(report.pricing.output_usd_per_mtok),
         )}
       </p>
+      <p className="mt-1 text-sm text-black/60 dark:text-white/60">{t.operator.failedNote}</p>
       {report.users.length === 0 ? (
         <p className="mt-6" data-testid="ai-usage-empty">{t.operator.empty}</p>
       ) : (

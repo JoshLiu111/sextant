@@ -65,7 +65,16 @@ class Turn(NamedTuple):
 
 
 class ModelUnavailable(Exception):
-    """The model can't answer right now (not configured, outage, bad response)."""
+    """The model can't answer right now (not configured, outage, bad response).
+
+    ``input_tokens``/``output_tokens`` are what the failed request was still billed
+    for: non-zero when the API answered but the reply was unusable (e.g. no text).
+    """
+
+    def __init__(self, message: str, input_tokens: int = 0, output_tokens: int = 0) -> None:
+        super().__init__(message)
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
 
 
 class ExplainModel(Protocol):
@@ -121,7 +130,11 @@ class AnthropicModel:
         except (KeyError, TypeError) as exc:
             raise ModelUnavailable("Claude API returned an unexpected response") from exc
         if not completion.text:
-            raise ModelUnavailable(f"Claude API returned no text (stop_reason {data.get('stop_reason')})")
+            raise ModelUnavailable(
+                f"Claude API returned no text (stop_reason {data.get('stop_reason')})",
+                completion.input_tokens,
+                completion.output_tokens,
+            )
         return completion
 
     def converse(self, system: str, messages: list[dict], tools: list[dict], *, must_answer: bool) -> Turn:
@@ -142,7 +155,9 @@ class AnthropicModel:
         except (KeyError, TypeError) as exc:
             raise ModelUnavailable("Claude API returned an unexpected response") from exc
         if not turn.text.strip() and not turn.tool_uses:
-            raise ModelUnavailable(f"Claude API returned no text (stop_reason {turn.stop_reason})")
+            raise ModelUnavailable(
+                f"Claude API returned no text (stop_reason {turn.stop_reason})", turn.input_tokens, turn.output_tokens
+            )
         return turn
 
     def _post(self, body: dict) -> dict:

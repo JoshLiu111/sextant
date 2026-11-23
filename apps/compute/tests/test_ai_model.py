@@ -164,3 +164,28 @@ def test_a_reply_without_any_text_is_reported_as_unavailable():
         model.complete("s", "p")
     with pytest.raises(ModelUnavailable):
         model.converse("s", [{"role": "user", "content": "q"}], [], must_answer=True)
+
+
+def test_an_unusable_reply_still_reports_the_tokens_it_was_billed_for():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=THINKING_ONLY_REPLY)
+
+    model = AnthropicModel("k", transport=fake(handler))
+
+    with pytest.raises(ModelUnavailable) as explain:
+        model.complete("s", "p")
+    with pytest.raises(ModelUnavailable) as analyst:
+        model.converse("s", [{"role": "user", "content": "q"}], [], must_answer=True)
+
+    for raised in (explain.value, analyst.value):
+        assert (raised.input_tokens, raised.output_tokens) == (2400, 700)
+
+
+def test_a_failed_request_reports_no_tokens():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(401, json={"type": "error", "error": {"type": "authentication_error"}})
+
+    with pytest.raises(ModelUnavailable) as raised:
+        AnthropicModel("bad", transport=fake(handler)).complete("s", "p")
+
+    assert (raised.value.input_tokens, raised.value.output_tokens) == (0, 0)

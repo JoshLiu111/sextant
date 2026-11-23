@@ -42,12 +42,19 @@ def explain(client: TestClient, token: str) -> None:
     assert response.status_code == 200, response.text
 
 
-def log_usage(db_url: str, uid: str, days_ago: int, input_tokens: int | None, output_tokens: int | None) -> None:
+def log_usage(
+    db_url: str,
+    uid: str,
+    days_ago: int,
+    input_tokens: int | None,
+    output_tokens: int | None,
+    status: str = "ok",
+) -> None:
     with psycopg.connect(db_url, autocommit=True) as conn:
         conn.execute(
-            "INSERT INTO ai_usage (user_id, tool, input_tokens, output_tokens, created_at)"
-            " VALUES (%s, 'options', %s, %s, now() - make_interval(days => %s))",
-            (uid, input_tokens, output_tokens, days_ago),
+            "INSERT INTO ai_usage (user_id, tool, status, input_tokens, output_tokens, created_at)"
+            " VALUES (%s, 'options', %s, %s, %s, now() - make_interval(days => %s))",
+            (uid, status, input_tokens, output_tokens, days_ago),
         )
 
 
@@ -103,24 +110,48 @@ def test_totals_per_user_and_per_day_match_the_usage_log(client, model, operator
     assert body["pricing"] == {"input_usd_per_mtok": 3.0, "output_usd_per_mtok": 15.0}
     assert (body["since"], body["until"]) == (utc_day(29), utc_day(0))
     days = [
-        (d["day"], d["email"], d["calls"], d["input_tokens"], d["output_tokens"], d["estimated_cost_usd"])
+        (d["day"], d["email"], d["calls"], d["failed_calls"], d["input_tokens"], d["output_tokens"], d["estimated_cost_usd"])
         for d in body["days"]
     ]
     # 2000 x $3/M + 400 x $15/M = $0.012; 5000 x $3/M + 1000 x $15/M = $0.03.
     assert days == [
-        (utc_day(0), "alice@example.test", 2, 2000, 400, 0.012),
-        (utc_day(0), "bob@example.test", 1, 0, 0, 0.0),
-        (utc_day(1), "alice@example.test", 1, 5000, 1000, 0.03),
+        (utc_day(0), "alice@example.test", 2, 0, 2000, 400, 0.012),
+        (utc_day(0), "bob@example.test", 1, 0, 0, 0, 0.0),
+        (utc_day(1), "alice@example.test", 1, 0, 5000, 1000, 0.03),
     ]
     users = [
-        (u["email"], u["name"], u["calls"], u["input_tokens"], u["output_tokens"], u["estimated_cost_usd"])
+        (u["email"], u["name"], u["calls"], u["failed_calls"], u["input_tokens"], u["output_tokens"], u["estimated_cost_usd"])
         for u in body["users"]
     ]
     assert users == [
-        ("alice@example.test", "Alice", 3, 7000, 1400, 0.042),
-        ("bob@example.test", "Bob", 1, 0, 0, 0.0),
+        ("alice@example.test", "Alice", 3, 0, 7000, 1400, 0.042),
+        ("bob@example.test", "Bob", 1, 0, 0, 0, 0.0),
     ]
-    assert body["totals"] == {"calls": 4, "input_tokens": 7000, "output_tokens": 1400, "estimated_cost_usd": 0.042}
+    assert body["totals"] == {
+        "calls": 4,
+        "failed_calls": 0,
+        "input_tokens": 7000,
+        "output_tokens": 1400,
+        "estimated_cost_usd": 0.042,
+    }
+
+
+def test_failed_calls_count_their_tokens_and_cost_and_are_shown_separately(client, model, operator, prices, db_url):
+    alice = sign_in(client)
+    explain(client, alice)  # ok: 1000 in, 200 out
+    model.fail, model.billed_on_failure = True, (2000, 600)
+    response = client.post("/api/compute/ai/explain/options", json=OPTIONS, headers=bearer(alice))
+    assert response.status_code == 503
+
+    body = client.get(USAGE, headers=bearer(operator)).json()
+
+    # 3000 x $3/M + 800 x $15/M = $0.021.
+    expected = {"calls": 2, "failed_calls": 1, "input_tokens": 3000, "output_tokens": 800, "estimated_cost_usd": 0.021}
+    assert body["totals"] == expected
+    [user] = body["users"]
+    assert {k: user[k] for k in expected} == expected
+    [day] = body["days"]
+    assert {k: day[k] for k in expected} == expected
 
 
 def test_the_window_is_the_last_n_utc_days_including_today(client, operator, db_url):
@@ -152,4 +183,10 @@ def test_an_empty_log_gives_zero_totals(client, operator):
     body = client.get(USAGE, headers=bearer(operator)).json()
 
     assert body["users"] == [] and body["days"] == []
-    assert body["totals"] == {"calls": 0, "input_tokens": 0, "output_tokens": 0, "estimated_cost_usd": 0.0}
+    assert body["totals"] == {
+        "calls": 0,
+        "failed_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "estimated_cost_usd": 0.0,
+    }

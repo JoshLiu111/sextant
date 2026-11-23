@@ -35,12 +35,14 @@ class StubModel:
     input_tokens: int = 1200
     output_tokens: int = 180
     fail: bool = False
+    billed_on_failure: tuple[int, int] = (0, 0)
+    """Tokens a failed call was still billed for (e.g. a reply with no text)."""
     prompts: list[tuple[str, str]] = field(default_factory=list)
 
     def complete(self, system: str, prompt: str) -> Completion:
         self.prompts.append((system, prompt))
         if self.fail:
-            raise ModelUnavailable("stubbed outage")
+            raise ModelUnavailable("stubbed outage", *self.billed_on_failure)
         return Completion(self.reply, self.input_tokens, self.output_tokens)
 
 
@@ -166,6 +168,24 @@ def test_a_model_outage_is_reported_and_costs_nothing(client, model):
     assert quota(client, token)["used"] == 0
 
 
+def usage_log(db_url: str) -> list[dict]:
+    with psycopg.connect(db_url, row_factory=psycopg.rows.dict_row) as conn:
+        return conn.execute("SELECT tool, status, input_tokens, output_tokens FROM ai_usage").fetchall()
+
+
+def test_a_failed_call_is_logged_with_the_tokens_it_cost_but_not_charged(client, model, db_url, monkeypatch):
+    monkeypatch.setenv("AI_DAILY_QUOTA", "1")
+    model.fail, model.billed_on_failure = True, (2400, 700)
+    token = sign_in(client)
+
+    assert explain(client, token).status_code == 503
+
+    assert usage_log(db_url) == [{"tool": "options", "status": "failed", "input_tokens": 2400, "output_tokens": 700}]
+    assert quota(client, token)["used"] == 0
+    model.fail = False
+    assert explain(client, token).status_code == 200
+
+
 def test_every_call_is_logged_with_its_user_tool_tokens_and_time(client, model, db_url):
     token = sign_in(client)
     user_id = client.get("/api/compute/me", headers=bearer(token)).json()["id"]
@@ -175,11 +195,18 @@ def test_every_call_is_logged_with_its_user_tool_tokens_and_time(client, model, 
     assert body["usage"] == {"input_tokens": 1200, "output_tokens": 180}
     with psycopg.connect(db_url, row_factory=psycopg.rows.dict_row) as conn:
         rows = conn.execute(
-            "SELECT user_id::text, tool, input_tokens, output_tokens,"
+            "SELECT user_id::text, tool, status, input_tokens, output_tokens,"
             " now() - created_at < interval '1 minute' AS recent FROM ai_usage"
         ).fetchall()
     assert rows == [
-        {"user_id": user_id, "tool": "options", "input_tokens": 1200, "output_tokens": 180, "recent": True}
+        {
+            "user_id": user_id,
+            "tool": "options",
+            "status": "ok",
+            "input_tokens": 1200,
+            "output_tokens": 180,
+            "recent": True,
+        }
     ]
 
 

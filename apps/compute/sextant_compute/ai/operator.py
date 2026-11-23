@@ -6,7 +6,8 @@ case-insensitive) get in. Everyone else, signed in or not, gets a 404
 
 - ``GET /access``: 204 for an operator (the web app checks this before rendering).
 - ``GET /ai-usage?days=N``: calls, tokens and estimated cost per user and per
-  user per UTC day, over the last N days (default 30, today included).
+  user per UTC day, over the last N days (default 30, today included). Failed
+  calls are included (they spent tokens) and also counted on their own.
 """
 
 from __future__ import annotations
@@ -77,7 +78,10 @@ class Pricing(BaseModel):
 
 class UsageTotals(BaseModel):
     calls: int
-    """Every logged call, including one still waiting for the model (no tokens yet)."""
+    """Every logged call: failed ones, and one still waiting for the model (no tokens yet)."""
+    failed_calls: int
+    """Calls the model failed on. They don't count against the user's quota, but
+    their tokens (e.g. AI Analyst rounds before the failure) are in the totals."""
     input_tokens: int
     output_tokens: int
     estimated_cost_usd: float
@@ -109,6 +113,7 @@ _PER_USER_PER_DAY = """
 SELECT (a.created_at AT TIME ZONE 'UTC')::date AS day,
        a.user_id, u.email, u.name,
        count(*)::int AS calls,
+       count(*) FILTER (WHERE a.status = 'failed')::int AS failed_calls,
        coalesce(sum(a.input_tokens), 0)::bigint AS input_tokens,
        coalesce(sum(a.output_tokens), 0)::bigint AS output_tokens
 FROM ai_usage a JOIN users u ON u.id = a.user_id
@@ -123,6 +128,7 @@ def _totals(rows: Iterable[dict], pricing: Pricing) -> dict:
     output_tokens = sum(r["output_tokens"] for r in rows)
     return {
         "calls": sum(r["calls"] for r in rows),
+        "failed_calls": sum(r["failed_calls"] for r in rows),
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "estimated_cost_usd": pricing.cost(input_tokens, output_tokens),

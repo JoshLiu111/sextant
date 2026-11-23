@@ -2150,6 +2150,8 @@ export const en = {
       `AI calls, tokens and estimated cost per user, ${since} to ${until} (UTC days). Operator only.`,
     pricing: (input: string, output: string) =>
       `Estimated cost at ${input} per million input tokens and ${output} per million output tokens.`,
+    failedNote:
+      "Calls include failed ones: they don't count against the user's daily quota, but the tokens they spent are in the totals.",
     totals: "Total",
     perUser: "AI usage per user",
     perDay: "AI usage per user per day",
@@ -2158,6 +2160,7 @@ export const en = {
       day: "Day (UTC)",
       user: "User",
       calls: "Calls",
+      failedCalls: "Failed",
       inputTokens: "Input tokens",
       outputTokens: "Output tokens",
       cost: "Estimated cost",

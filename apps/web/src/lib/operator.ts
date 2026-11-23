@@ -7,7 +7,10 @@ import { computeFetchAsUser } from "@/lib/auth/session";
 // answer 404, and so does /operator (see src/proxy.ts).
 
 export type UsageTotals = {
+  /** Every call, failed ones included. */
   calls: number;
+  /** Calls the model failed on: not charged to the user's quota, but their tokens count. */
+  failed_calls: number;
   input_tokens: number;
   output_tokens: number;
   estimated_cost_usd: number;
