@@ -2,12 +2,18 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Defaults: DEMO-A, DEMO-B, DEMO-D vs DEMO-MKT, 2021-01-01 to 2025-12-31, 95% (synthetic demo data).
 const METHODS = ["backtest_var", "backtest_parametric_var", "backtest_cornish_fisher_var"];
+// The first result can be slow when every worker opens /risk at once (dev compile, cold cache).
+const FIRST_RESULT = 20_000;
 
 async function openRisk(page: Page) {
   await page.goto("/risk");
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { level: 1, name: "Risk & Performance" })).toBeVisible();
-  return main.getByTestId("model-checks");
+  const checks = main.getByTestId("model-checks");
+  await expect(checks.locator('[data-backtest="backtest_var:DEMO-A"]')).toHaveAttribute("data-status", "ok", {
+    timeout: FIRST_RESULT,
+  });
+  return checks;
 }
 
 test("the VaR backtest shows breaches, expected breaches, Kupiec and a reading for every method", async ({ page }) => {
