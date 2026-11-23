@@ -44,7 +44,7 @@ def dcf(base_fcf: float, *, growth: float, terminal_growth: float, discount_rate
 
 
 def equity_value(enterprise_value: float, *, cash: float, total_debt: float) -> float:
-    """Equity = EV + cash − total debt."""
+    """Equity = EV + cash (incl. short-term investments) − total debt."""
     return enterprise_value + cash - total_debt
 
 

@@ -34,6 +34,8 @@ TINY = {
 }
 INSTANTS = {
     "CashAndCashEquivalentsAtCarryingValue",
+    "ShortTermInvestments",
+    "MarketableSecuritiesCurrent",
     "DebtCurrent",
     "LongTermDebtNoncurrent",
     "CommonStockSharesOutstanding",
@@ -94,6 +96,41 @@ def test_dcf_matches_a_hand_computed_example() -> None:
     assert body["metrics"]["intrinsic_value_per_share"]["unit"] == "per_share"
     projected = [(p["x"], p["y"]) for p in body["series"]["projected_fcf"]["points"]]
     assert projected == [(1, pytest.approx(110 * M)), (2, pytest.approx(121 * M))]
+
+
+def test_short_term_investments_count_as_cash_in_the_equity_bridge() -> None:
+    # Same case as above plus short-term investments 30: equity = 1200 + 50 + 30 - 50 = 1230.
+    res = post_tiny(
+        {"growth_rate": 0.10, "terminal_growth": 0.0, "discount_rate": 0.10, "forecast_years": 2},
+        tiny_facts({**TINY, "ShortTermInvestments": 30}),
+    )
+
+    m = res.json()["metrics"]
+    sti = m["short_term_investments"]
+    assert sti["status"] == "ok"
+    assert sti["value"] == 30 * M
+    assert sti["unit"] == "currency"
+    assert sti["details"]["period"] == "FY2025"
+    assert m["equity_value"]["value"] == pytest.approx(1230 * M, rel=1e-12)
+    assert m["intrinsic_value_per_share"]["value"] == pytest.approx(123, rel=1e-12)
+    assert m["sensitivity:2:2"]["value"] == pytest.approx(123, rel=1e-12)
+
+
+def test_marketable_securities_are_the_fallback_tag_for_short_term_investments() -> None:
+    res = post_tiny({}, tiny_facts({**TINY, "MarketableSecuritiesCurrent": 25}))
+
+    assert res.json()["metrics"]["short_term_investments"]["value"] == 25 * M
+
+
+def test_unreported_short_term_investments_count_as_zero_with_a_note() -> None:
+    res = post_tiny({"growth_rate": 0.10, "terminal_growth": 0.0, "discount_rate": 0.10, "forecast_years": 2})
+
+    m = res.json()["metrics"]
+    sti = m["short_term_investments"]
+    assert sti["status"] == "ok"
+    assert sti["value"] == 0
+    assert sti["details"]["basis"] == "not_reported"
+    assert m["intrinsic_value_per_share"]["value"] == pytest.approx(120, rel=1e-12)
 
 
 def test_wacc_breakdown_is_derived_from_the_statements_and_capm() -> None:
@@ -223,6 +260,11 @@ def test_the_default_ticker_values_msft_from_its_latest_10k() -> None:
     assert m["free_cash_flow"]["value"] == 66_987_000_000
     assert m["free_cash_flow"]["details"]["url"].startswith("https://www.sec.gov/Archives/edgar/data/789019/")
     assert m["total_debt"]["value"] == 9_227_000_000 + 31_067_000_000
+    # MSFT tags ShortTermInvestments 55,908M at 2026-06-30; it adds to cash in the equity bridge.
+    assert m["short_term_investments"]["value"] == 55_908_000_000
+    assert m["equity_value"]["value"] == pytest.approx(
+        m["enterprise_value"]["value"] + m["cash"]["value"] + 55_908_000_000 - m["total_debt"]["value"]
+    )
     for key in ("wacc", "enterprise_value", "intrinsic_value_per_share", "sensitivity:2:2"):
         assert m[key]["status"] == "ok", m[key]
     assert m["sensitivity:2:2"]["value"] == m["intrinsic_value_per_share"]["value"]

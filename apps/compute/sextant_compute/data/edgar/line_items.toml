@@ -178,6 +178,13 @@ tags = [
 ]
 
 [[item]]
+id = "short_term_investments"
+label = "Short-term Investments"
+statement = "balance"
+unit = "USD"
+tags = ["us-gaap:ShortTermInvestments", "us-gaap:MarketableSecuritiesCurrent"]
+
+[[item]]
 id = "receivables"
 label = "Accounts Receivable"
 statement = "balance"

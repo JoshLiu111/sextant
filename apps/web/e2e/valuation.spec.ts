@@ -2,7 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Compute serves EDGAR from recorded fixtures through e2e/fake-edgar.mjs.
 // Default ticker MSFT, base year FY2026 (FCF = 182,935M - 115,948M = 66,987M).
-// With the default assumptions the DCF gives $150.58 per share.
+// Short-term investments 55,908M join cash in the equity bridge.
+// With the default assumptions the DCF gives $158.11 per share.
 
 async function openValuation(page: Page, query = "") {
   await page.goto(`/valuation${query}`);
@@ -23,25 +24,26 @@ test("smoke: submit the defaults and see the DCF, WACC breakdown and sensitivity
   const results = main.getByTestId("results");
   await expect(results.getByRole("heading", { name: "MICROSOFT CORP" })).toBeVisible();
   await expect(value(results, "intrinsic_value_per_share")).toHaveAttribute("data-status", "ok");
-  await expect(value(results, "intrinsic_value_per_share")).toContainText("$150.58");
+  await expect(value(results, "intrinsic_value_per_share")).toContainText("$158.11");
   await expect(value(results, "free_cash_flow")).toContainText("$66.99B");
+  await expect(value(results, "short_term_investments")).toContainText("$55.91B");
   for (const id of ["enterprise_value", "equity_value", "cost_of_equity", "cost_of_debt", "tax_rate", "wacc"]) {
     await expect(value(results, id)).toHaveAttribute("data-status", "ok");
   }
   await expect(value(results, "wacc")).toContainText("9.22%");
   const grid = results.getByRole("table", { name: "Sensitivity: value per share" });
   await expect(grid).toBeVisible();
-  await expect(grid.locator('[data-metric-value="sensitivity:2:2"]')).toHaveText("$150.58");
+  await expect(grid.locator('[data-metric-value="sensitivity:2:2"]')).toHaveText("$158.11");
   await expect(grid.locator("[data-metric-value^='sensitivity:']")).toHaveCount(25);
 });
 
 test("changing an assumption updates the results", async ({ page }) => {
   const main = await openValuation(page);
-  await expect(value(main, "intrinsic_value_per_share")).toContainText("$150.58");
+  await expect(value(main, "intrinsic_value_per_share")).toContainText("$158.11");
 
   await main.getByLabel("Growth rate (%)").fill("8");
 
-  await expect(value(main, "intrinsic_value_per_share")).toContainText("$171.15");
+  await expect(value(main, "intrinsic_value_per_share")).toContainText("$178.68");
 });
 
 test("overriding a WACC component updates the WACC", async ({ page }) => {
