@@ -3,8 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { csvFilename } from "@/lib/csv";
 import type { ResultEnvelope } from "@/lib/envelope";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
@@ -112,9 +114,22 @@ export function DividendHistory() {
         )}
         {history ? (
           <>
-            <h3 data-testid="dividends-heading" className="text-base font-semibold">
-              {m.companyHeading(history.company.name, history.company.ticker)}
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 data-testid="dividends-heading" className="text-base font-semibold">
+                {m.companyHeading(history.company.name, history.company.ticker)}
+              </h3>
+              {history.pays_dividends && (
+                <ExportCsvButton
+                  label={m.tableLabel}
+                  filename={csvFilename("screener", "dividends", history.company.ticker)}
+                  demo={history.source.is_demo}
+                  table={{
+                    columns: [...m.csvColumns],
+                    rows: history.periods.map((p) => [p.label, p.start, p.end, p.value, p.derived ? "yes" : "", p.filing.form, p.filing.filed]),
+                  }}
+                />
+              )}
+            </div>
             {!history.pays_dividends ? (
               <p data-testid="dividends-note" className="text-sm text-black/70 dark:text-white/70">
                 {history.note}

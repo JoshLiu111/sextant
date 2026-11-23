@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 // The earnings calendar and dividend history on /screener, served from the
@@ -104,4 +105,23 @@ test("an unknown dividend ticker is shown on the field", async ({ page }) => {
 
   await expect(main.getByText(/Unknown ticker ZZZZ/).first()).toBeVisible();
   await expect(main.getByLabel("Dividend ticker")).toHaveAttribute("aria-invalid", "true");
+});
+
+test("dividend history and the calendar export to CSV", async ({ page }) => {
+  const main = await open(page);
+  await expect(main.getByTestId("dividends-heading")).toHaveText("Apple Inc. (AAPL)", { timeout: 30_000 });
+
+  const download = page.waitForEvent("download");
+  await main.getByRole("button", { name: "Export CSV: Dividend history" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("sextant-screener-dividends-AAPL.csv");
+  const text = readFileSync((await file.path())!, "utf8");
+  expect(text).toContain("Period,Start,End,Dividend per share (USD),Derived,Form,Filed");
+  expect(text).toContain("FY2026,2025-09-28,2026-09-26,1.06,,10-K,2026-11-03");
+  expect(text).toContain("Q4 FY2026,2026-06-28,2026-09-26,0.27,yes,10-K,2026-11-03");
+
+  await expect(main.getByTestId("earnings-range")).toBeVisible({ timeout: 30_000 });
+  const calendarDownload = page.waitForEvent("download");
+  await main.getByRole("button", { name: "Export CSV: Earnings calendar" }).click();
+  expect((await calendarDownload).suggestedFilename()).toBe("sextant-screener-earnings-2026-10-23_2027-01-21.csv");
 });

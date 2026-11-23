@@ -919,6 +919,9 @@ export const en = {
       reportedLink: (form: string, filed: string) => `${form} filed ${filed}`,
       expectedLink: (form: string, filed: string) => `Based on ${form} filed ${filed}`,
       none: "No earnings releases in this range.",
+      csvForm: "Form",
+      csvAccession: "Accession number",
+      csvBasedOn: "Based on 8-K filed",
       loading: "Loading the earnings calendar…",
     },
     dividends: {
@@ -933,6 +936,7 @@ export const en = {
       quarters: ["Q1", "Q2", "Q3", "Q4"],
       year: "Full year",
       derivedNote: "* Fourth quarter derived: the full year less the first nine months.",
+      csvColumns: ["Period", "Start", "End", "Dividend per share (USD)", "Derived", "Form", "Filed"],
       cellTitle: (label: string, form: string, filed: string) => `${label} · Source: ${form} filed ${filed}`,
       loading: "Loading dividends…",
     },

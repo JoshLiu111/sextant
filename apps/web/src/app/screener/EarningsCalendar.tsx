@@ -3,8 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { csvFilename } from "@/lib/csv";
 import type { ResultEnvelope } from "@/lib/envelope";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
@@ -90,9 +92,22 @@ export function EarningsCalendar() {
         )}
         {calendar ? (
           <>
-            <h3 data-testid="earnings-range" className="text-base font-semibold">
-              {m.range(calendar.start, calendar.end)}
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 data-testid="earnings-range" className="text-base font-semibold">
+                {m.range(calendar.start, calendar.end)}
+              </h3>
+              {calendar.events.length > 0 && (
+                <ExportCsvButton
+                  label={m.tableLabel}
+                  filename={csvFilename("screener", "earnings", `${calendar.start}_${calendar.end}`)}
+                  demo={calendar.source.is_demo}
+                  table={{
+                    columns: [m.date, t.common.csv.ticker, m.company, m.status, m.csvForm, m.csvAccession, m.csvBasedOn],
+                    rows: calendar.events.map((e) => [e.date, e.ticker, e.company, e.status, e.form, e.accession, e.based_on]),
+                  }}
+                />
+              )}
+            </div>
             {calendar.events.length === 0 ? (
               <p className="text-sm text-black/60 dark:text-white/60">{m.none}</p>
             ) : (
