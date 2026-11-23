@@ -19,6 +19,7 @@ from sextant_compute.company.api import router as company_router
 from sextant_compute.company.ratios import router as company_ratios_router
 from sextant_compute.db import Database
 from sextant_compute.errors import install_error_handlers
+from sextant_compute.keys.api import router as keys_router
 from sextant_compute.macro.api import router as macro_router
 from sextant_compute.options.api import router as options_router
 from sextant_compute.portfolio.api import router as portfolio_router
@@ -70,5 +71,6 @@ def create_app() -> FastAPI:
     app.include_router(screener_router, prefix=f"{API_PREFIX}/screener")
     app.include_router(ai_router, prefix=f"{API_PREFIX}/ai")
     app.include_router(ai_analyst_router, prefix=f"{API_PREFIX}/ai")
+    app.include_router(keys_router, prefix=f"{API_PREFIX}/keys")
     app.include_router(auth_router, prefix=API_PREFIX)
     return app

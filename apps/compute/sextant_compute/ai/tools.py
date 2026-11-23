@@ -29,7 +29,7 @@ from sextant_compute.data.synthetic import HISTORY_END, HISTORY_START
 from sextant_compute.envelope import ResultEnvelope
 from sextant_compute.errors import SOURCE_UNAVAILABLE_MESSAGE, ApiError, field_errors
 from sextant_compute.macro.api import IndicatorsRequest, RatesRequest, headline_indicators, treasury_rates
-from sextant_compute.options.api import OptionsRequest
+from sextant_compute.options.api import AmericanRequest, OptionsRequest, StrategyRequest, american, strategy
 from sextant_compute.options.api import price as options_price
 from sextant_compute.portfolio.api import PortfolioRequest, portfolio_metrics
 from sextant_compute.risk.api import RiskRequest, risk_metrics
@@ -73,6 +73,22 @@ TOOLS: list[Tool] = [
         lambda req, _data, _ctx: options_price(req),
     ),
     Tool(
+        "options_strategy",
+        "Options Calculator: a multi-leg strategy (long/short calls, puts and the underlying) under "
+        "Black-Scholes: net_cost, max_profit, max_loss and the position's delta, gamma, vega, theta, rho. "
+        "Same market inputs as options_price.",
+        StrategyRequest,
+        lambda req, _data, _ctx: strategy(req),
+    ),
+    Tool(
+        "options_american",
+        "Options Calculator: American call and put prices from a binomial tree, the European tree prices "
+        "and the early-exercise premium. Metrics: american_call, american_put, european_call_tree, "
+        "european_put_tree, call_early_exercise_premium, put_early_exercise_premium.",
+        AmericanRequest,
+        lambda req, _data, _ctx: american(req),
+    ),
+    Tool(
         "risk_metrics",
         "Risk & Performance for one or more tickers vs a benchmark: annualized return and volatility, max "
         "drawdown, historical VaR/CVaR, Sharpe, Sortino, beta. Metric ids are '<metric>:<TICKER>'; returns, "
@@ -97,8 +113,9 @@ TOOLS: list[Tool] = [
     Tool(
         "company_ratios",
         "Company Health Check: efficiency, liquidity, profitability, solvency and valuation ratios plus the "
-        "Altman Z-Score for up to 5 US companies side by side, from SEC EDGAR. Metric ids are "
-        "'<ratio>:<TICKER>:<fiscal year end>' and 'altman_z:<TICKER>:<fiscal year end>'. Margins and returns "
+        "Altman Z, Piotroski F and Beneish M scores and the DuPont breakdown for up to 5 US companies side "
+        "by side, from SEC EDGAR. Metric ids are '<ratio or score>:<TICKER>:<fiscal year end>' (e.g. "
+        "'altman_z:AAPL:2024-09-28'); the ratios and models lists name them. Margins and returns "
         "are decimals (0.25 = 25%). Valuation ratios need a share price per company.",
         RatiosRequest,
         company_ratios,

@@ -112,6 +112,8 @@ def test_the_compute_endpoints_are_offered_as_tools_with_typed_parameters(client
     tools = {t["name"]: t for t in model.requests[0]["tools"]}
     assert {
         "options_price",
+        "options_strategy",
+        "options_american",
         "risk_metrics",
         "portfolio_metrics",
         "company_statements",
