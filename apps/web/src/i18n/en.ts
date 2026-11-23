@@ -60,7 +60,7 @@ export const en = {
     },
     macro: {
       name: "Macro Dashboard",
-      description: "Key US economic indicators, the Treasury yield curve and the 10Y-2Y spread.",
+      description: "US indicators, the Treasury yield curve, cross-country comparisons and the euro area.",
     },
     screener: {
       name: "Screener & Calendar",
@@ -401,10 +401,86 @@ export const en = {
   },
   macro: {
     intro:
-      "The latest reading and history of four headline US indicators, from public-domain series on FRED, and the US Treasury yield curve and 10Y–2Y spread, from the Treasury's daily par yield curve. Hover a chart to see exact values.",
+      "The latest reading and history of four headline US indicators, from public-domain series on FRED; the US Treasury yield curve and 10Y–2Y spread, from the Treasury's daily par yield curve; a cross-country comparison from the World Bank; and euro area policy rates and inflation from the ECB. Hover a chart to see exact values.",
     sections: {
       indicators: "US headline indicators",
       rates: "US Treasury yields",
+      countries: "Compare countries",
+      euroArea: "Euro area",
+    },
+    countries: {
+      intro:
+        "Annual GDP growth, inflation and unemployment for up to six economies, from the World Bank's World Development Indicators. Each value is the latest year the World Bank has published for that country.",
+      picker: "Countries",
+      pickerHint: "Choose up to 6.",
+      chartSuffix: "by country",
+      x: "Year",
+      dataset: "World Bank, World Development Indicators",
+      originalSource: "Original source",
+      indicator: "Indicator",
+      names: {
+        ARG: "Argentina",
+        AUS: "Australia",
+        BRA: "Brazil",
+        CAN: "Canada",
+        CHN: "China",
+        DEU: "Germany",
+        EMU: "Euro area",
+        ESP: "Spain",
+        FRA: "France",
+        GBR: "United Kingdom",
+        IND: "India",
+        ITA: "Italy",
+        JPN: "Japan",
+        KOR: "South Korea",
+        MEX: "Mexico",
+        USA: "United States",
+        ZAF: "South Africa",
+      },
+      indicators: {
+        gdp_growth: {
+          name: "GDP growth",
+          what: "How fast each economy's output of goods and services grew over the year, after removing inflation.",
+          how: "Annual percent change of real GDP at market prices in constant local currency; World Bank indicator NY.GDP.MKTP.KD.ZG, from national accounts data compiled by the World Bank and the OECD.",
+          read: "Shown in percent. Calendar-year growth, so it moves less than the US quarterly annualized rate above. A negative value means the economy shrank that year.",
+        },
+        inflation: {
+          name: "Inflation",
+          what: "How much consumer prices rose over the year in each economy.",
+          how: "Annual percent change of the consumer price index (yearly average); World Bank indicator FP.CPI.TOTL.ZG, from the IMF's International Financial Statistics.",
+          read: "Shown in percent. Many central banks target about 2%. Very high values (e.g. Argentina) stretch the chart's scale.",
+        },
+        unemployment_rate: {
+          name: "Unemployment rate",
+          what: "The share of each economy's labor force that is out of work and looking for a job.",
+          how: "Unemployed people as a percentage of the total labor force, from the ILO's modelled estimates, which harmonize national surveys so countries can be compared; World Bank indicator SL.UEM.TOTL.ZS.",
+          read: "Shown in percent. Modelled estimates can differ from the headline rate each country's statistics office publishes.",
+        },
+      },
+    },
+    euroArea: {
+      intro:
+        "The three key interest rates the ECB's Governing Council sets, and euro area consumer price inflation (HICP), from the ECB Data Portal.",
+      since: "Since",
+      ratesChart: "Key ECB interest rates history",
+      hicpChart: "Euro area HICP inflation history",
+      rateLabels: {
+        deposit_facility_rate: "Deposit facility",
+        main_refinancing_rate: "Main refinancing operations",
+        marginal_lending_rate: "Marginal lending facility",
+      },
+      ecb_rates: {
+        name: "Key ECB interest rates",
+        what: "The rates at which euro area banks can deposit money with the Eurosystem overnight (deposit facility), borrow for a week against collateral (main refinancing operations) and borrow overnight (marginal lending facility).",
+        how: "The rates the ECB's Governing Council decided, each in force from the date shown until the next change; ECB series FM/B.U2.EUR.4F.KR.{DFR, MRR_FR, MLFR}.LEV. The chart holds each rate flat between decisions.",
+        read: "Shown in percent per year. With ample excess liquidity, the deposit facility rate is the one that steers short-term market rates; the ECB raises rates to cool inflation and cuts them to support growth.",
+      },
+      hicp_inflation: {
+        name: "Euro area HICP inflation",
+        what: "How much consumer prices in the euro area rose over the past year, measured by the Harmonised Index of Consumer Prices.",
+        how: "Annual rate of change of the overall HICP for the euro area (changing composition), not seasonally adjusted, compiled by Eurostat; ECB series HICP/M.U2.N.000000.4D0.ANR.",
+        read: "Shown in percent. The ECB aims for 2% inflation over the medium term.",
+      },
     },
     meta: {
       source: "Source",

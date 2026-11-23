@@ -8,7 +8,9 @@ import { defineConfig, devices } from "@playwright/test";
 // Accounts: sign-in goes to a fake OIDC provider (e2e/fake-oidc.mjs) on
 // OIDC_PORT (default COMPUTE_PORT + 1). FRED requests go to a fake FRED API
 // (e2e/fake-fred.mjs) on FRED_PORT (default COMPUTE_PORT + 2), Treasury yield curve
-// requests to a fake (e2e/fake-treasury.mjs) on TREASURY_PORT (default COMPUTE_PORT + 4).
+// requests to a fake (e2e/fake-treasury.mjs) on TREASURY_PORT (default COMPUTE_PORT + 4),
+// World Bank requests to e2e/fake-world-bank.mjs on WORLD_BANK_PORT (default COMPUTE_PORT + 5)
+// and ECB requests to e2e/fake-ecb.mjs on ECB_PORT (default COMPUTE_PORT + 6).
 // The compute service uses
 // E2E_DATABASE_URL if set (CI: the postgres service container); otherwise it
 // starts a throwaway local Postgres (needs initdb/pg_ctl, e.g. Homebrew).
@@ -48,6 +50,13 @@ const fred = {
 };
 // Treasury: compute fetches the yield curve CSVs from a fake (e2e/fake-treasury.mjs).
 const treasury = { TREASURY_BASE_URL: `http://127.0.0.1:${TREASURY_PORT}` };
+// World Bank and ECB: compute fetches from fakes serving the recorded responses.
+const WORLD_BANK_PORT = Number(process.env.WORLD_BANK_PORT || COMPUTE_PORT + 5);
+const ECB_PORT = Number(process.env.ECB_PORT || COMPUTE_PORT + 6);
+const worldBankAndEcb = {
+  WORLD_BANK_BASE_URL: `http://127.0.0.1:${WORLD_BANK_PORT}`,
+  ECB_BASE_URL: `http://127.0.0.1:${ECB_PORT}`,
+};
 const uvicorn = `uv run uvicorn main:app --host 127.0.0.1 --port ${COMPUTE_PORT}`;
 const e2eDatabaseUrl = process.env.E2E_DATABASE_URL;
 
@@ -88,6 +97,18 @@ export default defineConfig({
       env: { TREASURY_PORT: String(TREASURY_PORT) },
     },
     {
+      command: "node e2e/fake-world-bank.mjs",
+      url: `${worldBankAndEcb.WORLD_BANK_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { WORLD_BANK_PORT: String(WORLD_BANK_PORT) },
+    },
+    {
+      command: "node e2e/fake-ecb.mjs",
+      url: `${worldBankAndEcb.ECB_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { ECB_PORT: String(ECB_PORT) },
+    },
+    {
       command: e2eDatabaseUrl
         ? uvicorn
         : `uv run python scripts/ephemeral_postgres.py -- ${uvicorn}`,
@@ -101,6 +122,7 @@ export default defineConfig({
         ...edgar,
         ...fred,
         ...treasury,
+        ...worldBankAndEcb,
         ...(e2eDatabaseUrl ? { DATABASE_URL: e2eDatabaseUrl } : {}),
       },
     },
