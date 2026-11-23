@@ -274,6 +274,59 @@ export const en = {
       },
     },
   },
+  portfolio: {
+    intro:
+      "Build a demo portfolio from tickers and weights, or load a classic allocation, and compare its cumulative return and risk with a benchmark. Change any input and the results update.",
+    inputsHeading: "Inputs",
+    submit: "Calculate",
+    presets: {
+      heading: "Presets",
+      hint: "Classic allocations mapped onto demo tickers.",
+      items: {
+        sixtyForty: {
+          name: "60/40",
+          description: "60% stocks (DEMO-C, an index tracker), 40% bonds (DEMO-E, defensive and low beta).",
+        },
+        allWeather: {
+          name: "All Weather",
+          description:
+            "30% stocks (DEMO-C), 55% long and intermediate bonds (DEMO-E), 7.5% gold (DEMO-A, low volatility), 7.5% commodities (DEMO-F, speculative).",
+        },
+      },
+    },
+    holdings: {
+      heading: "Holdings",
+      hint: "Demo tickers: DEMO-A to DEMO-F. Weights are a share of the portfolio and must add up to 100%. The portfolio is rebalanced to these weights every day.",
+      ticker: "Ticker",
+      weight: "Weight",
+      weightUnit: "(%)",
+      add: "Add holding",
+      remove: "Remove holding",
+      total: "Total",
+    },
+    inputs: {
+      benchmark: { label: "Benchmark", hint: "Demo benchmark: DEMO-MKT." },
+      start: { label: "Start date", hint: "Demo data covers 2016-01-04 to 2025-12-31." },
+      end: { label: "End date", hint: "Must be after the start date." },
+      confidence: { label: "VaR confidence level (%)", hint: "For VaR and CVaR. 50 to 99.9; 95 is common." },
+      risk_free_rate: {
+        label: "Risk-free rate (%)",
+        hint: "Annual, effective. For Sharpe and Sortino.",
+      },
+    },
+    portfolioLabel: "Portfolio",
+    benchmarkSuffix: "(benchmark)",
+    sections: {
+      chart: "Cumulative return",
+      metrics: "Portfolio risk",
+      metricsNote:
+        "The portfolio's daily return is the weighted sum of its holdings' daily total returns. These metrics are computed on that series with the same formulas as Risk & Performance.",
+    },
+    chart: {
+      label: "Cumulative return of the portfolio and the benchmark over time, with dividends reinvested",
+      x: "Date",
+    },
+  },
   macro: {
     intro:
       "The latest reading and history of four headline US indicators, from public-domain series on FRED. Hover a chart to see exact values.",
