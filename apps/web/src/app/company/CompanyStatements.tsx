@@ -4,10 +4,12 @@ import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { MetricExplainer } from "@/components/MetricExplainer";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
+import { csvFilename, type CsvTable } from "@/lib/csv";
 import { formatStatementValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
 
@@ -71,11 +73,23 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
   const c = getMessages().company;
   const items = result.items.filter((i) => i.statement === statement && i.display);
   const headingId = `statement-${statement}`;
+  const csv: CsvTable = {
+    columns: [c.lineItem, ...result.periods.map((p) => `${p.label} (${p.end})`)],
+    rows: items.map((item) => [item.label, ...result.periods.map((p) => result.metrics[`${item.id}:${p.id}`])]),
+  };
   return (
     <section aria-labelledby={headingId}>
-      <h3 id={headingId} className="text-base font-semibold">
-        {c.statements[statement]}
-      </h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 id={headingId} className="text-base font-semibold">
+          {c.statements[statement]}
+        </h3>
+        <ExportCsvButton
+          table={csv}
+          label={c.statements[statement]}
+          filename={csvFilename("company", c.statements[statement], result.company.ticker)}
+          demo={result.source.is_demo}
+        />
+      </div>
       <div className="mt-2 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
         <table aria-labelledby={headingId} className="w-full min-w-[40rem] border-collapse text-sm">
           <thead>

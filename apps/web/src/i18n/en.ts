@@ -107,6 +107,10 @@ export const en = {
       badge: "Demo data",
       body: "These results use synthetic prices for fictional tickers, not real market data.",
     },
+    csv: {
+      export: "Export CSV",
+      exportLabel: (table: string) => `Export CSV: ${table}`,
+    },
     calculation: {
       id: "Calculation",
       source: "Source",

@@ -1,0 +1,110 @@
+import { readFile } from "node:fs/promises";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+// Every result table has an "Export CSV" button (story 9). These tests download
+// the file and read it back. EDGAR comes from recorded fixtures (fake-edgar.mjs);
+// Risk and Portfolio use the synthetic demo data.
+
+/** Click an export button and return the download's file name and parsed rows. */
+async function download(page: Page, button: Locator) {
+  const [file] = await Promise.all([page.waitForEvent("download"), button.click()]);
+  const text = await readFile((await file.path())!, "utf8");
+  return { name: file.suggestedFilename(), rows: parseCsv(text.replace(/^\uFEFF/, "")) };
+}
+
+/** Minimal RFC 4180 reader: quoted fields, doubled quotes, CRLF rows. */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') (field += '"'), i++;
+      else if (ch === '"') quoted = false;
+      else field += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ",") row.push(field), (field = "");
+    else if (ch === "\r") continue;
+    else if (ch === "\n") row.push(field), rows.push(row), (row = []), (field = "");
+    else field += ch;
+  }
+  if (field !== "" || row.length) row.push(field), rows.push(row);
+  return rows;
+}
+
+const byFirstCell = (rows: string[][], first: string) => rows.find((r) => r[0] === first);
+
+test("company statements export the underlying numbers, named after the ticker", async ({ page }) => {
+  await page.goto("/company");
+  const results = page.getByRole("main").getByTestId("results");
+  const income = results.getByRole("region", { name: "Income statement" });
+  await expect(income.locator('[data-metric-value="revenue:2026-09-26"]')).toHaveText("478,834", {
+    timeout: 30_000,
+  });
+
+  const { name, rows } = await download(page, income.getByRole("button", { name: /Export CSV/ }));
+
+  expect(name).toBe("sextant-company-income-statement-AAPL.csv");
+  expect(rows[0][0]).toBe("Line item");
+  expect(rows[0]).toContain("FY2026 (2026-09-26)");
+  const col = rows[0].indexOf("FY2026 (2026-09-26)");
+  // Raw USD, not the "478,834" millions shown on screen.
+  expect(byFirstCell(rows, "Revenue")?.[col]).toBe("478834000000");
+  expect(rows.some((r) => r.includes("Synthetic demo data"))).toBe(false);
+});
+
+test("a metric that is missing data exports as an empty cell", async ({ page }) => {
+  await page.goto("/company?ticker=JPM");
+  const results = page.getByRole("main").getByTestId("results");
+  const income = results.getByRole("region", { name: "Income statement" });
+  await expect(income.locator('[data-metric-value="cost_of_revenue:2025-12-31"]')).toHaveAttribute(
+    "data-status",
+    "missing_data",
+    { timeout: 30_000 },
+  );
+
+  const { name, rows } = await download(page, income.getByRole("button", { name: /Export CSV/ }));
+
+  expect(name).toBe("sextant-company-income-statement-JPM.csv");
+  const col = rows[0].indexOf("FY2025 (2025-12-31)");
+  expect(col).toBeGreaterThan(0);
+  expect(byFirstCell(rows, "Cost of Revenue")?.[col]).toBe("");
+  expect(byFirstCell(rows, "Revenue")?.[col]).toMatch(/^\d+$/);
+});
+
+test("demo data exports are marked as synthetic, with decimals instead of percent strings", async ({ page }) => {
+  await page.goto("/risk");
+  const main = page.getByRole("main");
+  await expect(main.locator('[data-metric-value="max_drawdown:DEMO-D"]')).toHaveAttribute("data-status", "ok", {
+    timeout: 30_000,
+  });
+
+  const { name, rows } = await download(page, main.getByRole("button", { name: /Export CSV/ }));
+
+  expect(name).toBe("sextant-risk-metrics-DEMO-A_DEMO-B_DEMO-D.csv");
+  expect(rows[0][0]).toBe("Data");
+  expect(rows[0][1]).toBe("Ticker");
+  expect(rows[0]).toContain("Max drawdown");
+  for (const r of rows.slice(1)) expect(r[0]).toBe("Synthetic demo data");
+  const demoD = rows.find((r) => r[1] === "DEMO-D")!;
+  const mdd = Number(demoD[rows[0].indexOf("Max drawdown")]);
+  // DEMO-D's injected crash: 49.1% over 2021–2025 (see ticket-3 notes), as a decimal.
+  expect(mdd).toBeCloseTo(0.491, 3);
+  expect(rows.map((r) => r[1])).toEqual(["Ticker", "DEMO-A", "DEMO-B", "DEMO-D", "DEMO-MKT"]);
+});
+
+test("every result table on each tool has an export button", async ({ page }) => {
+  const expected: [string, string, number][] = [
+    ["/company", "ratio-results", 6],
+    ["/company", "results", 3],
+    ["/portfolio", "results", 1],
+    ["/valuation", "results", 2],
+  ];
+  for (const [path, testid, count] of expected) {
+    await page.goto(path);
+    const scope = page.getByRole("main").getByTestId(testid);
+    await expect(scope.getByRole("button", { name: /Export CSV/ })).toHaveCount(count, { timeout: 30_000 });
+  }
+});
