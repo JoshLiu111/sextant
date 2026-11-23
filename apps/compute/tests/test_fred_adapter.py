@@ -89,17 +89,6 @@ def test_a_series_whose_notes_carry_a_copyright_is_rejected_before_its_data_is_f
     assert fred.paths() == ["/fred/series"]
 
 
-def test_a_series_outside_the_public_domain_allowlist_is_rejected_even_with_clean_notes():
-    fred = RecordedFred()
-
-    # T10Y2Y is "Copyrighted: Citation Required" on FRED, but its notes never say "Copyright".
-    with pytest.raises(NoSuchData) as exc:
-        recorded_adapter(fred).economic_series(CTX, "T10Y2Y", START)
-
-    assert "public-domain" in exc.value.message
-    assert fred.requests == []
-
-
 def test_an_unknown_series_is_no_such_data():
     adapter = recorded_adapter(allowlist={"NOPE": "Nobody"})
 

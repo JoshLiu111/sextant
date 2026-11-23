@@ -64,6 +64,18 @@ class LatestCloseAdapter(Adapter, Protocol):
         ...
 
 
+FACTOR_COLUMNS = ["Mkt-RF", "SMB", "HML", "MOM", "RF"]
+
+
+class DailyFactorsAdapter(Adapter, Protocol):
+    def daily_factors(self, ctx: RequestContext, start: date, end: date) -> pd.DataFrame:
+        """Daily factor returns in [start, end]: DatetimeIndex ``date`` and
+        ``FACTOR_COLUMNS`` as decimals (Fama-French / Carhart layout). Raises
+        ``NoSuchData`` for an empty range. Only the synthetic demo source serves
+        factors (ADR 0003): Sextant fetches and caches no real factor data."""
+        ...
+
+
 class FinancialStatementsAdapter(Adapter, Protocol):
     def financial_statements(self, ctx: RequestContext, ticker: str) -> FinancialStatements:
         """Standardized annual statements, every fiscal period available, oldest
@@ -138,6 +150,28 @@ class EconomicSeriesAdapter(Adapter, Protocol):
         transformation (FRED: ``lin`` as published, ``pc1`` percent change from a
         year ago, ...). Raises ``NoSuchData`` (``missing`` keyed by series id) for
         unknown series and for series we may not republish (copyright)."""
+        ...
+
+
+@dataclass(frozen=True)
+class SeriesSummary:
+    """One search hit: enough to pick a series before fetching it. ``last_updated``
+    is ISO 8601 with the provider's UTC offset, ``observation_end`` an ISO date."""
+
+    id: str
+    title: str
+    units: str
+    frequency: str
+    seasonal_adjustment: str
+    last_updated: str
+    observation_end: str
+
+
+class SeriesSearchAdapter(Adapter, Protocol):
+    def search_series(self, ctx: RequestContext, query: str, limit: int) -> list[SeriesSummary]:
+        """Series matching ``query`` (name, keyword or id), best match first, at most
+        ``limit``. Only series ``economic_series`` may serve are offered (FRED:
+        public-domain, no copyright notice). No match is an empty list."""
         ...
 
 

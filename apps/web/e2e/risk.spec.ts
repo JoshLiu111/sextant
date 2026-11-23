@@ -23,7 +23,10 @@ const PERCENT_METRICS = [
 const RATIO_METRICS = ["sharpe", "sortino", "beta"];
 // The benchmark has no active return, so its information ratio is missing_data by design.
 const ACTIVE_METRICS = ["information_ratio"];
-const METRICS = [...PERCENT_METRICS, ...RATIO_METRICS, ...ACTIVE_METRICS];
+const FF3 = ["ff3_alpha", "ff3_market", "ff3_smb", "ff3_hml", "ff3_r_squared"];
+const CARHART = ["carhart_alpha", "carhart_market", "carhart_smb", "carhart_hml", "carhart_mom", "carhart_r_squared"];
+const FACTOR_METRICS = [...FF3, ...CARHART];
+const METRICS = [...PERCENT_METRICS, ...RATIO_METRICS, ...ACTIVE_METRICS, ...FACTOR_METRICS];
 
 async function openRisk(page: Page) {
   await page.goto("/risk");
@@ -75,6 +78,47 @@ test("the underwater chart marks the start and end of the max drawdown", async (
 
   await chart.hover();
   await expect(main.getByTestId("chart-tooltip")).toContainText("DEMO-D");
+});
+
+test("factor regressions show coefficients, t-stats and R² for both models on demo factors", async ({ page }) => {
+  const main = await openRisk(page);
+  await expect(metric(main, "annualized_return:DEMO-A")).toHaveAttribute("data-status", "ok");
+
+  await main.getByLabel("Tickers").fill("DEMO-H, DEMO-I");
+
+  const results = main.getByTestId("results");
+  await expect(metric(results, "carhart_mom:DEMO-I")).toHaveAttribute("data-status", "ok");
+  await expect(results.getByRole("heading", { name: "Factor exposures: Fama-French 3-factor" })).toBeVisible();
+  await expect(results.getByRole("heading", { name: "Factor exposures: Carhart 4-factor" })).toBeVisible();
+  await expect(results.getByTestId("factor-source")).toContainText("synthetic demo factors");
+  const coefficients = FACTOR_METRICS.filter((m) => !m.endsWith("r_squared"));
+  for (const ticker of ["DEMO-H", "DEMO-I", "DEMO-MKT"]) {
+    for (const id of coefficients) {
+      await expect(metric(results, `${id}:${ticker}`)).toHaveAttribute("data-status", "ok");
+      // The market factor is DEMO-MKT's own excess return: an exact fit with no t-statistic.
+      await expect(metric(results, `${id}:${ticker}`)).toContainText(
+        ticker === "DEMO-MKT" ? "t: undefined (exact fit)" : /t = -?[\d,]+\.\d{2}/,
+      );
+    }
+    for (const id of ["ff3_r_squared", "carhart_r_squared"]) {
+      await expect(metric(results, `${id}:${ticker}`)).toContainText(/\d\.\d{2}/);
+      // 2021-01-01 to 2025-12-31 is 1,304 trading days, so 1,303 daily returns.
+      await expect(metric(results, `${id}:${ticker}`)).toContainText("1,303 days");
+    }
+  }
+  // DEMO-H is built with a size loading of 0.9: the regression recovers it.
+  await expect(metric(results, "ff3_smb:DEMO-H")).toContainText(/0\.(8\d|9\d)/);
+});
+
+test("a range too short for the factor regressions leaves only those metrics missing", async ({ page }) => {
+  const main = await openRisk(page);
+  await expect(metric(main, "annualized_return:DEMO-A")).toHaveAttribute("data-status", "ok");
+
+  await main.getByLabel("Start date").fill("2025-12-01");
+
+  await expect(metric(main, "ff3_smb:DEMO-A")).toHaveAttribute("data-status", "missing_data");
+  await expect(metric(main, "ff3_smb:DEMO-A")).toContainText("needs at least 24 daily returns");
+  await expect(metric(main, "annualized_volatility:DEMO-A")).toHaveAttribute("data-status", "ok");
 });
 
 test("the footer credits the demo data", async ({ page }) => {

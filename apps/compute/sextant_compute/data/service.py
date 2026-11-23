@@ -33,6 +33,7 @@ from sextant_compute.data.adapters import (
     CountryIndicatorAdapter,
     CountrySeries,
     CrossSectionsAdapter,
+    DailyFactorsAdapter,
     DailyPricesAdapter,
     EconomicSeries,
     EconomicSeriesAdapter,
@@ -40,6 +41,8 @@ from sextant_compute.data.adapters import (
     FinancialStatementsAdapter,
     LatestCloseAdapter,
     SeriesMeta,
+    SeriesSearchAdapter,
+    SeriesSummary,
     YieldCurveAdapter,
     YieldCurves,
 )
@@ -89,6 +92,14 @@ class LatestClose:
     ticker: str
     date: date
     close: float
+
+
+@dataclass(frozen=True)
+class FactorHistory:
+    """Daily factor returns (``FACTOR_COLUMNS``, decimals) and the source they came from."""
+
+    source: DataSource
+    frame: pd.DataFrame
 
 
 class DataService:
@@ -247,6 +258,25 @@ class DataService:
         )
         return LatestClose(source=adapter.source, ticker=symbol, date=when, close=close)
 
+    def daily_factors(self, ctx: RequestContext, start: date, end: date, *, source: str) -> FactorHistory:
+        """Daily factor returns in [start, end]; see ``DailyFactorsAdapter``. Raises
+        ``NoSuchData`` when ``source`` serves no factors (every source but the
+        synthetic demo one, ADR 0003)."""
+        adapter = self._adapter(source)
+        if not hasattr(adapter, "daily_factors"):
+            raise NoSuchData(adapter.source.id, f"There is no factor data for {adapter.source.name}.")
+        factors = cast(DailyFactorsAdapter, adapter)
+        frames = self._cached(
+            ctx,
+            factors,
+            "daily_factors",
+            {"start": start.isoformat(), "end": end.isoformat()},
+            lambda: {"factors": factors.daily_factors(ctx, start, end)},
+            _encode_frames,
+            _decode_frames,
+        )
+        return FactorHistory(source=adapter.source, frame=frames["factors"])
+
     def financial_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
         """Standardized annual statements for one company; see ``FinancialStatementsAdapter``.
         Use ``.last(n)`` for the n most recent fiscal years."""
@@ -329,6 +359,21 @@ class DataService:
             lambda: adapter.economic_series(ctx, series_id, start, units),
             _encode_series,
             _decode_series,
+        )
+
+    def search_series(self, ctx: RequestContext, query: str, *, limit: int, source: str) -> list[SeriesSummary]:
+        """Series matching a name, keyword or id; see ``SeriesSearchAdapter``.
+        Cached per (query lowercased and trimmed, limit)."""
+        adapter = cast(SeriesSearchAdapter, self._adapter(source))
+        text = " ".join(query.split())
+        return self._cached(
+            ctx,
+            adapter,
+            "series_search",
+            {"query": text.lower(), "limit": limit},
+            lambda: adapter.search_series(ctx, text, limit),
+            lambda hits: [dataclasses.asdict(h) for h in hits],
+            lambda raw: [SeriesSummary(**h) for h in raw],
         )
 
     def yield_curves(self, ctx: RequestContext, *, start: date, end: date, source: str) -> YieldCurves:

@@ -1,0 +1,23 @@
+{
+ "realtime_start": "2026-11-22",
+ "realtime_end": "2026-11-22",
+ "seriess": [
+  {
+   "realtime_start": "2026-11-22",
+   "realtime_end": "2026-11-22",
+   "id": "LRUN64TTUSM156S",
+   "title": "Infra-Annual Labor Statistics: Unemployment Rate Total: 15 to 64 Years for United States",
+   "observation_start": "1960-01-01",
+   "observation_end": "2026-09-01",
+   "frequency": "Monthly",
+   "frequency_short": "M",
+   "units": "Percent",
+   "units_short": "%",
+   "seasonal_adjustment": "Seasonally Adjusted",
+   "seasonal_adjustment_short": "SA",
+   "last_updated": "2026-11-12 13:56:05-06",
+   "popularity": 32,
+   "notes": "OECD Descriptor ID: LRUN64TT\nOECD unit ID: PC\nOECD country ID: USA\n\nAll OECD data should be cited as follows: OECD (2010), \"Main Economic Indicators - complete database\", Main Economic Indicators (database), http://dx.doi.org/10.1787/data-00052-en\n\nCopyright, 2016, OECD. Reprinted with permission."
+  }
+ ]
+}

@@ -5,6 +5,7 @@ import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { CustomSeries } from "./CustomSeries";
 import { MacroDashboard, type IndicatorMetricId, type IndicatorSeriesId } from "./MacroDashboard";
 import { TreasuryRates, type RatesMetricId, type RatesSeriesId } from "./TreasuryRates";
 
@@ -15,7 +16,7 @@ const DEFAULTS: Form = { start: "" };
 // Shareable links: `/macro?start=2020-01-01`.
 const URL_CODEC = fieldsCodec(DEFAULTS);
 
-function toRequest(form: Form) {
+function toRequest(form: Form): { start?: string } {
   return form.start.trim() ? { start: form.start.trim() } : {};
 }
 
@@ -66,6 +67,7 @@ export function MacroTool() {
       </form>
       <MacroDashboard result={indicators.result} error={indicators.error} />
       <TreasuryRates result={rates.result} error={rates.error} />
+      <CustomSeries start={query.start} />
     </>
   );
 }

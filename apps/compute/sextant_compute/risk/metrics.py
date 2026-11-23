@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date
+from functools import cache
 
 import pandas as pd
 
+from sextant_compute.analytics import factors as factor_models
 from sextant_compute.analytics import performance, risk
-from sextant_compute.envelope import Detailed, MetricResult, MetricStatus, SeriesResult, metric, series
+from sextant_compute.envelope import Detailed, MetricResult, MetricStatus, MissingData, SeriesResult, metric, series
 
 METRIC_NAMES = (
     "annualized_return",
@@ -111,6 +113,52 @@ def missing_metric_set(reason: str) -> dict[str, MetricResult]:
 def missing_series(reason: str, *, y_unit: str = "decimal") -> SeriesResult:
     """A date series that could not be built, with ``reason``."""
     return SeriesResult(status=MetricStatus.MISSING_DATA, reason=reason, x_unit="date", y_unit=y_unit)
+
+
+FACTOR_MODELS: dict[str, tuple[str, ...]] = {"ff3": factor_models.FF3, "carhart": factor_models.CARHART}
+"""Metric-id prefix -> the factor columns the model regresses on."""
+
+_COEFFICIENT = {"Mkt-RF": "market", "SMB": "smb", "HML": "hml", "MOM": "mom"}
+
+
+def factor_metric_names(model: str) -> list[str]:
+    """``<model>_alpha``, ``<model>_<factor>`` for each factor, ``<model>_r_squared``."""
+    return [f"{model}_alpha", *(f"{model}_{_COEFFICIENT[c]}" for c in FACTOR_MODELS[model]), f"{model}_r_squared"]
+
+
+def factor_metric_set(
+    returns: pd.Series, factors: pd.DataFrame | MissingData, *, factor_source: str | None
+) -> dict[str, MetricResult]:
+    """FF3 and Carhart regression metrics for one return series, keyed like ``factor_metric_names``.
+
+    ``factors`` is any frame in the ``analytics.factors`` layout, whatever its origin, or
+    the ``MissingData`` that explains why there is none (every metric then reports it).
+    Coefficients carry ``t_stat`` in details, R-squared carries ``observations``;
+    every metric names the ``factor_source``.
+    """
+    out: dict[str, MetricResult] = {}
+    for model, columns in FACTOR_MODELS.items():
+
+        @cache
+        def fit(columns: tuple[str, ...] = columns) -> factor_models.FactorRegression:
+            if isinstance(factors, MissingData):
+                raise factors
+            return factor_models.factor_regression(returns, factors, columns)
+
+        def coefficient(name: str, value: Callable[[factor_models.FactorRegression], float]) -> Detailed:
+            result = fit()
+            return Detailed(value(result), {"t_stat": result.t_stats[name], "factor_source": factor_source})
+
+        out[f"{model}_alpha"] = metric(lambda: coefficient("alpha", lambda f: f.alpha), unit="decimal")
+        for column in columns:
+            out[f"{model}_{_COEFFICIENT[column]}"] = metric(
+                lambda column=column: coefficient(column, lambda f: f.loadings[column]), unit="ratio"
+            )
+        out[f"{model}_r_squared"] = metric(
+            lambda: Detailed(fit().r_squared, {"observations": fit().observations, "factor_source": factor_source}),
+            unit="ratio",
+        )
+    return out
 
 
 def date_series(compute_values: Callable[[], pd.Series], *, y_unit: str = "decimal") -> SeriesResult:
