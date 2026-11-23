@@ -15,6 +15,8 @@ from fastapi.testclient import TestClient
 
 from sextant_compute.data.synthetic import HISTORY_START
 from tests.auth_helpers import bearer, sign_in
+from tests.data_fixtures import serving
+from tests.edgar_fixtures import edgar_adapter
 from tests.test_ai_explain import StubModel
 
 # About 40 trading days: too few returns for a 99.9% VaR.
@@ -106,3 +108,57 @@ def test_my_portfolio_explains_a_saved_portfolio_of_its_owner_only(client, model
     other = client.post("/api/compute/ai/explain/portfolio-saved", json=body, headers=bearer(bob))
     assert other.status_code == 404
     assert client.get("/api/compute/ai/quota", headers=bearer(bob)).json()["used"] == 0
+
+
+@pytest.fixture
+def edgar(client):
+    with serving(edgar_adapter(), "sec_edgar", on=client.app):
+        yield
+
+
+def assert_real_data(model: StubModel, prompt: str, result: dict) -> None:
+    assert result["source"]["is_demo"] is False
+    assert "synthetic demo data" not in prompt
+
+
+def test_company_health_check_explains_the_statements(client, model, edgar):
+    explain(client, "company", {"ticker": "JPM"})
+
+    prompt, result = shown(model)
+    assert result["tool"] == "company"
+    assert result["company"]["ticker"] == "JPM"
+    assert result["metrics"]["net_income:2025-12-31"]["status"] == "ok"
+    cogs = result["metrics"]["cost_of_revenue:2025-12-31"]
+    assert cogs["status"] == "missing_data"
+    assert cogs["reason"] == "Cost of Revenue is not reported by this company."
+    assert_real_data(model, prompt, result)
+    # The filing links behind each cell are left out: the model only needs the numbers.
+    assert "sec.gov/Archives" not in prompt
+    assert len(prompt) < 40_000
+
+
+def test_company_health_check_explains_the_ratios(client, model, edgar):
+    explain(client, "company-ratios", {"companies": [{"ticker": "AAPL"}, {"ticker": "MSFT"}]})
+
+    prompt, result = shown(model)
+    assert result["tool"] == "company"
+    assert [c["ticker"] for c in result["companies"]] == ["AAPL", "MSFT"]
+    assert result["metrics"]["current_ratio:AAPL:2026-09-26"]["status"] == "ok"
+    pe = result["metrics"]["price_to_earnings:AAPL:2026-09-26"]
+    assert pe["status"] == "missing_data"
+    assert "price" in pe["reason"].lower()
+    assert_real_data(model, prompt, result)
+
+
+def test_valuation_explains_the_dcf(client, model, edgar):
+    explain(client, "valuation", {"ticker": "AAPL"})
+
+    prompt, result = shown(model)
+    assert result["tool"] == "valuation"
+    assert result["company"]["ticker"] == "AAPL"
+    assert result["metrics"]["free_cash_flow"]["status"] == "ok"
+    cost_of_debt = result["metrics"]["cost_of_debt"]
+    assert cost_of_debt["status"] == "missing_data"
+    assert cost_of_debt["reason"] == "Interest Expense is not reported by this company for FY2026."
+    assert "growth_rates" in result["sensitivity"]
+    assert_real_data(model, prompt, result)

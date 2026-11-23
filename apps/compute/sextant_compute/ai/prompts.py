@@ -54,12 +54,37 @@ def _sampled(points: list, n: int = SAMPLE_POINTS) -> list:
     return [points[round(i * step)] for i in range(n)]
 
 
+PROVENANCE_FIELDS = frozenset({"url", "accession", "tag"})
+"""Where a figure was filed (SEC filing links, XBRL tags): shown on screen, not needed to explain it."""
+
+
+def _compact(value, *, drop_empty: bool):
+    """Drop provenance fields everywhere, and (``drop_empty``) null or empty fields."""
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            if k in PROVENANCE_FIELDS:
+                continue
+            v = _compact(v, drop_empty=drop_empty)
+            if drop_empty and v in (None, {}, []):
+                continue
+            out[k] = v
+        return out
+    if isinstance(value, list):
+        return [_compact(v, drop_empty=drop_empty) for v in value]
+    return value
+
+
 def result_payload(result: ResultEnvelope) -> dict:
-    """The envelope as the model sees it: chart series are thinned to a few points."""
+    """The envelope as the model sees it, kept small: chart series are thinned to a
+    few points, provenance fields are left out, and so are empty fields of metrics
+    and series (a metric keeps ``value``, null when it could not be computed)."""
     data = result.model_dump(mode="json")
     for s in data["series"].values():
         s["points"] = _sampled(s["points"])
-    return data
+    metrics = {k: {"value": None, **_compact(m, drop_empty=True)} for k, m in data.pop("metrics").items()}
+    series = {k: _compact(s, drop_empty=True) for k, s in data.pop("series").items()}
+    return _compact(data, drop_empty=False) | {"metrics": metrics, "series": series}
 
 
 DEMO_NOTE = (
@@ -74,6 +99,6 @@ def user_prompt(guide: str, result: ResultEnvelope) -> str:
         f"Tool guide:\n{guide.strip()}\n\n"
         f"{demo}"
         "Result (JSON):\n"
-        f"{json.dumps(result_payload(result), indent=1)}\n\n"
+        f"{json.dumps(result_payload(result), separators=(',', ':'))}\n\n"
         "Explain this result."
     )
