@@ -1,6 +1,9 @@
 """DataService behaviour: whole-request caching, TTLs, per-user isolation, error passthrough."""
 
+import threading
+import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 import pandas as pd
@@ -9,6 +12,7 @@ import pytest
 from data_fixtures import DownAdapter, FixtureAdapter, price_frame
 from sextant_compute.data.cache import InMemoryCache
 from sextant_compute.data.context import RequestContext
+from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
 from sextant_compute.data.service import DataService
 from sextant_compute.envelope import DataSource
@@ -165,3 +169,43 @@ def test_sources_without_a_ttl_for_the_dataset_are_not_cached():
     service.daily_prices(ANON, ["AAA"], START, END, source="src")
 
     assert adapter.calls == 2
+
+
+class GatedCrossSections:
+    """A cross-sections adapter whose calls block until ``release`` is set."""
+
+    source = DataSource(id="xs", name="Cross sections", is_demo=False)
+    scope = "shared"
+    ttl = {"cross_sections": 3600}
+    version = "1"
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, ...]] = []
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def cross_sections(self, ctx, item_ids, year):
+        self.calls.append(tuple(item_ids))
+        self.entered.set()
+        self.release.wait(5)
+        return {i: CrossSection(item_id=i, label=i, year=year, values={}) for i in item_ids}
+
+
+def test_a_cross_section_still_being_fetched_is_waited_for_not_fetched_again():
+    # The first fetch is still running (nothing cached yet) when a second
+    # request for an overlapping set of items arrives.
+    adapter = GatedCrossSections()
+    service = DataService({"xs": adapter}, shared_cache=InMemoryCache(clock=Clock()))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(service.cross_sections, ANON, ["revenue", "net_income"], 2025, source="xs")
+        assert adapter.entered.wait(5)
+        second = pool.submit(service.cross_sections, ANON, ["revenue", "assets"], 2025, source="xs")
+        time.sleep(0.05)  # let the second request reach the in-flight fetch
+        adapter.release.set()
+        a, b = first.result(5), second.result(5)
+
+    assert adapter.calls == [("revenue", "net_income"), ("assets",)]
+    assert list(a) == ["revenue", "net_income"] and list(b) == ["revenue", "assets"]
+    # Followers decode their own copy, so callers never share mutable values.
+    assert b["revenue"] == a["revenue"] and b["revenue"] is not a["revenue"]
