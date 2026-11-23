@@ -5,8 +5,13 @@
 Each metric is ``"<ratio id>:<TICKER>:<period id>"`` (the period id is the
 fiscal year end, as in ``/company/statements``). ``ratios`` lists the ratio ids
 with their category and unit, in display order; ``companies`` lists each
-company's displayed fiscal periods. Altman Z is metric ``altman_z`` with
-``details.zone`` (safe / grey / distress) and its five inputs ``x1``..``x5``.
+company's displayed fiscal periods. ``models`` lists, the same way, the
+scores (category ``scores``), the nine Piotroski signals (``piotroski``, unit
+``signal``, value 1 = pass) and the DuPont burdens (``dupont``); see
+``analytics.scores``. Altman Z (``altman_z``) has ``details.zone`` (safe / grey
+/ distress) and ``x1``..``x5``; Piotroski F (``piotroski_f``) has ``zone``
+(strong / neutral / weak) and each signal's 0/1; Beneish M (``beneish_m``) has
+``zone`` (likely / unlikely) and its eight indices.
 """
 
 from __future__ import annotations
