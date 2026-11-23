@@ -164,22 +164,3 @@ def test_without_imported_sells_realized_pnl_is_zero(client, alice):
 
     assert body["realized_pnl:portfolio"]["value"] == 0
     assert positions(body)["AAA"] == pytest.approx((5, 400, 500, 500 / 600, 100, 0))
-
-
-def test_realized_pnl_in_another_currency_is_not_added_to_the_total(client, alice):
-    portfolio_id = create(client, alice, OPENING)
-    importing(
-        client,
-        alice,
-        portfolio_id,
-        "Date,Ticker,Side,Quantity,Price,Currency\n2024-01-02,EEE,buy,1,10,EUR\n2024-01-03,EEE,sell,1,12,EUR\n",
-    )
-    frames = {"AAA": price_frame("2024-03-01", [100.0, 100.0]), "CCC": price_frame("2024-03-01", [50.0, 50.0])}
-
-    body = metrics(client, alice, portfolio_id, frames, benchmark="CCC")
-
-    assert body["realized_pnl:EEE"]["value"] == pytest.approx(2.0)
-    assert body["realized_pnl:EEE"]["details"] == {"currency": "EUR"}
-    assert body["realized_pnl:portfolio"]["status"] == "missing_data"
-    assert "EUR" in body["realized_pnl:portfolio"]["reason"]
-    assert body["market_value:portfolio"]["status"] == "ok"

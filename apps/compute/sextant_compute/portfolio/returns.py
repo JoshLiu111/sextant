@@ -10,6 +10,11 @@ range from its current holdings and its imported transactions (see
 - ``irr:portfolio``: money-weighted return (IRR) per year; ``missing_data`` when no
   single rate solves it.
 
+Values and trades convert into the reporting currency (``reporting_currency``,
+default the first holding's) at each date's Frankfurter rate (``portfolio.fx``):
+each day's closes at that day's rate, each trade's cash at its trade date's rate.
+A currency Frankfurter does not publish makes every metric ``missing_data``.
+
 When the holdings were edited by hand so that undoing the transactions would leave
 a negative quantity, every metric is ``missing_data`` with the ticker in the reason.
 """
@@ -32,7 +37,8 @@ from sextant_compute.envelope import Detailed, ResultEnvelope, envelope, metric
 from sextant_compute.errors import INPUT_ERROR, ApiError
 from sextant_compute.portfolio import store
 from sextant_compute.portfolio.api import TOOL
-from sextant_compute.portfolio.saved import Db, load
+from sextant_compute.portfolio.fx import Converter
+from sextant_compute.portfolio.saved import Currency, Db, load
 
 router = APIRouter(tags=["portfolios"])
 
@@ -41,6 +47,8 @@ class ReturnsSettings(BaseModel):
     start: date
     end: date
     source: Literal["synthetic"] = "synthetic"
+    reporting_currency: Currency | None = None
+    """Currency the values and cash flows are measured in; None: the first holding's currency."""
 
     @field_validator("end")
     @classmethod
@@ -54,16 +62,18 @@ class ReturnsSettings(BaseModel):
 class ReturnsParameters(ReturnsSettings):
     """What the returns were computed from; echoed as the envelope's ``meta.parameters``."""
 
+    reporting_currency: str
     portfolio_id: UUID
     name: str
     transactions: int
 
 
-def _trade(row: dict) -> flow_returns.Trade:
+def _trade(row: dict, rate: float) -> flow_returns.Trade:
+    """The trade with its cash in the reporting currency (``rate`` per unit of the row's currency)."""
     gross = row["quantity"] * row["price"]
     if row["side"] == "buy":
-        return flow_returns.Trade(row["date"], row["ticker"], row["quantity"], gross + row["fees"])
-    return flow_returns.Trade(row["date"], row["ticker"], -row["quantity"], -(gross - row["fees"]))
+        return flow_returns.Trade(row["date"], row["ticker"], row["quantity"], (gross + row["fees"]) * rate)
+    return flow_returns.Trade(row["date"], row["ticker"], -row["quantity"], -(gross - row["fees"]) * rate)
 
 
 @router.post("/{portfolio_id}/returns")
@@ -73,16 +83,9 @@ def portfolio_returns(
     saved = load(db, user.id, portfolio_id)
     with db.connection() as conn:
         rows = store.list_transactions(conn, user.id, portfolio_id) or []
-    currencies = sorted({h.currency for h in saved.holdings} | {r["currency"] for r in rows})
-    if len(currencies) > 1:
-        raise ApiError(
-            422,
-            "mixed_currencies",
-            f"This portfolio holds or traded more than one currency ({', '.join(currencies)}). "
-            "Converting between currencies is not available yet, so use one currency per portfolio for now.",
-        )
-    trades = [_trade(r) for r in rows]
-    tickers = list(dict.fromkeys([*(h.ticker for h in saved.holdings), *(t.ticker for t in trades)]))
+    reporting = settings.reporting_currency or saved.holdings[0].currency
+    currency_of = {r["ticker"]: r["currency"] for r in rows} | {h.ticker: h.currency for h in saved.holdings}
+    tickers = list(dict.fromkeys([*(h.ticker for h in saved.holdings), *(r["ticker"] for r in rows)]))
     try:
         prices = data.daily_prices(ctx, tickers, settings.start, settings.end, source=settings.source)
     except NoSuchData as exc:
@@ -95,14 +98,22 @@ def portfolio_returns(
         raise ApiError(422, "no_such_data", message, {"start": message})
     frames = {t: prices.frames[t].loc[common] for t in tickers}
     holdings = {h.ticker: h.quantity for h in saved.holdings}
+    first, last = common[0].date(), common[-1].date()
+    fx = Converter(data, ctx, reporting, currency_of.values(), first, last)
+
+    def in_range(row: dict) -> bool:
+        # Only trades inside the range move cash (see ``flow_returns.daily_book``); the rest need no rate.
+        return first < row["date"] <= last
 
     def book() -> flow_returns.Book:
-        return flow_returns.daily_book(frames, holdings, trades)
+        converted = {t: fx.prices(frame, currency_of[t]) for t, frame in frames.items()}
+        trades = [_trade(r, fx.rate(r["currency"], r["date"]) if in_range(r) else 1.0) for r in rows]
+        return flow_returns.daily_book(converted, holdings, trades)
 
     def twr() -> Detailed:
         b = book()
         total, _ = flow_returns.time_weighted_return(b)
-        details = {"start_value": float(b.value.iloc[0]), "end_value": float(b.value.iloc[-1]), "currency": currencies[0]}
+        details = {"start_value": float(b.value.iloc[0]), "end_value": float(b.value.iloc[-1]), "currency": reporting}
         return Detailed(total, details)
 
     def twr_annualized() -> float:
@@ -113,7 +124,11 @@ def portfolio_returns(
         return Detailed(flow_returns.irr(flows), {"cash_flows": len(flows)})
 
     req = ReturnsParameters(
-        **settings.model_dump(), portfolio_id=saved.id, name=saved.name, transactions=len(trades)
+        **settings.model_dump(exclude={"reporting_currency"}),
+        reporting_currency=reporting,
+        portfolio_id=saved.id,
+        name=saved.name,
+        transactions=len(rows),
     )
     return envelope(
         tool=TOOL,

@@ -20,6 +20,7 @@ it was not there.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
 from sextant_compute.portfolio.transactions_csv import RowError, Transaction
 
@@ -32,6 +33,22 @@ class Lot:
     quantity: float
     cost_price: float
     """Cost per unit, including buy fees."""
+    date: date | None = None
+    """When the lot was opened: the buy's trade date, or the day a holding was entered by hand.
+    None for lots stored before lots were dated. Cost converts to another currency at this date's rate."""
+
+    @classmethod
+    def of(cls, lot: Lot | dict) -> Lot:
+        if isinstance(lot, Lot):
+            return Lot(lot.quantity, lot.cost_price, lot.date)
+        when = lot.get("date")
+        return cls(lot["quantity"], lot["cost_price"], date.fromisoformat(when) if isinstance(when, str) else when)
+
+    def to_json(self) -> dict:
+        out: dict = {"quantity": self.quantity, "cost_price": self.cost_price}
+        if self.date is not None:
+            out["date"] = self.date.isoformat()
+        return out
 
 
 @dataclass
@@ -44,7 +61,7 @@ class Position:
     """Open lots, oldest first. Empty: one lot of ``quantity`` at ``cost_price``."""
 
     def __post_init__(self) -> None:
-        self.lots = [Lot(**lot) if isinstance(lot, dict) else lot for lot in self.lots]
+        self.lots = [Lot.of(lot) for lot in self.lots]
         if not self.lots or abs(sum(lot.quantity for lot in self.lots) - self.quantity) > _DUST * max(1.0, self.quantity):
             # No lots, or lots that no longer add up to the holding: the holding itself is the lot.
             self.lots = [Lot(self.quantity, self.cost_price)]
@@ -54,8 +71,8 @@ class Position:
         if self.quantity > _DUST:
             self.cost_price = sum(lot.quantity * lot.cost_price for lot in self.lots) / self.quantity
 
-    def buy(self, quantity: float, price: float, fees: float) -> None:
-        self.lots.append(Lot(quantity, price + fees / quantity))
+    def buy(self, quantity: float, price: float, fees: float, on: date | None = None) -> None:
+        self.lots.append(Lot(quantity, price + fees / quantity, on))
         self._sync()
 
     def sell(self, quantity: float, price: float, fees: float) -> float:
@@ -89,7 +106,7 @@ def apply_transactions(
 ) -> tuple[list[Position], list[Applied], list[RowError]]:
     """The holdings after ``transactions``, the transactions that applied, and the ones that could not."""
     book = {
-        h.ticker: Position(h.ticker, h.quantity, h.cost_price, h.currency, [Lot(l.quantity, l.cost_price) for l in h.lots])
+        h.ticker: Position(h.ticker, h.quantity, h.cost_price, h.currency, [Lot.of(lot) for lot in h.lots])
         for h in holdings
     }
     order = [h.ticker for h in holdings]
@@ -102,10 +119,11 @@ def apply_transactions(
             continue
         if t.side == "buy":
             if held is None:
-                held = book[t.ticker] = Position(t.ticker, t.quantity, t.price + t.fees / t.quantity, t.currency)
+                cost = t.price + t.fees / t.quantity
+                held = book[t.ticker] = Position(t.ticker, t.quantity, cost, t.currency, [Lot(t.quantity, cost, t.date)])
                 order.append(t.ticker)
             else:
-                held.buy(t.quantity, t.price, t.fees)
+                held.buy(t.quantity, t.price, t.fees, t.date)
             applied.append(Applied(t, None))
             continue
         have = held.quantity if held is not None else 0.0

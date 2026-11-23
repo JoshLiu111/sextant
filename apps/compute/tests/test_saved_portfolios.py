@@ -232,23 +232,6 @@ def test_an_unknown_saved_ticker_is_reported_on_its_holding_row(client, alice):
     assert list(response.json()["error"]["fields"]) == ["holdings.2.ticker"]
 
 
-def test_holdings_in_more_than_one_currency_are_not_valued_until_fx_conversion_exists(client, alice):
-    portfolio = create(
-        client,
-        alice,
-        holdings=[
-            {"ticker": "DEMO-A", "quantity": 1, "cost_price": 1, "currency": "USD"},
-            {"ticker": "DEMO-B", "quantity": 1, "cost_price": 1, "currency": "EUR"},
-        ],
-    )
-
-    response = client.post(f"{BASE}/{portfolio['id']}/metrics", json=ANALYSIS, headers=alice)
-
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "mixed_currencies"
-    assert "EUR, USD" in response.json()["error"]["message"]
-
-
 def test_analysis_settings_are_validated_like_the_demo_portfolio(client, alice):
     portfolio = create(client, alice)
 

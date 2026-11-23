@@ -165,17 +165,6 @@ def test_holdings_edited_by_hand_below_the_traded_amount_give_missing_data(clien
         assert "DEMO-A" in metrics[metric_id]["reason"]
 
 
-def test_mixed_currencies_are_refused(client, alice):
-    portfolio_id = new_portfolio(
-        client, alice, [holding("DEMO-A", 1), {**holding("DEMO-B", 1), "currency": "EUR"}]
-    )
-
-    response = returns(client, alice, portfolio_id, {"DEMO-A": yearly([1, 1, 1]), "DEMO-B": yearly([1, 1, 1])})
-
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "mixed_currencies"
-
-
 def test_returns_are_private_to_the_owner(client, alice, bob):
     portfolio_id = new_portfolio(client, alice, [holding("DEMO-A", 1)])
     frames = {"DEMO-A": yearly([1, 1, 1])}

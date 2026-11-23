@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -11,15 +12,21 @@ from psycopg.types.json import Jsonb
 
 Holding = dict[str, Any]
 """``{"ticker", "quantity", "cost_price", "currency"}``, plus ``"lots"`` (open FIFO lots,
-``[{"quantity", "cost_price"}]`` oldest first) when read with ``lock_holdings`` or written
-by an import. Missing or None: one lot of the whole holding (docs/adr/0004)."""
+``[{"quantity", "cost_price", "date"?}]`` oldest first) when read with ``lock_holdings`` or written
+by an import. Missing or None: one undated lot of the whole holding (docs/adr/0004). A lot's
+``date`` (ISO) is when it was opened; its cost converts to another currency at that date's rate."""
 
 _HOLDING_COLUMNS = "ticker, quantity::float8 AS quantity, cost_price::float8 AS cost_price, currency"
 
 
 def _lots(h: Holding) -> Jsonb | None:
     lots = h.get("lots")
-    return Jsonb(lots) if lots and len(lots) > 1 else None
+    return Jsonb(lots) if lots and (len(lots) > 1 or any(lot.get("date") for lot in lots)) else None
+
+
+def _entered(h: Holding, on: date) -> Holding:
+    """A holding entered by hand: one lot at its cost, opened ``on`` (the day it was saved)."""
+    return {**h, "lots": [{"quantity": h["quantity"], "cost_price": h["cost_price"], "date": on.isoformat()}]}
 
 
 def _insert_holdings(conn: psycopg.Connection, portfolio_id: UUID, holdings: Sequence[Holding]) -> None:
@@ -52,12 +59,13 @@ def _holdings_with_lots(conn: psycopg.Connection, portfolio_id: UUID) -> list[Ho
     ).fetchall()
 
 
-def create(conn: psycopg.Connection, user_id: UUID, name: str, holdings: Sequence[Holding]) -> UUID:
+def create(conn: psycopg.Connection, user_id: UUID, name: str, holdings: Sequence[Holding], entered: date) -> UUID:
+    """A new portfolio; each holding is one lot opened ``entered``."""
     row = conn.execute(
         "INSERT INTO portfolios (user_id, name) VALUES (%s, %s) RETURNING id", (user_id, name)
     ).fetchone()
     assert row is not None
-    _insert_holdings(conn, row["id"], holdings)
+    _insert_holdings(conn, row["id"], [_entered(h, entered) for h in holdings])
     return row["id"]
 
 
@@ -69,12 +77,17 @@ def list_for(conn: psycopg.Connection, user_id: UUID) -> list[dict[str, Any]]:
 
 
 def replace(
-    conn: psycopg.Connection, user_id: UUID, portfolio_id: UUID, name: str, holdings: Sequence[Holding]
+    conn: psycopg.Connection,
+    user_id: UUID,
+    portfolio_id: UUID,
+    name: str,
+    holdings: Sequence[Holding],
+    entered: date,
 ) -> bool:
     """Rename the portfolio and replace its holdings. False if the user has no such portfolio.
 
     A holding sent back unchanged (same ticker, quantity, cost price and currency)
-    keeps its FIFO lots; any other holding becomes one lot at its cost price.
+    keeps its FIFO lots; any other holding becomes one lot at its cost price, opened ``entered``.
     """
     row = conn.execute(
         "UPDATE portfolios SET name = %s, updated_at = now() WHERE id = %s AND user_id = %s RETURNING id",
@@ -84,7 +97,9 @@ def replace(
         return False
     before = {h["ticker"]: h for h in _holdings_with_lots(conn, portfolio_id)}
     kept = [
-        {**h, "lots": before[h["ticker"]]["lots"] if h["ticker"] in before and _same(h, before[h["ticker"]]) else None}
+        {**h, "lots": before[h["ticker"]]["lots"]}
+        if h["ticker"] in before and _same(h, before[h["ticker"]])
+        else _entered(h, entered)
         for h in holdings
     ]
     conn.execute("DELETE FROM portfolio_holdings WHERE portfolio_id = %s", (portfolio_id,))
@@ -162,16 +177,19 @@ def list_transactions(conn: psycopg.Connection, user_id: UUID, portfolio_id: UUI
     ).fetchall()
 
 
-def realized_by_ticker(conn: psycopg.Connection, portfolio_id: UUID) -> list[dict[str, Any]]:
-    """Realized P&L booked per ticker and currency, first-traded ticker first.
+def holding_lots(conn: psycopg.Connection, portfolio_id: UUID) -> dict[str, list[dict[str, Any]] | None]:
+    """Each holding's open lots by ticker (None: one undated lot of the whole holding).
+    Call after ``get`` has checked the owner."""
+    rows = conn.execute("SELECT ticker, lots FROM portfolio_holdings WHERE portfolio_id = %s", (portfolio_id,))
+    return {row["ticker"]: row["lots"] for row in rows.fetchall()}
 
-    ``{"ticker", "currency", "realized_pnl", "unbooked"}``; ``unbooked`` counts sells
-    stored before realized P&L was booked (their P&L is unknown).
-    """
+
+def trade_history(conn: psycopg.Connection, portfolio_id: UUID) -> list[dict[str, Any]]:
+    """Every imported transaction, oldest first: ``{"ticker", "currency", "side", "date", "realized_pnl"}``.
+    A sell's ``realized_pnl`` is None when it was stored before realized P&L was booked.
+    Call after ``get`` has checked the owner."""
     return conn.execute(
-        "SELECT ticker, currency, COALESCE(sum(realized_pnl), 0)::float8 AS realized_pnl,"
-        " count(*) FILTER (WHERE side = 'sell' AND realized_pnl IS NULL) AS unbooked"
-        " FROM portfolio_transactions WHERE portfolio_id = %s"
-        " GROUP BY ticker, currency ORDER BY min(trade_date), min(id)",
+        "SELECT ticker, currency, side, trade_date AS date, realized_pnl::float8 AS realized_pnl"
+        " FROM portfolio_transactions WHERE portfolio_id = %s ORDER BY trade_date, id",
         (portfolio_id,),
     ).fetchall()

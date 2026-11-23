@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date
 
@@ -66,10 +66,16 @@ class DownAdapter:
 
 @contextmanager
 def serving(
-    adapter: Adapter, source_id: str = "synthetic", *, on: FastAPI = app, **service_kwargs
+    adapter: Adapter,
+    source_id: str = "synthetic",
+    *,
+    on: FastAPI = app,
+    also: Mapping[str, Adapter] | None = None,
+    **service_kwargs,
 ) -> Iterator[DataService]:
-    """Route ``source_id`` requests to ``adapter`` on app ``on`` for the duration of the block."""
-    service = DataService({source_id: adapter}, **service_kwargs)
+    """Route ``source_id`` requests to ``adapter`` on app ``on`` for the duration of the block
+    (and each ``also`` source id to its adapter, e.g. ``{"frankfurter": ...}`` for FX rates)."""
+    service = DataService({source_id: adapter, **(also or {})}, **service_kwargs)
     on.dependency_overrides[get_data_service] = lambda: service
     try:
         yield service

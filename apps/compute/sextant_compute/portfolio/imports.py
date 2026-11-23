@@ -160,7 +160,7 @@ def _holding(p: Position) -> SavedHolding:
 
 
 def _stored_holding(p: Position) -> dict:
-    lots = [{"quantity": lot.quantity, "cost_price": lot.cost_price} for lot in p.lots]
+    lots = [lot.to_json() for lot in p.lots]
     return {**_holding(p).model_dump(), "lots": lots}
 
 
