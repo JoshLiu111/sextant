@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
-import { LineChart, type ChartMarker, type ChartSeries } from "@/components/LineChart";
+import { LineChart, type ChartBand, type ChartMarker, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
@@ -12,6 +12,9 @@ import { getMessages } from "@/i18n";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
+import { ReturnDistribution } from "./ReturnDistribution";
+import { RollingCharts } from "./RollingCharts";
+import { DEFAULT_ROLLING_WINDOW, PeriodNote, TimescaleInputs, type ReturnPeriod } from "./TimescaleInputs";
 
 // Metric ids are "<metric>:<ticker>", series ids "drawdown:<ticker>".
 const METRICS = [
@@ -33,6 +36,8 @@ type Form = {
   end: string;
   confidence: string;
   risk_free_rate: string;
+  period: ReturnPeriod;
+  rolling_window: string;
 };
 
 const DEFAULTS: Form = {
@@ -42,6 +47,8 @@ const DEFAULTS: Form = {
   end: "2025-12-31",
   confidence: "95",
   risk_free_rate: "0",
+  period: "daily",
+  rolling_window: DEFAULT_ROLLING_WINDOW,
 };
 
 function percentToDecimal(raw: string): number | null {
@@ -62,6 +69,8 @@ function toRequest(form: Form) {
     end: form.end || null,
     confidence: percentToDecimal(form.confidence),
     risk_free_rate: percentToDecimal(form.risk_free_rate),
+    period: form.period,
+    rolling_window: form.rolling_window.trim() === "" ? null : Number(form.rolling_window),
   };
 }
 
@@ -88,7 +97,9 @@ export function RiskTool() {
     run();
   }
 
-  const params = result?.meta.parameters as { tickers: string[]; benchmark: string } | undefined;
+  const params = result?.meta.parameters as
+    | { tickers: string[]; benchmark: string; period: ReturnPeriod }
+    | undefined;
   const benchmark = params?.benchmark ?? "";
   const symbols = params ? [...new Set([...params.tickers, benchmark])] : [];
   const label = (ticker: string) => (ticker === benchmark ? `${ticker} ${r.benchmarkSuffix}` : ticker);
@@ -112,7 +123,17 @@ export function RiskTool() {
             : []),
         ]
       : [];
-  const markers = [...dateMarker(mdd, "peak", r.chart.peak), ...dateMarker(mdd, "trough", r.chart.trough)];
+  const markers = [
+    ...dateMarker(mdd, "peak", r.chart.peak),
+    ...dateMarker(mdd, "trough", r.chart.trough),
+    ...dateMarker(mdd, "recovery", r.chart.recovery),
+  ];
+  const bands: ChartBand[] = (selected ? result?.series[`drawdown:${selected}`]?.bands ?? [] : []).map((b) => ({
+    start: Date.parse(String(b.start)),
+    end: Date.parse(String(b.end)),
+    label: r.chart.band,
+    color: "#dc2626",
+  }));
 
   return (
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
@@ -174,6 +195,13 @@ export function RiskTool() {
             error={fieldErrors.risk_free_rate}
           />
         </div>
+        <TimescaleInputs
+          period={form.period}
+          rollingWindow={form.rolling_window}
+          onPeriod={(period) => setForm((f) => ({ ...f, period }))}
+          onRollingWindow={set("rolling_window")}
+          fieldErrors={fieldErrors}
+        />
         <button
           type="submit"
           className="w-full rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
@@ -192,6 +220,7 @@ export function RiskTool() {
         )}
         <div>
           <h2 className="text-lg font-semibold">{r.sections.metrics}</h2>
+          <PeriodNote period={params?.period} />
           <div className="mt-2 grid gap-4 xl:grid-cols-3">
             {METRICS.map((id) => (
               <MetricCard
@@ -240,6 +269,7 @@ export function RiskTool() {
                 formatX={formatChartDate}
                 formatY={formatChartPercent}
                 markers={markers}
+                bands={bands}
               />
             )}
           </div>
@@ -251,6 +281,10 @@ export function RiskTool() {
             </p>
           )}
         </div>
+        {result && <RollingCharts result={result} symbols={symbols} benchmark={benchmark} label={label} />}
+        {result && params && (
+          <ReturnDistribution result={result} symbols={symbols} label={label} period={params.period} />
+        )}
         {result && <CalculationInfo result={result} />}
       </section>
     </div>

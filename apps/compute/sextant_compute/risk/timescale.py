@@ -15,12 +15,15 @@ from sextant_compute.analytics import distribution, risk, rolling
 from sextant_compute.analytics.periods import PERIODS_PER_YEAR, ReturnPeriod, period_returns
 from sextant_compute.envelope import Band, Detail, MetricResult, SeriesData, SeriesResult, metric, series
 
+ROLLING_DECIMALS = 5
+
 
 def _rolling_series(compute: Callable[[], pd.Series], *, window: int, y_unit: str) -> SeriesResult:
     def points() -> SeriesData:
         values = compute()
         details: dict[str, Detail] = {"window": window}
-        return SeriesData([(ts.date().isoformat(), float(v)) for ts, v in values.items()], details)
+        # Rounded: a chart needs no more, and it keeps a 10-ticker, 10-year response small.
+        return SeriesData([(ts.date().isoformat(), round(float(v), ROLLING_DECIMALS)) for ts, v in values.items()], details)
 
     return series(points, x_unit="date", y_unit=y_unit)
 

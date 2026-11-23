@@ -133,13 +133,13 @@ def test_rolling_volatility_sharpe_and_beta_over_the_chosen_window():
     # Every 20-day window holds ten +1% and ten -1% days: std = 0.01 * sqrt(20 / 19).
     assert len(vol["points"]) == YEAR - 20 + 1
     assert vol["points"][0]["x"] == pd.bdate_range("2024-01-02", periods=20)[-1].date().isoformat()
-    assert all(p["y"] == pytest.approx(0.01 * math.sqrt(20 / 19) * math.sqrt(YEAR)) for p in vol["points"])
+    assert all(p["y"] == pytest.approx(0.01 * math.sqrt(20 / 19) * math.sqrt(YEAR), abs=1e-5) for p in vol["points"])
     assert vol["details"]["window"] == 20
     sharpe = body["series"]["rolling_sharpe:ZIG"]
     assert sharpe["y_unit"] == "ratio"
     assert all(p["y"] == pytest.approx(0.0, abs=1e-9) for p in sharpe["points"])
     beta = body["series"]["rolling_beta:ZIG"]
-    assert all(p["y"] == pytest.approx(1.0) for p in beta["points"])
+    assert all(p["y"] == pytest.approx(1.0, abs=1e-5) for p in beta["points"])
 
 
 def test_a_longer_window_gives_fewer_rolling_points():
