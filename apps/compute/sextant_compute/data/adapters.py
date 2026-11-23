@@ -26,6 +26,8 @@ from typing import Literal, Protocol
 import pandas as pd
 
 from sextant_compute.data.context import RequestContext
+from sextant_compute.data.cross_section import CrossSection
+from sextant_compute.data.filings import FilingList
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.envelope import DataSource
 
@@ -59,6 +61,25 @@ class FinancialStatementsAdapter(Adapter, Protocol):
         first (see ``data/statements.py``). Raises ``NoSuchData`` (``missing`` keyed
         by the ticker as given) for an unknown ticker or a company without
         financial statements."""
+        ...
+
+
+class CrossSectionsAdapter(Adapter, Protocol):
+    def cross_sections(self, ctx: RequestContext, item_ids: Sequence[str], year: int) -> dict[str, CrossSection]:
+        """One ``CrossSection`` per requested unified line item for ``year``
+        (calendar-aligned, see ``data/cross_section.py``), covering every listed
+        company that reported it."""
+        ...
+
+
+class FilingsAdapter(Adapter, Protocol):
+    def latest_filings(self, ctx: RequestContext, form: str) -> FilingList:
+        """The newest filings market-wide; ``form`` "" means every form type."""
+        ...
+
+    def company_filings(self, ctx: RequestContext, ticker: str) -> FilingList:
+        """One company's recent filings, newest first. Raises ``NoSuchData``
+        (``missing`` keyed by the ticker as given) for an unknown ticker."""
         ...
 
 

@@ -25,15 +25,19 @@ from fastapi import Depends
 from sextant_compute.auth import OptionalUser
 from sextant_compute.data.adapters import (
     Adapter,
+    CrossSectionsAdapter,
     DailyPricesAdapter,
     EconomicSeries,
     EconomicSeriesAdapter,
+    FilingsAdapter,
     FinancialStatementsAdapter,
     SeriesMeta,
 )
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
+from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.edgar import EdgarAdapter
+from sextant_compute.data.filings import FilingList
 from sextant_compute.data.fred import FredAdapter
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
@@ -144,6 +148,61 @@ class DataService:
             lambda: adapter.financial_statements(ctx, ticker),
             FinancialStatements.to_json,
             FinancialStatements.from_json,
+        )
+
+    def cross_sections(
+        self, ctx: RequestContext, item_ids: Sequence[str], year: int, *, source: str
+    ) -> dict[str, CrossSection]:
+        """Unified line items across every company for one year; see
+        ``CrossSectionsAdapter``. Cached per (item, year), so screens with
+        different criteria share entries; only missing items are fetched."""
+        adapter = cast(CrossSectionsAdapter, self._adapter(source))
+        wanted = list(dict.fromkeys(item_ids))
+        ttl = adapter.ttl.get("cross_sections")
+        cache = self.shared_cache if adapter.scope == "shared" and ttl is not None else None
+
+        def key(item_id: str) -> str:
+            return cache_key(adapter, "cross_sections", {"item": item_id, "year": year})
+
+        out: dict[str, CrossSection] = {}
+        if cache is not None:
+            for item_id in wanted:
+                hit = cache.get(key(item_id))
+                if hit is not None:
+                    out[item_id] = CrossSection.from_json(hit)
+        misses = [i for i in wanted if i not in out]
+        if misses:
+            fetched = adapter.cross_sections(ctx, misses, year)
+            for item_id in misses:
+                out[item_id] = fetched[item_id]
+                if cache is not None and ttl is not None:
+                    cache.set(key(item_id), fetched[item_id].to_json(), ttl=ttl, tags=[f"source:{adapter.source.id}"])
+        return {i: out[i] for i in wanted}
+
+    def latest_filings(self, ctx: RequestContext, form: str, *, source: str) -> FilingList:
+        """The newest filings market-wide (``form`` "" = all); see ``FilingsAdapter``."""
+        adapter = cast(FilingsAdapter, self._adapter(source))
+        return self._cached(
+            ctx,
+            adapter,
+            "latest_filings",
+            {"form": form},
+            lambda: adapter.latest_filings(ctx, form),
+            FilingList.to_json,
+            FilingList.from_json,
+        )
+
+    def company_filings(self, ctx: RequestContext, ticker: str, *, source: str) -> FilingList:
+        """One company's recent filings, newest first; see ``FilingsAdapter``."""
+        adapter = cast(FilingsAdapter, self._adapter(source))
+        return self._cached(
+            ctx,
+            adapter,
+            "company_filings",
+            {"ticker": ticker.strip().upper()},
+            lambda: adapter.company_filings(ctx, ticker),
+            FilingList.to_json,
+            FilingList.from_json,
         )
 
     def economic_series(

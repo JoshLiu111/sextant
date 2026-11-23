@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
@@ -129,9 +130,11 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
 export function CompanyStatements() {
   const t = getMessages();
   const c = t.company;
-  const [ticker, setTicker] = useState(DEFAULT_TICKER);
+  // `?ticker=MSFT` (links from the screener) prefills and loads that company.
+  const initialTicker = useSearchParams().get("ticker")?.trim().toUpperCase() || DEFAULT_TICKER;
+  const [ticker, setTicker] = useState(initialTicker);
   // Only a submitted ticker is fetched: typing doesn't fire EDGAR requests.
-  const [query, setQuery] = useState({ ticker: DEFAULT_TICKER });
+  const [query, setQuery] = useState({ ticker: initialTicker });
   const { result, fieldErrors, error, pending, run } = useCompute("/company/statements", query);
   const statements = result as StatementsResult | null;
 
