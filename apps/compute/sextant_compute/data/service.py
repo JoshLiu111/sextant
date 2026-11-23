@@ -56,6 +56,7 @@ from sextant_compute.data.ecb import EcbAdapter
 from sextant_compute.data.edgar import EdgarAdapter
 from sextant_compute.data.errors import KeyRequired, NoSuchData
 from sextant_compute.data.filings import FilingList
+from sextant_compute.data.fmp import FmpAdapter
 from sextant_compute.data.frankfurter import FrankfurterAdapter
 from sextant_compute.data.fred import FredAdapter
 from sextant_compute.data.statements import FinancialStatements, Frequency
@@ -607,11 +608,13 @@ def default_adapters() -> dict[str, Adapter]:
     treasury = TreasuryAdapter.from_env()
     frankfurter = FrankfurterAdapter.from_env()
     tiingo = TiingoAdapter.from_env()
+    fmp = FmpAdapter.from_env()
     world_bank = WorldBankAdapter.from_env()
     ecb = EcbAdapter.from_env()
     return {
         tiingo.source.id: tiingo,
         frankfurter.source.id: frankfurter,
+        fmp.source.id: fmp,
         synthetic.source.id: synthetic,
         fred.source.id: fred,
         edgar.source.id: edgar,

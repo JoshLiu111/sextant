@@ -3,14 +3,15 @@
 // The Demo data / My data seam shared by every market-data tool. A tool's
 // request carries `source`: "synthetic" (Demo data, anyone) or a My data
 // provider id, which the compute service runs on the signed-in user's own key
-// (apps/compute/sextant_compute/data/sources.py `PriceSource`). Add FMP here
-// when its adapter lands; `DataModeToggle` then offers it automatically.
+// (apps/compute/sextant_compute/data/sources.py `PriceSource`). A new provider
+// goes here and in `providerKeys.ts`; `DataModeToggle` then offers it, and with
+// several keys the user picks one ("My data (Tiingo)" / "My data (FMP)").
 
 import { useEffect, useState } from "react";
 import { providerKeysApi, type Provider } from "./providerKeys";
 
 /** Providers that can back My data (have a daily-prices adapter), in display order. */
-export const MY_DATA_PROVIDERS = ["tiingo"] as const satisfies readonly Provider[];
+export const MY_DATA_PROVIDERS = ["tiingo", "fmp"] as const satisfies readonly Provider[];
 
 export type MyDataProvider = (typeof MY_DATA_PROVIDERS)[number];
 
@@ -19,7 +20,7 @@ export const DEMO_SOURCE = "synthetic";
 /** What a market-data request's `source` field may say. */
 export type PriceSource = typeof DEMO_SOURCE | MyDataProvider;
 
-export const PROVIDER_NAMES: Record<MyDataProvider, string> = { tiingo: "Tiingo" };
+export const PROVIDER_NAMES: Record<MyDataProvider, string> = { tiingo: "Tiingo", fmp: "FMP" };
 
 /**
  * The My data providers the visitor has a saved key for, in display order.

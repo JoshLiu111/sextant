@@ -42,7 +42,7 @@ test("a signed-in user saves, replaces and deletes a Tiingo key", async ({ page 
   // Rejected by Tiingo: a clear error, nothing stored.
   await keyInput.fill("wrong-key-1234");
   await section.getByRole("button", { name: "Save key" }).click();
-  await expect(section.getByTestId("field-error-key")).toContainText("key is invalid");
+  await expect(section.getByTestId("field-error-key-tiingo")).toContainText("key is invalid");
   await expect(status).toHaveText("No key saved. Market data tools use demo data.");
 
   // Tiingo down: a different message, nothing stored.
@@ -73,4 +73,46 @@ test("a signed-in user saves, replaces and deletes a Tiingo key", async ({ page 
   await expect(status).toHaveText("No key saved. Market data tools use demo data.");
   await page.reload();
   await expect(status).toHaveText("No key saved. Market data tools use demo data.");
+});
+
+test("a signed-in user saves, replaces and deletes an FMP key next to their Tiingo key", async ({ page }) => {
+  const tiingo = await signInOnSettings(page, uniqueEmail("fmpkeys"));
+  await tiingo.getByLabel("Tiingo API key").fill("good0000000000000000000000000000000abcd");
+  await tiingo.getByRole("button", { name: "Save key" }).click();
+  await expect(tiingo.getByTestId("key-status")).toContainText("ending in abcd");
+
+  const fmp = page.getByRole("main").getByRole("region", { name: "Your FMP key" });
+  const keyInput = fmp.getByLabel("FMP API key");
+  const status = fmp.getByTestId("key-status");
+  await expect(status).toHaveText("No key saved. Market data tools use demo data.");
+
+  // Rejected by FMP (401), then FMP down (503): nothing stored either time.
+  await keyInput.fill("wrong-fmp-key-1234");
+  await fmp.getByRole("button", { name: "Save key" }).click();
+  await expect(fmp.getByTestId("field-error-key-fmp")).toContainText("key is invalid: FMP rejected it");
+  await keyInput.fill("outage-fmp-key-0000");
+  await fmp.getByRole("button", { name: "Save key" }).click();
+  await expect(fmp.getByRole("alert")).toContainText("temporarily unavailable");
+  await expect(status).toHaveText("No key saved. Market data tools use demo data.");
+
+  await keyInput.fill("goodfmp000000000000000000000000fmp1");
+  await fmp.getByRole("button", { name: "Save key" }).click();
+  await expect(fmp.getByRole("status")).toHaveText("Key saved.");
+  await expect(status).toContainText("ending in fmp1");
+
+  await page.reload();
+  await expect(status).toContainText("ending in fmp1");
+  await expect(tiingo.getByTestId("key-status")).toContainText("ending in abcd");
+
+  await keyInput.fill("goodfmp111111111111111111111111fmp2");
+  await fmp.getByRole("button", { name: "Replace key" }).click();
+  await expect(status).toContainText("ending in fmp2");
+
+  // Deleting the FMP key leaves the Tiingo key alone.
+  await fmp.getByRole("button", { name: "Delete key" }).click();
+  await fmp.getByRole("button", { name: "Yes, delete my key" }).click();
+  await expect(status).toHaveText("No key saved. Market data tools use demo data.");
+  await page.reload();
+  await expect(status).toHaveText("No key saved. Market data tools use demo data.");
+  await expect(tiingo.getByTestId("key-status")).toContainText("ending in abcd");
 });

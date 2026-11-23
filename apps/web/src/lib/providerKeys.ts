@@ -7,7 +7,10 @@ import { getMessages } from "@/i18n";
 import { computePath } from "./compute";
 import type { ApiErrorBody } from "./envelope";
 
-export type Provider = "tiingo";
+/** Every provider a user can save a key for, in the order Settings lists them. */
+export const PROVIDERS = ["tiingo", "fmp"] as const;
+
+export type Provider = (typeof PROVIDERS)[number];
 
 export type SavedKey = { provider: Provider; hint: string; created_at: string; updated_at: string };
 

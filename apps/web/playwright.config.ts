@@ -10,8 +10,10 @@ import { defineConfig, devices } from "@playwright/test";
 // (e2e/fake-fred.mjs) on FRED_PORT (default COMPUTE_PORT + 2), Treasury yield curve
 // requests to a fake (e2e/fake-treasury.mjs) on TREASURY_PORT (default COMPUTE_PORT + 4),
 // Tiingo key checks to a fake (e2e/fake-tiingo.mjs) on TIINGO_PORT (default COMPUTE_PORT + 6),
-// World Bank requests to e2e/fake-world-bank.mjs on WORLD_BANK_PORT (default COMPUTE_PORT + 7)
-// and ECB requests to e2e/fake-ecb.mjs on ECB_PORT (default COMPUTE_PORT + 8).
+// World Bank requests to e2e/fake-world-bank.mjs on WORLD_BANK_PORT (default COMPUTE_PORT + 7),
+// ECB requests to e2e/fake-ecb.mjs on ECB_PORT (default COMPUTE_PORT + 8),
+// Frankfurter requests to e2e/fake-frankfurter.mjs on FRANKFURTER_PORT (default COMPUTE_PORT + 9)
+// and FMP requests to a fake (e2e/fake-fmp.mjs) on FMP_PORT (default COMPUTE_PORT + 10).
 // The compute service uses
 // E2E_DATABASE_URL if set (CI: the postgres service container); otherwise it
 // starts a throwaway local Postgres (needs initdb/pg_ctl, e.g. Homebrew).
@@ -47,6 +49,10 @@ const tiingo = {
 // the World Bank and ECB fakes).
 const FRANKFURTER_PORT = Number(process.env.FRANKFURTER_PORT || COMPUTE_PORT + 9);
 const frankfurter = { FRANKFURTER_BASE_URL: `http://127.0.0.1:${FRANKFURTER_PORT}` };
+// FMP: users' key checks and prices go to a fake (e2e/fake-fmp.mjs) on FMP_PORT
+// (default COMPUTE_PORT + 10; +9 is Frankfurter).
+const FMP_PORT = Number(process.env.FMP_PORT || COMPUTE_PORT + 10);
+const fmp = { FMP_BASE_URL: `http://127.0.0.1:${FMP_PORT}` };
 const isCI = !!process.env.CI;
 const reuse = !isCI && process.env.PW_REUSE_SERVERS === "1";
 const computeUrl = `http://127.0.0.1:${COMPUTE_PORT}`;
@@ -155,6 +161,12 @@ export default defineConfig({
       env: { FRANKFURTER_PORT: String(FRANKFURTER_PORT) },
     },
     {
+      command: "node e2e/fake-fmp.mjs",
+      url: `${fmp.FMP_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { FMP_PORT: String(FMP_PORT) },
+    },
+    {
       command: e2eDatabaseUrl
         ? uvicorn
         : `uv run python scripts/ephemeral_postgres.py -- ${uvicorn}`,
@@ -172,6 +184,7 @@ export default defineConfig({
         ...ai,
         ...tiingo,
         ...frankfurter,
+        ...fmp,
         ...(e2eDatabaseUrl ? { DATABASE_URL: e2eDatabaseUrl } : {}),
       },
     },
