@@ -40,3 +40,53 @@ test.describe("Options Calculator", () => {
     await expect(main.getByTestId("field-error-volatility")).toBeVisible();
   });
 });
+
+test.describe("Risk & Performance", () => {
+  test("a link with non-default inputs shows results computed from them", async ({ page }) => {
+    // DEMO-D's injected crash: exactly 45% from 2022-02-28 to the 2022-04-11 bottom.
+    const main = await open(page, "/risk?tickers=DEMO-D&start=2022-02-28&end=2022-04-11", "Risk & Performance");
+    await expect(main.getByLabel("Tickers")).toHaveValue("DEMO-D");
+    await expect(main.getByLabel("Benchmark")).toHaveValue("DEMO-MKT");
+    await expect(metric(main, "max_drawdown:DEMO-D")).toContainText("45.00%");
+    await expect(metric(main, "max_drawdown:DEMO-A")).toHaveCount(0);
+  });
+
+  test("submitting writes the inputs to the URL", async ({ page }) => {
+    const main = await open(page, "/risk", "Risk & Performance");
+    await expect(metric(main, "max_drawdown:DEMO-A")).toHaveAttribute("data-status", "ok");
+    await main.getByLabel("Tickers").fill("DEMO-D");
+    await main.getByRole("button", { name: "Calculate" }).click();
+    await expect(page).toHaveURL(/[?&]tickers=DEMO-D(&|$)/);
+    await expect(page).toHaveURL(/[?&]benchmark=DEMO-MKT(&|$)/);
+  });
+
+  test("an out-of-range value shows the normal validation error", async ({ page }) => {
+    const main = await open(page, "/risk?confidence=200", "Risk & Performance");
+    await expect(main.getByTestId("field-error-confidence")).toBeVisible();
+  });
+});
+
+test.describe("My Portfolio (demo)", () => {
+  test("a link with non-default inputs shows results computed from them", async ({ page }) => {
+    const main = await open(page, "/portfolio?holdings=DEMO-D:100&start=2022-02-28&end=2022-04-11", "My Portfolio");
+    const demo = main.getByRole("region", { name: "Demo portfolio" });
+    await expect(demo.getByLabel("Ticker 1")).toHaveValue("DEMO-D");
+    await expect(demo.getByLabel("Weight 1 (%)")).toHaveValue("100");
+    await expect(demo.getByLabel("Ticker 2")).toHaveCount(0);
+    await expect(metric(demo, "max_drawdown:portfolio")).toContainText("45.00%");
+  });
+
+  test("submitting writes the demo inputs to the URL", async ({ page }) => {
+    const main = await open(page, "/portfolio", "My Portfolio");
+    const demo = main.getByRole("region", { name: "Demo portfolio" });
+    await expect(metric(demo, "max_drawdown:portfolio")).toHaveAttribute("data-status", "ok");
+    await demo.getByRole("button", { name: "60/40" }).click();
+    await demo.getByRole("button", { name: "Calculate" }).click();
+    await expect(page).toHaveURL(/[?&]holdings=DEMO-C:60,DEMO-E:40(&|$)/);
+  });
+
+  test("weights that don't add up show the normal validation error", async ({ page }) => {
+    const main = await open(page, "/portfolio?holdings=DEMO-A:50", "My Portfolio");
+    await expect(main.getByTestId("field-error-holdings")).toContainText("add up to 50%");
+  });
+});
