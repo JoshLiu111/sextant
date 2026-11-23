@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -17,6 +18,9 @@ from sextant_compute.data.synthetic import HISTORY_START
 from tests.auth_helpers import bearer, sign_in
 from tests.data_fixtures import serving
 from tests.edgar_fixtures import edgar_adapter
+from tests.fred_fixtures import SERIES_DOES_NOT_EXIST, RecordedFred
+from tests.fred_fixtures import recorded_adapter as recorded_fred
+from tests.treasury_fixtures import recorded_adapter as recorded_treasury
 from tests.test_ai_explain import StubModel
 
 # About 40 trading days: too few returns for a 99.9% VaR.
@@ -161,4 +165,68 @@ def test_valuation_explains_the_dcf(client, model, edgar):
     assert cost_of_debt["status"] == "missing_data"
     assert cost_of_debt["reason"] == "Interest Expense is not reported by this company for FY2026."
     assert "growth_rates" in result["sensitivity"]
+    assert_real_data(model, prompt, result)
+
+
+def test_macro_dashboard_explains_the_headline_indicators(client, model):
+    # FRED has no unemployment series today: that indicator is missing_data, the rest still show.
+    fred = RecordedFred(
+        override=lambda path, sid: httpx.Response(400, json=SERIES_DOES_NOT_EXIST) if sid == "UNRATE" else None
+    )
+    with serving(recorded_fred(fred), "fred", on=client.app):
+        explain(client, "macro", {})
+
+    prompt, result = shown(model)
+    assert result["tool"] == "macro"
+    assert result["metrics"]["latest:gdp_growth"]["value"] == 2.3
+    assert result["metrics"]["latest:gdp_growth"]["details"]["date"] == "2026-07-01"
+    unemployment = result["metrics"]["latest:unemployment_rate"]
+    assert unemployment["status"] == "missing_data"
+    assert unemployment["reason"]
+    assert len(result["series"]["history:cpi_inflation"]["points"]) == 11  # thinned for the prompt
+    assert_real_data(model, prompt, result)
+
+
+def test_macro_dashboard_explains_the_treasury_rates(client, model):
+    with serving(recorded_treasury(), "treasury", on=client.app):
+        explain(client, "macro-rates", {"end": "2026-11-22"})
+
+    prompt, result = shown(model)
+    assert result["tool"] == "macro"
+    assert result["metrics"]["latest:yield_10y"]["value"] == 4.92
+    assert result["metrics"]["latest:yield_2y"]["value"] == 4.63
+    assert result["metrics"]["latest:spread_10y_2y"]["value"] == pytest.approx(0.29)
+    assert result["series"]["yield_curve:latest"]["details"]["date"] == "2026-11-20"
+    assert result["series"]["history:spread_10y_2y"]["bands"], "the inversion periods reach the model"
+    assert_real_data(model, prompt, result)
+
+
+def test_screener_explains_the_screen_and_its_exclusions(client, model, edgar):
+    explain(client, "screener", {"year": 2025})
+
+    prompt, result = shown(model)
+    assert result["tool"] == "screener"
+    assert [c["metric"] for c in result["criteria"]] == ["revenue_growth", "gross_margin", "roe"]
+    assert "NVDA" in [r["ticker"] for r in result["rows"]]
+    assert result["matched"] == len(result["rows"])
+    assert result["excluded"]["total"] > 0
+    assert result["excluded"]["by_criterion"][0]["reasons"]
+    assert_real_data(model, prompt, result)
+
+
+def test_a_long_screen_shows_the_model_the_top_rows_and_the_full_count(client, model, edgar):
+    explain(client, "screener", {"year": 2025, "criteria": [{"metric": "revenue", "op": "min", "value": 0}]})
+
+    _prompt, result = shown(model)
+    assert len(result["rows"]) == 25
+    assert result["matched"] > 25
+
+
+def test_screener_explains_the_latest_filings(client, model, edgar):
+    explain(client, "screener-filings", {"ticker": "AAPL"})
+
+    prompt, result = shown(model)
+    assert result["tool"] == "screener"
+    assert result["scope"] == "company"
+    assert result["filings"] and all(f["company"] for f in result["filings"])
     assert_real_data(model, prompt, result)

@@ -12,11 +12,13 @@ from sextant_compute.ai.api import ToolInputs, add_explainer
 from sextant_compute.company.api import StatementsRequest, statements
 from sextant_compute.company.ratios import RatiosRequest, ratios
 from sextant_compute.envelope import ResultEnvelope
+from sextant_compute.macro.api import IndicatorsRequest, RatesRequest, headline_indicators, treasury_rates
 from sextant_compute.options.api import OptionsRequest
 from sextant_compute.options.api import price as options_price
 from sextant_compute.portfolio.api import AnalysisSettings, PortfolioRequest, portfolio_metrics
 from sextant_compute.portfolio.saved import saved_portfolio_metrics
 from sextant_compute.risk.api import RiskRequest, risk_metrics
+from sextant_compute.screener.api import FilingsRequest, ScreenRequest, filings, screen
 from sextant_compute.valuation.api import DcfRequest, dcf
 
 OPTIONS_GUIDE = """
@@ -140,3 +142,59 @@ The result depends heavily on the assumptions; it is a model, not a price target
 add_explainer("company", StatementsRequest, lambda req, i: statements(req, i.data, i.ctx), COMPANY_GUIDE)
 add_explainer("company-ratios", RatiosRequest, lambda req, i: ratios(req, i.data, i.ctx), COMPANY_RATIOS_GUIDE)
 add_explainer("valuation", DcfRequest, lambda req, i: dcf(req, i.data, i.ctx), VALUATION_GUIDE)
+
+
+MACRO_GUIDE = """
+Macro Dashboard: four US headline indicators from FRED. Metrics latest:gdp_growth (real
+GDP growth, quarterly, annualized), latest:cpi_inflation (consumer prices, change from a
+year earlier), latest:unemployment_rate and latest:fed_funds_rate (monthly); all in
+percent (2.3 means 2.3%). details give the observation date, the series' title, units,
+frequency and last update. Series history:<indicator> is the history since
+meta.parameters.start (x = date), thinned to a few points here.
+"""
+
+MACRO_RATES_GUIDE = """
+Macro Dashboard, US Treasury rates (par yield curve). Metrics latest:yield_2y and
+latest:yield_10y are percent; latest:spread_10y_2y is the 10-year minus the 2-year yield
+in percentage points (below 0 = an inverted curve). Series yield_curve:latest,
+yield_curve:1m_ago and yield_curve:1y_ago are the curves (x = maturity in years, y =
+yield in percent; details.date = the curve's date), thinned to a few maturities here.
+history:spread_10y_2y is the spread over time; its bands are the inversion periods.
+"""
+
+SCREEN_GUIDE = """
+Screener: US companies filtered on fundamentals from SEC EDGAR for calendar year "year".
+"criteria" are the filters (op min = at least, max = at most; value is a decimal for
+percentages, 0.1 = 10%, US dollars for revenue, a multiple for ratios). universe =
+companies screened, matched = companies passing every criterion, excluded = companies
+left out because an input of a criterion was missing, per criterion with reasons.
+"rows" lists at most the first {rows} matches in the chosen sort order; "values" holds
+each row's figures for the "columns". There are no price-based criteria.
+"""
+
+FILINGS_GUIDE = """
+Screener, latest SEC filings: scope "market" = the newest filings by any company,
+"company" = one company's newest filings. Each filing has a form type (10-K annual
+report, 10-Q quarterly report, 8-K current report, 4 insider trade, S-1 registration,
+DEF 14A proxy, ...), a title, the company and the filing date. Say what kinds of filings
+these are; do not guess at their content.
+"""
+
+PROMPT_ROWS = 25
+"""Screen rows and filings shown to the model; the counts still cover them all."""
+
+
+def _screen(req: ScreenRequest, i: ToolInputs) -> ResultEnvelope:
+    result = screen(req, i.data, i.ctx)
+    return result.model_copy(update={"rows": result.rows[:PROMPT_ROWS]})
+
+
+def _filings(req: FilingsRequest, i: ToolInputs) -> ResultEnvelope:
+    result = filings(req, i.data, i.ctx)
+    return result.model_copy(update={"filings": result.filings[:PROMPT_ROWS]})
+
+
+add_explainer("macro", IndicatorsRequest, lambda req, i: headline_indicators(req, i.data, i.ctx), MACRO_GUIDE)
+add_explainer("macro-rates", RatesRequest, lambda req, i: treasury_rates(req, i.data, i.ctx), MACRO_RATES_GUIDE)
+add_explainer("screener", ScreenRequest, _screen, SCREEN_GUIDE.format(rows=PROMPT_ROWS))
+add_explainer("screener-filings", FilingsRequest, _filings, FILINGS_GUIDE)
