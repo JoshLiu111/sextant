@@ -113,24 +113,6 @@ def get_model(request: Request) -> AnalystModel:
 Db = Annotated[Database, Depends(get_db)]
 Model = Annotated[AnalystModel, Depends(get_model)]
 
-_NOISY_DETAILS = {"url", "accession"}
-
-
-def tool_payload(result: ResultEnvelope) -> dict:
-    """A result as the model reads it: series thinned, empty fields and filing links dropped."""
-    data = prompts.result_payload(result)
-    for m in data["metrics"].values():
-        for key in ("reason", "unit"):
-            if m.get(key) is None:
-                m.pop(key, None)
-        if m.get("status") == "ok":
-            m.pop("status")
-        details = {k: v for k, v in m.pop("details", {}).items() if k not in _NOISY_DETAILS}
-        if details:
-            m["details"] = details
-    return data
-
-
 class Conversation:
     """One question's tool-use loop: runs the tools, keeps the trace and the results."""
 
@@ -165,7 +147,7 @@ class Conversation:
         block = {"type": "tool_result", "tool_use_id": use["id"]}
         if result is None:
             return block | {"content": outcome.error, "is_error": True}
-        return block | {"content": json.dumps(tool_payload(result))}
+        return block | {"content": json.dumps(prompts.result_payload(result, drop_ok_status=True))}
 
     def answer(self, question: str) -> str:
         messages: list[dict] = [{"role": "user", "content": question}]
