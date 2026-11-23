@@ -1174,7 +1174,7 @@ export const en = {
     yearEnded: "Year ended",
     quarterEnded: "Quarter ended",
     quarterlyNote:
-      "Quarters are the company's fiscal quarters. Companies file no fourth-quarter report, so Q4 income and cash flows are the year (10-K) minus the first three quarters; per-share amounts and weighted-average shares aren't derived for Q4. Cash flows in 10-Qs are year to date, so each quarter shows only its own three months.",
+      "Quarters are the company's fiscal quarters. Companies file no fourth-quarter report, so Q4 income and cash flows are the year (10-K) minus the first three quarters; Q4 weighted-average shares are the year weighted by days minus the nine months, and Q4 EPS is the year's EPS x shares minus the nine months', over Q4's shares (approximations; hover a value to see how). Cash flows in 10-Qs are year to date, so each quarter shows only its own three months.",
     filed: "filed",
     sourceFiling: "Source",
     derived: "derived",
@@ -1688,7 +1688,7 @@ export const en = {
     averageNote:
       "Balance-sheet amounts in ratios with revenue, costs or income are averaged over the opening and closing balance (the prior and current fiscal year end). Hover n/a for the reason; select any value to see its formula and inputs.",
     quarterlyNote:
-      "Quarterly ratios marked TTM use trailing twelve months: income and cash flows are the sum of the four quarters to each quarter end, and balances are averaged over that quarter end and the one a year before. Unmarked ratios use the quarter-end balance sheet. A TTM ratio at Q4 equals the fiscal-year ratio.",
+      "Quarterly ratios marked TTM use trailing twelve months: income and cash flows are the sum of the four quarters to each quarter end, and balances are averaged over that quarter end and the one a year before. Unmarked ratios use the quarter-end balance sheet. A TTM ratio at Q4 equals the fiscal-year ratio, except P/E: its TTM EPS is the sum of the four quarterly EPS.",
     ttm: "TTM",
     ttmTitle: "Trailing twelve months: the four quarters to each quarter end",
     drill: {

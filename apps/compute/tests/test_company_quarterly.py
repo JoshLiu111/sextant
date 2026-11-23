@@ -65,14 +65,52 @@ def test_q4_flows_are_the_year_minus_the_first_three_quarters() -> None:
     assert metrics[f"total_assets:{Q2}"]["value"] == 371_082_000_000
 
 
-def test_per_share_amounts_are_not_derived_for_q4() -> None:
+# Q4 share counts and EPS, AAPL FY2026 (diluted). The year (10-K) is 364 days, the
+# nine months to Q3 (10-Q) 273 and Q4 91. A weighted-average share count is the
+# day-weighted average of its parts, so
+#   Q4 shares = (FY x 364 - 9M x 273) / 91 = 4 x 14,720,306,000 - 3 x 14,750,302,000
+#             = 14,630,318,000
+# EPS x weighted shares = the earnings behind the EPS, so
+#   Q4 EPS = (8.98 x 14,720,306,000 - 6.88 x 14,750,302,000) / 14,630,318,000
+#          = 30,706,270,120 / 14,630,318,000 = 2.09881
+# (Q4 net income 132,175 - 101,464 = 30,711 million over the same shares: 2.0991.)
+Q4_SHARES_DILUTED = 14_630_318_000
+Q4_EPS_DILUTED = 30_706_270_120 / 14_630_318_000
+
+
+def test_q4_share_counts_and_eps_are_derived_from_the_year_and_the_nine_months() -> None:
     body = post(STATEMENTS, {"ticker": "AAPL", "frequency": "quarterly", "quarters": 4})
     metrics = body["metrics"]
 
     assert metrics[f"eps_diluted:{Q3}"]["value"] == 2.02
-    q4 = metrics[f"eps_diluted:{Q4}"]
-    assert q4["status"] == "missing_data"
-    assert "Q4 FY2026" in q4["reason"] and "per-share" in q4["reason"]
+    shares = metrics[f"shares_diluted:{Q4}"]
+    assert shares["status"] == "ok"
+    assert shares["value"] == approx(Q4_SHARES_DILUTED)
+    assert shares["details"]["form"] == "10-K"
+    assert "weighted by days" in shares["details"]["derived_from"]
+    assert "nine months to 2026-06-27 (10-Q filed 2026-07-31)" in shares["details"]["derived_from"]
+    eps = metrics[f"eps_diluted:{Q4}"]
+    assert eps["status"] == "ok"
+    assert eps["value"] == approx(Q4_EPS_DILUTED, abs=1e-6)
+    assert "EPS x weighted shares" in eps["details"]["derived_from"]
+    assert metrics[f"shares_basic:{Q4}"]["value"] == approx(4 * 14_661_935_000 - 3 * 14_692_515_000)
+
+
+def test_quarterly_pe_and_the_q4_dilution_signal_now_compute() -> None:
+    body = post(
+        RATIOS, {"companies": [{"ticker": "AAPL", "price": 250.0}], "frequency": "quarterly", "quarters": 4}
+    )
+    metrics = body["metrics"]
+
+    # TTM diluted EPS to Q4 FY2026: 2.84 + 2.01 + 2.02 + 2.09881 = 8.96881.
+    pe = metrics[f"price_to_earnings:AAPL:{Q4}"]
+    assert pe["status"] == "ok", pe["reason"]
+    assert pe["value"] == approx(250.0 / (2.84 + 2.01 + 2.02 + Q4_EPS_DILUTED))
+    # Q4 FY2026 basic shares (14,570,195,000) vs Q4 FY2025's: fewer, so the signal is 1.
+    dilution = metrics[f"piotroski_no_dilution:AAPL:{Q4}"]
+    assert dilution["status"] == "ok", dilution["reason"]
+    assert dilution["value"] == 1
+    assert metrics[f"piotroski_f:AAPL:{Q4}"]["status"] == "ok"
 
 
 def test_annual_stays_the_default() -> None:
