@@ -3,23 +3,23 @@ import { Suspense } from "react";
 import { SignInLink } from "@/components/SignInLink";
 import { getMessages } from "@/i18n";
 import { computeFetchAsUser, getCurrentUser, sessionToken } from "@/lib/auth/session";
-import type { SavedKey } from "@/lib/providerKeys";
-import { TiingoKeySettings } from "./TiingoKeySettings";
+import { PROVIDERS, type SavedKey } from "@/lib/providerKeys";
+import { ProviderKeySettings } from "./ProviderKeySettings";
 
 const t = getMessages();
 
 export const metadata: Metadata = { title: t.settings.heading };
 
-/** The user's saved Tiingo key (hint only), or null if none or the list failed to load. */
-async function savedTiingoKey(): Promise<SavedKey | null> {
+/** The user's saved keys (hints only); empty if none or the list failed to load. */
+async function savedKeys(): Promise<SavedKey[]> {
   const token = await sessionToken();
-  if (!token) return null;
+  if (!token) return [];
   try {
     const res = await computeFetchAsUser(token, "/keys", { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return null;
-    return ((await res.json()) as SavedKey[]).find((k) => k.provider === "tiingo") ?? null;
+    if (!res.ok) return [];
+    return (await res.json()) as SavedKey[];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -37,7 +37,14 @@ async function SettingsBody() {
       </div>
     );
   }
-  return <TiingoKeySettings initial={await savedTiingoKey()} />;
+  const keys = await savedKeys();
+  return PROVIDERS.map((provider) => (
+    <ProviderKeySettings
+      key={provider}
+      provider={provider}
+      initial={keys.find((k) => k.provider === provider) ?? null}
+    />
+  ));
 }
 
 export default function SettingsPage() {
