@@ -15,6 +15,7 @@ const PERCENT = new Intl.NumberFormat("en-US", {
 export function formatValue(value: number, unit: Unit | null): string {
   if (unit === "decimal") return PERCENT.format(value);
   if (unit === "percent") return `${TWO.format(value)}%`;
+  if (unit === "ratio") return TWO.format(value);
   return FOUR.format(value);
 }
 
