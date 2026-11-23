@@ -2143,6 +2143,7 @@ export const en = {
   footer: {
     disclaimer:
       "Not investment advice. Sextant is for education and research only; results may be wrong or out of date.",
+    analytics: "Sextant uses cookieless, anonymous page-view analytics (Vercel Web Analytics).",
     sourcesLabel: "Data sources",
   },
   operator: {
