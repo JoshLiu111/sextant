@@ -63,9 +63,12 @@ def _rate(low: float, high: float, name: str) -> AfterValidator:
     return check(lambda x: low <= x <= high, f"Enter {name} between {low:.0%} and {high:.0%}.")
 
 
-class DcfRequest(BaseModel):
-    ticker: Annotated[str, BeforeValidator(_normalize_ticker), check(lambda x: x != "", "Enter a ticker.")] = "MSFT"
-    source: Literal["sec_edgar"] = "sec_edgar"
+Ticker = Annotated[str, BeforeValidator(_normalize_ticker), check(lambda x: x != "", "Enter a ticker.")]
+
+
+class ValuationAssumptions(BaseModel):
+    """Every DCF/WACC input the user chooses (what a saved assumption set stores)."""
+
     forecast_years: Annotated[int, check(lambda x: 1 <= x <= 20, "Choose between 1 and 20 years.")] = 5
     growth_rate: Annotated[float, _rate(-0.5, 1.0, "a growth rate")] = 0.05
     """Annual FCF growth during the forecast years (decimal)."""
@@ -88,9 +91,6 @@ class DcfRequest(BaseModel):
     share_price: Annotated[float | None, check(lambda x: x > 0, "Enter a share price greater than 0.")] = None
     """Optional. Market value of equity = price × shares outstanding (for the weights, market
     cap and margin of safety); null = the latest close on My data, else book equity and no comparison."""
-    price_source: PriceSource = DEMO_SOURCE
-    """Where a missing ``share_price`` comes from: ``"synthetic"`` (Demo) looks nothing up;
-    a My data provider (``"tiingo"``) uses its latest close, on the user's own key."""
 
     @field_validator("terminal_growth")
     @classmethod
@@ -99,6 +99,14 @@ class DcfRequest(BaseModel):
         if r is not None and g >= r:
             raise PydanticCustomError(INPUT_ERROR, "Terminal growth must be below the discount rate.")
         return g
+
+
+class DcfRequest(ValuationAssumptions):
+    ticker: Ticker = "MSFT"
+    source: Literal["sec_edgar"] = "sec_edgar"
+    price_source: PriceSource = DEMO_SOURCE
+    """Where a missing ``share_price`` comes from: ``"synthetic"`` (Demo) looks nothing up;
+    a My data provider (``"tiingo"``) uses its latest close, on the user's own key."""
 
 
 class CompanyOut(BaseModel):
