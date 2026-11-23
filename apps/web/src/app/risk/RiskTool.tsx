@@ -20,6 +20,7 @@ import { useCompute } from "@/lib/useCompute";
 import { ReturnDistribution } from "./ReturnDistribution";
 import { RollingCharts } from "./RollingCharts";
 import { DEFAULT_ROLLING_WINDOW, PeriodNote, TimescaleInputs, type ReturnPeriod } from "./TimescaleInputs";
+import { ModelChecks } from "./ModelChecks";
 
 // Metric ids are "<metric>:<ticker>", series ids "drawdown:<ticker>".
 // Cards are grouped by section; the order within a group is the display order.
@@ -364,6 +365,7 @@ export function RiskTool() {
         {result && params && (
           <ReturnDistribution result={result} symbols={symbols} label={label} period={params.period} />
         )}
+        <ModelChecks result={result} symbols={symbols} label={label} />
         {result && <CalculationInfo result={result} />}
       </section>
     </div>

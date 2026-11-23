@@ -24,6 +24,7 @@ from sextant_compute.risk.metrics import (
     risk_metric_set,
 )
 from sextant_compute.risk.timescale import missing_timescale_results, timescale_results, underwater_series
+from sextant_compute.risk.model_checks import missing_model_check_set, model_check_set
 
 router = APIRouter(tags=["risk"])
 
@@ -126,6 +127,9 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
         extra_metrics, extra_charts = missing_timescale_results(ticker, reason)
         metrics.update(extra_metrics)
         charts.update(extra_charts)
+        check_metrics, check_series = missing_model_check_set(reason)
+        metrics.update({f"{name}:{ticker}": result for name, result in check_metrics.items()})
+        charts.update({f"{name}:{ticker}": result for name, result in check_series.items()})
 
     def returns_of(ticker: str) -> pd.Series:
         frame = prices.frames[ticker]
@@ -156,6 +160,9 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
         )
         metrics.update(extra_metrics)
         charts.update(extra_charts)
+        check_metrics, check_series = model_check_set(returns_of(ticker), confidence=req.confidence)
+        metrics.update({f"{name}:{ticker}": result for name, result in check_metrics.items()})
+        charts.update({f"{name}:{ticker}": result for name, result in check_series.items()})
     return envelope(
         tool=TOOL,
         request=req,

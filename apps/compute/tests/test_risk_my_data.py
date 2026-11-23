@@ -203,3 +203,17 @@ def test_a_key_tiingo_stops_accepting_asks_the_user_to_replace_it(client, tiingo
     assert response.json()["error"]["code"] == "key_required"
     assert "Replace it in Settings" in response.json()["error"]["message"]
     assert ALICE_KEY not in response.text
+
+
+def test_model_checks_run_on_my_data_and_mark_an_unknown_ticker_missing_data(client, alice):
+    body = risk(client, alice, tickers=["AAPL", "ZZZZ"]).json()
+
+    # #25's VaR backtests and GARCH fit come back for the user's own prices too...
+    for metric in ("backtest_var", "backtest_parametric_var", "backtest_cornish_fisher_var", "garch_volatility"):
+        assert body["metrics"][f"{metric}:AAPL"]["status"] in {"ok", "missing_data"}
+        result = body["metrics"][f"{metric}:ZZZZ"]
+        assert result["status"] == "missing_data"
+        assert result["reason"] == "Tiingo has no ticker ZZZZ."
+    # ...and the unknown ticker's GARCH curve is marked rather than left out.
+    assert body["series"]["garch_volatility:ZZZZ"]["status"] == "missing_data"
+    assert "garch_volatility:AAPL" in body["series"]
