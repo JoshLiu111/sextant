@@ -112,6 +112,8 @@ export const en = {
       exportLabel: (table: string) => `Export CSV: ${table}`,
       ticker: "Ticker",
       metric: "Metric",
+      value: "Value",
+      currency: "Currency",
     },
     calculation: {
       id: "Calculation",
@@ -425,6 +427,7 @@ export const en = {
       history: "history",
       x: "Date",
       maturity: "Maturity",
+      maturityYears: "Maturity (years)",
     },
     rates: {
       curveLabels: {

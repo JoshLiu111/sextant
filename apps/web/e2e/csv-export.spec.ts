@@ -18,19 +18,29 @@ function parseCsv(text: string): string[][] {
   let row: string[] = [];
   let field = "";
   let quoted = false;
+  const endField = () => {
+    row.push(field);
+    field = "";
+  };
+  const endRow = () => {
+    endField();
+    rows.push(row);
+    row = [];
+  };
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
     if (quoted) {
-      if (ch === '"' && text[i + 1] === '"') (field += '"'), i++;
-      else if (ch === '"') quoted = false;
+      if (ch === '"' && text[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
       else field += ch;
     } else if (ch === '"') quoted = true;
-    else if (ch === ",") row.push(field), (field = "");
-    else if (ch === "\r") continue;
-    else if (ch === "\n") row.push(field), rows.push(row), (row = []), (field = "");
-    else field += ch;
+    else if (ch === ",") endField();
+    else if (ch === "\n") endRow();
+    else if (ch !== "\r") field += ch;
   }
-  if (field !== "" || row.length) row.push(field), rows.push(row);
+  if (field !== "" || row.length) endRow();
   return rows;
 }
 
@@ -95,16 +105,37 @@ test("demo data exports are marked as synthetic, with decimals instead of percen
   expect(rows.map((r) => r[1])).toEqual(["Ticker", "DEMO-A", "DEMO-B", "DEMO-D", "DEMO-MKT"]);
 });
 
+test("screener results export raw values for the screen's year", async ({ page }) => {
+  await page.goto("/screener");
+  const results = page.getByRole("main").getByTestId("results");
+  await expect(results.locator('[data-ticker="NVDA"] [data-metric-value="revenue"]')).toHaveText("215,938", {
+    timeout: 30_000,
+  });
+
+  const { name, rows } = await download(page, results.getByRole("button", { name: /Export CSV/ }));
+
+  expect(name).toBe("sextant-screener-results-2025.csv");
+  expect(rows[0].slice(0, 2)).toEqual(["Ticker", "Company"]);
+  const nvda = rows.find((r) => r[0] === "NVDA")!;
+  expect(Math.round(Number(nvda[rows[0].indexOf("Revenue")]) / 1e6)).toBe(215_938);
+  expect(Number(nvda[rows[0].indexOf("Revenue growth")])).toBeCloseTo(0.655, 3);
+  expect(rows).toHaveLength(1 + 9);
+});
+
 test("every result table on each tool has an export button", async ({ page }) => {
-  const expected: [string, string, number][] = [
-    ["/company", "ratio-results", 6],
-    ["/company", "results", 3],
-    ["/portfolio", "results", 1],
-    ["/valuation", "results", 2],
+  // [path, export buttons in main]
+  const expected: [string, number][] = [
+    ["/company", 3 + 6], // three statements; Altman Z + five ratio categories
+    ["/risk", 1],
+    ["/portfolio", 1],
+    ["/valuation", 2], // sensitivity, free cash flow
+    ["/screener", 2], // results, latest filings
+    ["/macro", 4 + 2], // four FRED indicators; yield curve, spread
   ];
-  for (const [path, testid, count] of expected) {
+  for (const [path, count] of expected) {
     await page.goto(path);
-    const scope = page.getByRole("main").getByTestId(testid);
-    await expect(scope.getByRole("button", { name: /Export CSV/ })).toHaveCount(count, { timeout: 30_000 });
+    await expect(page.getByRole("main").getByRole("button", { name: /Export CSV/ })).toHaveCount(count, {
+      timeout: 30_000,
+    });
   }
 });
