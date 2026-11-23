@@ -67,8 +67,9 @@ test("the operator sees each user's AI calls, tokens and estimated cost by day",
   const perUser = main.getByRole("table", { name: "AI usage per user" });
   const userRow = perUser.getByRole("row").filter({ hasText: user });
   await expect(userRow.getByRole("cell").nth(1)).toHaveText("1"); // calls
-  await expect(userRow.getByRole("cell").nth(2)).not.toHaveText("0"); // input tokens
-  await expect(userRow.getByRole("cell").nth(4)).toHaveText(/^\$\d+\.\d{4}$/); // estimated cost
+  await expect(userRow.getByRole("cell").nth(2)).toHaveText("0"); // failed calls
+  await expect(userRow.getByRole("cell").nth(3)).not.toHaveText("0"); // input tokens
+  await expect(userRow.getByRole("cell").nth(5)).toHaveText(/^\$\d+\.\d{4}$/); // estimated cost
 
   const perDay = main.getByRole("table", { name: "AI usage per user per day" });
   const dayRow = perDay.getByRole("row").filter({ hasText: user });

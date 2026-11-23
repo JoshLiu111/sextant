@@ -8,7 +8,7 @@ the tool-call trace, and the raw result of every calculation run.
 
 One question costs one unit of the daily AI quota shared with AI Explain (usage
 row tool ``"analyst"``, tokens summed over every round); a failed model call
-costs nothing.
+costs nothing, though the tokens of the rounds it did run are still logged.
 """
 
 from __future__ import annotations
@@ -111,17 +111,15 @@ class Conversation:
     """One question's tool-use loop: runs the tools, keeps the trace and the results."""
 
     def __init__(
-        self, model: AnalystModel, data: DataService, ctx: RequestContext, db: Database | None = None
+        self, model: AnalystModel, data: DataService, ctx: RequestContext, db: Database | None, meter: usage.Meter
     ) -> None:
-        self.model, self.data, self.ctx, self.db = model, data, ctx, db
+        self.model, self.data, self.ctx, self.db, self.meter = model, data, ctx, db, meter
         self.calls: list[ToolCall] = []
         self.calculations: dict[str, ResultEnvelope] = {}
-        self.input_tokens = self.output_tokens = 0
 
     def _turn(self, messages: list[dict], must_answer: bool) -> Turn:
         turn = self.model.converse(SYSTEM, messages, tools.specs(), must_answer=must_answer)
-        self.input_tokens += turn.input_tokens
-        self.output_tokens += turn.output_tokens
+        self.meter.add(turn.input_tokens, turn.output_tokens)
         return turn
 
     def _run(self, use: dict) -> dict:
@@ -156,25 +154,15 @@ class Conversation:
 
 @router.post("/analyst")
 def ask(body: Question, user: CurrentUser, db: Db, model: Model, data: Data, ctx: Ctx) -> AnalystAnswer:
-    limit = usage.daily_limit()
-    with db.connection() as conn:
-        usage_id = usage.reserve(conn, user.id, USAGE_TOOL, limit)
-    if usage_id is None:
-        raise usage.quota_exceeded(limit, "AI")
-    conversation = Conversation(model, data, ctx, db)
     try:
-        text = conversation.answer(body.question)
+        with usage.metered(db, user.id, USAGE_TOOL) as meter:
+            conversation = Conversation(model, data, ctx, db, meter)
+            text = conversation.answer(body.question)
+    except usage.QuotaExceeded as exc:
+        raise usage.quota_exceeded(exc.limit, "AI") from exc
     except ModelUnavailable as exc:
-        with db.connection() as conn:
-            usage.release(conn, user.id, usage_id)
         raise ApiError(503, "ai_unavailable", UNAVAILABLE_MESSAGE) from exc
-    except BaseException:
-        with db.connection() as conn:
-            usage.release(conn, user.id, usage_id)
-        raise
-    with db.connection() as conn:
-        usage.record(conn, user.id, usage_id, conversation.input_tokens, conversation.output_tokens)
-        remaining = usage.quota(conn, user.id, limit)
+    assert meter.quota is not None
     segments = check_answer(text, conversation.calculations)
     return AnalystAnswer(
         question=body.question,
@@ -182,6 +170,6 @@ def ask(body: Question, user: CurrentUser, db: Db, model: Model, data: Data, ctx
         calls=conversation.calls,
         calculations={cid: r.model_dump(mode="json") for cid, r in conversation.calculations.items()},
         advice_notice=prompts.advice_notice(plain_text(segments)),
-        usage=TokenUsage(input_tokens=conversation.input_tokens, output_tokens=conversation.output_tokens),
-        quota=QuotaOut(**remaining.as_json()),
+        usage=TokenUsage(input_tokens=meter.input_tokens, output_tokens=meter.output_tokens),
+        quota=QuotaOut(**meter.quota.as_json()),
     )

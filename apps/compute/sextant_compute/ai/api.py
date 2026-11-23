@@ -5,8 +5,9 @@
   ``meta.parameters`` of the result on screen). The service recomputes the result
   itself, so the model only ever sees numbers Sextant calculated, then asks the
   model for a plain-English reading that cites its numbers the way AI Analyst
-  does; each citation is checked against that one result (``ai/citations.py``). One call costs one unit of the daily quota;
-  a failed model call costs nothing.
+  does; each citation is checked against that one result (``ai/citations.py``).
+  One call costs one unit of the daily quota; a failed model call costs nothing
+  (its tokens are still logged, ``ai/usage``).
 
 Each tool registers itself with ``add_explainer(tool, RequestModel, compute, guide)``;
 the registrations and their guides live in ``ai/explainers.py``.
@@ -80,24 +81,15 @@ def get_quota(user: CurrentUser, db: Db) -> QuotaOut:
 
 
 def explain(tool: str, guide: str, result: ResultEnvelope, user_id, db: Database, model: ExplainModel) -> Explanation:
-    limit = usage.daily_limit()
-    with db.connection() as conn:
-        usage_id = usage.reserve(conn, user_id, tool, limit)
-    if usage_id is None:
-        raise usage.quota_exceeded(limit, "AI Explain")
     try:
-        completion = model.complete(prompts.SYSTEM, prompts.user_prompt(guide, result))
+        with usage.metered(db, user_id, tool) as meter:
+            completion = model.complete(prompts.SYSTEM, prompts.user_prompt(guide, result))
+            meter.add(completion.input_tokens, completion.output_tokens)
+    except usage.QuotaExceeded as exc:
+        raise usage.quota_exceeded(exc.limit, "AI Explain") from exc
     except ModelUnavailable as exc:
-        with db.connection() as conn:
-            usage.release(conn, user_id, usage_id)
         raise ApiError(503, "ai_unavailable", UNAVAILABLE_MESSAGE) from exc
-    except BaseException:
-        with db.connection() as conn:
-            usage.release(conn, user_id, usage_id)
-        raise
-    with db.connection() as conn:
-        usage.record(conn, user_id, usage_id, completion.input_tokens, completion.output_tokens)
-        remaining = usage.quota(conn, user_id, limit)
+    assert meter.quota is not None
     segments = check_answer(completion.text, {result.calculation_id: result})
     text = plain_text(segments)
     return Explanation(
@@ -107,7 +99,7 @@ def explain(tool: str, guide: str, result: ResultEnvelope, user_id, db: Database
         answer=segments,
         advice_notice=prompts.advice_notice(text),
         usage=TokenUsage(input_tokens=completion.input_tokens, output_tokens=completion.output_tokens),
-        quota=QuotaOut(**remaining.as_json()),
+        quota=QuotaOut(**meter.quota.as_json()),
     )
 
 

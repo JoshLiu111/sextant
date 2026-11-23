@@ -1,25 +1,33 @@
-"""SQL for the AI usage log and the daily quota. Every function is scoped by ``user_id``.
+"""The AI usage log and the daily quota. Every query is scoped by ``user_id``.
 
-The quota day is the UTC calendar day. A call first *reserves* a row (under a
-per-user advisory lock, so concurrent calls can't overshoot the quota), then
-either records its token counts or releases the row when the model fails.
+Every AI call goes through ``metered``: it *reserves* a row (under a per-user
+advisory lock, so concurrent calls can't overshoot the quota), runs the call,
+then records the tokens it spent. A call that fails keeps its row with status
+``failed`` and whatever tokens it spent before failing: the operator view counts
+them, the quota does not. The quota day is the UTC calendar day.
 """
 
 from __future__ import annotations
 
 import math
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 from typing import NamedTuple
 from uuid import UUID
 
 import psycopg
 
+from sextant_compute.ai.model import ModelUnavailable
+from sextant_compute.db import Database
 from sextant_compute.errors import ApiError
 
 DEFAULT_DAILY_QUOTA = 20
 
 _TODAY = "created_at >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'"
+_CHARGED = "status <> 'failed'"
 
 
 class Quota(NamedTuple):
@@ -73,7 +81,7 @@ def quota_exceeded(limit: int, calls_of: str) -> ApiError:
 
 
 def _used_today(conn: psycopg.Connection, user_id: UUID) -> int:
-    row = conn.execute(f"SELECT count(*) AS n FROM ai_usage WHERE user_id = %s AND {_TODAY}", (user_id,)).fetchone()
+    row = conn.execute(f"SELECT count(*) AS n FROM ai_usage WHERE user_id = %s AND {_CHARGED} AND {_TODAY}", (user_id,)).fetchone()
     assert row is not None
     return int(row["n"])
 
@@ -82,7 +90,7 @@ def quota(conn: psycopg.Connection, user_id: UUID, limit: int) -> Quota:
     return Quota(limit, _used_today(conn, user_id), next_reset())
 
 
-def reserve(conn: psycopg.Connection, user_id: UUID, tool: str, limit: int) -> UUID | None:
+def _reserve(conn: psycopg.Connection, user_id: UUID, tool: str, limit: int) -> UUID | None:
     """Take one call from today's quota; None when it is used up. Commit before calling the model."""
     conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"ai_usage:{user_id}",))
     if _used_today(conn, user_id) >= limit:
@@ -94,12 +102,59 @@ def reserve(conn: psycopg.Connection, user_id: UUID, tool: str, limit: int) -> U
     return row["id"]
 
 
-def record(conn: psycopg.Connection, user_id: UUID, usage_id: UUID, input_tokens: int, output_tokens: int) -> None:
+def _finish(conn: psycopg.Connection, user_id: UUID, usage_id: UUID, meter: Meter, status: str) -> None:
     conn.execute(
-        "UPDATE ai_usage SET input_tokens = %s, output_tokens = %s WHERE id = %s AND user_id = %s",
-        (input_tokens, output_tokens, usage_id, user_id),
+        "UPDATE ai_usage SET status = %s, input_tokens = %s, output_tokens = %s WHERE id = %s AND user_id = %s",
+        (status, meter.input_tokens, meter.output_tokens, usage_id, user_id),
     )
 
 
-def release(conn: psycopg.Connection, user_id: UUID, usage_id: UUID) -> None:
-    conn.execute("DELETE FROM ai_usage WHERE id = %s AND user_id = %s", (usage_id, user_id))
+class QuotaExceeded(Exception):
+    def __init__(self, limit: int) -> None:
+        super().__init__(f"daily AI quota of {limit} used up")
+        self.limit = limit
+
+
+@dataclass
+class Meter:
+    """The tokens one metered call has spent so far; the caller adds each model reply.
+
+    After the ``metered`` block ends normally, ``quota`` is the user's quota
+    including this call.
+    """
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    quota: Quota | None = None
+
+    def add(self, input_tokens: int, output_tokens: int) -> None:
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
+
+
+@contextmanager
+def metered(db: Database, user_id: UUID, tool: str) -> Iterator[Meter]:
+    """Run one AI call against the user's daily quota and log what it spent.
+
+    Raises ``QuotaExceeded`` (before the block runs) when today's quota is used up.
+    If the block raises, the call is logged as ``failed`` with the tokens added so
+    far, plus those a ``ModelUnavailable`` says it was billed for, and does not
+    count against the quota; the exception propagates.
+    """
+    limit = daily_limit()
+    with db.connection() as conn:
+        usage_id = _reserve(conn, user_id, tool, limit)
+    if usage_id is None:
+        raise QuotaExceeded(limit)
+    meter = Meter()
+    try:
+        yield meter
+    except BaseException as exc:
+        if isinstance(exc, ModelUnavailable):
+            meter.add(exc.input_tokens, exc.output_tokens)
+        with db.connection() as conn:
+            _finish(conn, user_id, usage_id, meter, "failed")
+        raise
+    with db.connection() as conn:
+        _finish(conn, user_id, usage_id, meter, "ok")
+        meter.quota = quota(conn, user_id, limit)

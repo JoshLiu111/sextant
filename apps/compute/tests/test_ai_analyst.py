@@ -338,6 +338,44 @@ def test_a_model_outage_is_reported_and_costs_nothing(client, model):
     assert quota(client, token)["used"] == 0
 
 
+def fails_billing(input_tokens: int, output_tokens: int) -> Script:
+    def turn(_messages: list[dict]) -> Turn:
+        raise ModelUnavailable("stubbed: no text", input_tokens, output_tokens)
+
+    return turn
+
+
+def test_a_question_that_fails_after_paid_rounds_logs_their_tokens_but_costs_no_quota(client, model, db_url):
+    # Round 1 calls a tool (500 in, 40 out); round 2 is billed (900 in, 3000 out) but unusable.
+    model.script = prices_the_option_then(fails_billing(900, 3000))
+    token = sign_in(client)
+
+    response = ask(client, token)
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "ai_unavailable"
+    assert quota(client, token)["used"] == 0
+    with psycopg.connect(db_url, row_factory=psycopg.rows.dict_row) as conn:
+        rows = conn.execute("SELECT tool, status, input_tokens, output_tokens FROM ai_usage").fetchall()
+    assert rows == [{"tool": "analyst", "status": "failed", "input_tokens": 1400, "output_tokens": 3040}]
+
+
+def test_an_unexpected_error_midway_also_logs_the_tokens_spent_and_costs_no_quota(client, model, db_url):
+    def crashes(_messages: list[dict]) -> Turn:
+        raise RuntimeError("stubbed bug")
+
+    model.script = prices_the_option_then(crashes)
+    token = sign_in(client)
+
+    with pytest.raises(RuntimeError):
+        ask(client, token)
+
+    assert quota(client, token)["used"] == 0
+    with psycopg.connect(db_url, row_factory=psycopg.rows.dict_row) as conn:
+        rows = conn.execute("SELECT status, input_tokens, output_tokens FROM ai_usage").fetchall()
+    assert rows == [{"status": "failed", "input_tokens": 500, "output_tokens": 40}]
+
+
 @pytest.mark.parametrize("question", ["", "   ", "x" * 2001])
 def test_an_empty_or_overlong_question_is_rejected_and_costs_nothing(client, model, question):
     token = sign_in(client)
