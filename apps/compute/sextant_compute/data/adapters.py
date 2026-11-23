@@ -27,6 +27,7 @@ import pandas as pd
 
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
+from sextant_compute.data.dividends import DividendHistory
 from sextant_compute.data.filings import FilingList
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.envelope import DataSource
@@ -92,6 +93,15 @@ class FilingsAdapter(Adapter, Protocol):
     def company_filings(self, ctx: RequestContext, ticker: str) -> FilingList:
         """One company's recent filings, newest first. Raises ``NoSuchData``
         (``missing`` keyed by the ticker as given) for an unknown ticker."""
+        ...
+
+
+class DividendsAdapter(Adapter, Protocol):
+    def dividends(self, ctx: RequestContext, ticker: str) -> DividendHistory:
+        """Per-share dividends by fiscal quarter and year, newest first (see
+        ``data/dividends.py``). A company that pays none gets an empty history,
+        not an error. Raises ``NoSuchData`` (``missing`` keyed by the ticker as
+        given) for an unknown ticker or a company without XBRL data."""
         ...
 
 

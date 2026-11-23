@@ -15,6 +15,7 @@ ATOM = "{http://www.w3.org/2005/Atom}"
 # "10-K - PTC INC. (0000857005) (Filer)"
 _TITLE = re.compile(r"^(?P<form>.+?) - (?P<company>.+) \((?P<cik>\d{10})\) \((?P<role>[\w ]+)\)$")
 _FILED = re.compile(r"Filed:\s*</b>\s*(\d{4}-\d{2}-\d{2})|Filed:\s*(\d{4}-\d{2}-\d{2})")
+_ITEM = re.compile(r"Item (\d+\.\d+):")  # 8-K summaries list "Item 2.02: Results of ..."
 _ACCESSION = re.compile(r"accession-number=(\d{10}-\d{2}-\d{6})")
 # Plain names for common forms, used when the filing carries no description.
 FORM_NAMES = {
@@ -91,6 +92,7 @@ def parse_getcurrent(text: str) -> list[FilingEntry]:
                 filed=filed_on,
                 accession=accession[1],
                 url=url,
+                items=tuple(_ITEM.findall(summary)),
             )
         )
     return out
@@ -135,6 +137,7 @@ def parse_submissions(body: Any) -> tuple[str, list[FilingEntry]]:
                 filed=filed_on,
                 accession=accession,
                 url=filing_index_url(cik, accession),
+                items=tuple(i.strip() for i in str(items or "").split(",") if i.strip()),
             )
         )
     out.sort(key=lambda f: f.filed, reverse=True)

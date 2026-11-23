@@ -127,6 +127,28 @@ test.describe("Screener", () => {
     await expect(filings.getByRole("row").nth(1)).toContainText("10-K - Annual report");
   });
 
+  test("a link to an earnings calendar range and a dividend ticker shows them", async ({ page }) => {
+    const main = await open(
+      page,
+      "/screener?earnings_tickers=AAPL,MSFT&earnings_start=2026-01-01&earnings_end=2026-06-30&dividends_ticker=JPM",
+      "Screener & Calendar",
+    );
+    await expect(main.getByLabel("Companies")).toHaveValue("AAPL,MSFT");
+    await expect(main.getByTestId("earnings-range")).toHaveText("Earnings releases from 2026-01-01 to 2026-06-30", COLD);
+    await expect(main.getByRole("table", { name: "Earnings calendar" }).locator("tbody tr")).toHaveCount(4);
+    await expect(main.getByTestId("dividends-heading")).toHaveText("JPMORGAN CHASE & CO (JPM)", COLD);
+
+    await main.getByLabel("Dividend ticker").fill("msft");
+    await main.getByRole("button", { name: "Show dividends" }).click();
+    await expect(page).toHaveURL(/[?&]dividends_ticker=MSFT(&|$)/);
+    await expect(page).toHaveURL(/[?&]earnings_start=2026-01-01(&|$)/);
+  });
+
+  test("a bad calendar range in a link shows the normal validation error", async ({ page }) => {
+    const main = await open(page, "/screener?earnings_start=2026-06-01&earnings_end=2026-01-01", "Screener & Calendar");
+    await expect(main.getByTestId("field-error-end")).toHaveText("The end date must be on or after the start date.", COLD);
+  });
+
   test("a bad criterion value shows the normal validation error", async ({ page }) => {
     const main = await open(page, "/screener?criteria=revenue_growth:min:", "Screener & Calendar");
     await expect(main.getByTestId("field-error-criteria.0.value")).toBeVisible(COLD);

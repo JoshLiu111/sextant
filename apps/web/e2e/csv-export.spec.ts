@@ -129,7 +129,7 @@ test("every result table on each tool has an export button", async ({ page }) =>
     ["/risk", 1],
     ["/portfolio", 1],
     ["/valuation", 2], // sensitivity, free cash flow
-    ["/screener", 2], // results, latest filings
+    ["/screener", 4], // results, earnings calendar, dividend history, latest filings
     ["/macro", 4 + 2], // four FRED indicators; yield curve, spread
   ];
   for (const [path, count] of expected) {

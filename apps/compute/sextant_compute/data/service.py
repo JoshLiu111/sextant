@@ -35,6 +35,7 @@ from sextant_compute.data.adapters import (
     CrossSectionsAdapter,
     DailyFactorsAdapter,
     DailyPricesAdapter,
+    DividendsAdapter,
     EconomicSeries,
     EconomicSeriesAdapter,
     FilingsAdapter,
@@ -48,6 +49,7 @@ from sextant_compute.data.adapters import (
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
+from sextant_compute.data.dividends import DividendHistory
 from sextant_compute.data.ecb import EcbAdapter
 from sextant_compute.data.edgar import EdgarAdapter
 from sextant_compute.data.errors import KeyRequired, NoSuchData
@@ -286,12 +288,44 @@ class DataService:
                 if hit is not None:
                     out[item_id] = CrossSection.from_json(hit)
         misses = [i for i in wanted if i not in out]
-        if misses:
-            fetched = adapter.cross_sections(ctx, misses, year)
+        # Single flight per (item, year): a concurrent screen waits for the items
+        # another request is already fetching instead of downloading them again.
+        owned: list[str] = []
+        waiting: dict[str, Future[Any]] = {}
+        with self._lock:
             for item_id in misses:
+                pending = self._in_flight.get(key(item_id))
+                if pending is None:
+                    self._in_flight[key(item_id)] = Future()
+                    owned.append(item_id)
+                else:
+                    waiting[item_id] = pending
+        try:
+            if cache is not None:  # a flight that just finished may have filled the cache
+                for item_id in owned:
+                    hit = cache.get(key(item_id))
+                    if hit is not None:
+                        out[item_id] = CrossSection.from_json(hit)
+            to_fetch = [i for i in owned if i not in out]
+            fetched = adapter.cross_sections(ctx, to_fetch, year) if to_fetch else {}
+            for item_id in to_fetch:
                 out[item_id] = fetched[item_id]
                 if cache is not None and ttl is not None:
                     cache.set(key(item_id), fetched[item_id].to_json(), ttl=ttl, tags=[f"source:{adapter.source.id}"])
+            for item_id in owned:
+                self._in_flight[key(item_id)].set_result(out[item_id].to_json())
+        except BaseException as exc:
+            for item_id in owned:
+                future = self._in_flight[key(item_id)]
+                if not future.done():
+                    future.set_exception(exc)
+            raise
+        finally:
+            with self._lock:
+                for item_id in owned:
+                    self._in_flight.pop(key(item_id), None)
+        for item_id, pending in waiting.items():
+            out[item_id] = CrossSection.from_json(pending.result())
         return {i: out[i] for i in wanted}
 
     def latest_filings(self, ctx: RequestContext, form: str, *, source: str) -> FilingList:
@@ -318,6 +352,19 @@ class DataService:
             lambda: adapter.company_filings(ctx, ticker),
             FilingList.to_json,
             FilingList.from_json,
+        )
+
+    def dividends(self, ctx: RequestContext, ticker: str, *, source: str) -> DividendHistory:
+        """One company's per-share dividends by period, newest first; see ``DividendsAdapter``."""
+        adapter = cast(DividendsAdapter, self._adapter(source))
+        return self._cached(
+            ctx,
+            adapter,
+            "dividends",
+            {"ticker": ticker.strip().upper()},
+            lambda: adapter.dividends(ctx, ticker),
+            DividendHistory.to_json,
+            DividendHistory.from_json,
         )
 
     def economic_series(
@@ -507,12 +554,20 @@ def make_data_service(db: Database, adapters: Mapping[str, Adapter] | None = Non
     )
 
 
+_service_lock = threading.Lock()
+
+
 def get_data_service(request: Request) -> DataService:
     """FastAPI dependency: one service per app, built on first use. Tests swap it
-    with ``app.dependency_overrides`` (``serving``) or set ``app.state.data_service``."""
+    with ``app.dependency_overrides`` (``serving``) or set ``app.state.data_service``.
+    Built under a lock: concurrent first requests must share one service (one
+    cache, one single-flight map), or a cold burst fetches everything N times."""
     service = getattr(request.app.state, "data_service", None)
     if service is None:
-        service = request.app.state.data_service = make_data_service(request.app.state.db)
+        with _service_lock:
+            service = getattr(request.app.state, "data_service", None)
+            if service is None:
+                service = request.app.state.data_service = make_data_service(request.app.state.db)
     return service
 
 
