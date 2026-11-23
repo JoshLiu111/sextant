@@ -62,6 +62,11 @@ test("the demo portfolio computes on the user's Tiingo prices and refuses demo t
   await expect(volatility).toHaveAttribute("data-status", "ok");
   await expect(results.getByTestId("demo-badge")).toHaveCount(0);
   await expect(results.getByText("Source: Tiingo")).toBeVisible();
+  // The footer follows the data: Tiingo, no demo-data notice, and no exchange rates (nothing was converted).
+  const footer = page.getByRole("contentinfo");
+  await expect(footer.locator('[data-attribution="tiingo"]')).toBeVisible();
+  await expect(footer.locator('[data-attribution="demo"]')).toHaveCount(0);
+  await expect(footer.locator('[data-attribution="frankfurter"]')).toHaveCount(0);
   // The rebalancing backtest and efficient frontier below run on the same My data holdings.
   const main = page.getByRole("main");
   const backtest = main.getByRole("region", { name: "Rebalancing backtest" });

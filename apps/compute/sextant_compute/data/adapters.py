@@ -29,6 +29,7 @@ from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.dividends import DividendHistory
 from sextant_compute.data.filings import FilingList
+from sextant_compute.data.splits import Split
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.envelope import DataSource
 
@@ -49,7 +50,9 @@ class DailyPricesAdapter(Adapter, Protocol):
         self, ctx: RequestContext, tickers: Sequence[str], start: date, end: date
     ) -> dict[str, pd.DataFrame]:
         """One frame per requested ticker: DatetimeIndex ``date`` (trading days within
-        [start, end], ascending) and ``PRICE_COLUMNS``. ``dividend`` is the cash
+        [start, end], ascending) and ``PRICE_COLUMNS``. Prices, volumes and dividends
+        are split-adjusted to today's share count (holdings are in today's share
+        count), even for a range that ends before a split. ``dividend`` is the cash
         dividend with that ex-date (0 otherwise); ``close`` is not dividend-adjusted.
         Raises ``NoSuchData`` (``missing`` keyed by ticker) for unknown tickers or an
         empty range."""
@@ -62,6 +65,15 @@ class LatestCloseAdapter(Adapter, Protocol):
         count (a later split has not happened yet, so the raw close is current).
         Raises ``NoSuchData`` (``missing`` keyed by ticker) for an unknown ticker or
         one without prices."""
+        ...
+
+
+class SplitsAdapter(Adapter, Protocol):
+    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[Split]:
+        """The stock splits with an ex-date from ``start`` up to today, oldest first.
+        ``daily_prices`` are split-adjusted by these, so a past
+        trade's quantity times every later ratio is in today's share count. Raises
+        ``NoSuchData`` (``missing`` keyed by ticker) for an unknown ticker."""
         ...
 
 

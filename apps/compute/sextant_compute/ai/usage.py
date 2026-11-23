@@ -9,6 +9,7 @@ them, the quota does not. The quota day is the UTC calendar day.
 
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -21,6 +22,7 @@ import psycopg
 
 from sextant_compute.ai.model import ModelUnavailable
 from sextant_compute.db import Database
+from sextant_compute.errors import ApiError
 
 DEFAULT_DAILY_QUOTA = 20
 
@@ -55,6 +57,27 @@ def daily_limit() -> int:
 def next_reset(now: datetime | None = None) -> datetime:
     now = now or datetime.now(UTC)
     return datetime.combine(now.date() + timedelta(days=1), time(), tzinfo=UTC)
+
+
+def time_until_reset(now: datetime | None = None) -> str:
+    """How long until the quota resets, e.g. "about 5 hours" or "25 minutes": the same in
+    every time zone, so a message can say it before the page knows the visitor's."""
+    now = now or datetime.now(UTC)
+    minutes = math.ceil((next_reset(now) - now).total_seconds() / 60)
+    if minutes < 60:
+        return f"{minutes} minute{'' if minutes == 1 else 's'}"
+    hours = round(minutes / 60)
+    return f"about {hours} hour{'' if hours == 1 else 's'}"
+
+
+def quota_exceeded(limit: int, calls_of: str) -> ApiError:
+    """The 429 for a used-up quota. ``calls_of`` names the calls, e.g. "AI Explain" ("AI Explain calls")."""
+    calls = "call" if limit == 1 else "calls"
+    return ApiError(
+        429,
+        "quota_exceeded",
+        f"You have used all {limit} {calls_of} {calls} for today. Your quota resets in {time_until_reset()}.",
+    )
 
 
 def _used_today(conn: psycopg.Connection, user_id: UUID) -> int:

@@ -109,18 +109,32 @@ function dateMarker(result: MetricResult | undefined, key: string, label: string
 }
 
 type FactorCopy = ReturnType<typeof getMessages>["risk"]["factors"];
-type PeriodCopy = ReturnType<typeof getMessages>["risk"]["timescale"]["periods"];
+type TimescaleCopy = ReturnType<typeof getMessages>["risk"]["timescale"];
+type PeriodCopy = TimescaleCopy["periods"];
 
 /** The line under a factor regression value: its t-statistic, or for R² the returns used
  * (days, weeks, ... after the regression's return period: the request's, or for a
  * monthly uploaded factor file "monthly", named in `details.period`). */
-function factorNote(result: MetricResult | undefined, copy: FactorCopy, periods: PeriodCopy): string | undefined {
+function factorNote(result: MetricResult | undefined, copy: FactorCopy, timescale: TimescaleCopy): string | undefined {
   if (result?.status !== "ok") return undefined;
   const { t_stat: t, observations: n, period } = result.details;
+  const { periods } = timescale;
   const noun = periods[typeof period === "string" && period in periods ? (period as keyof PeriodCopy) : "daily"].noun;
-  if (typeof n === "number") return copy.observations(formatCount(n), noun, n);
+  if (typeof n === "number") return timescale.observations(formatCount(n), noun, n);
   if (typeof t === "number") return `${copy.tStat} ${formatValue(t, "ratio")}`;
   return copy.exactFit;
+}
+
+/** The line under a period-dependent value: how many returns of the chosen period it
+ * used (`details.observations`, whole periods only), e.g. "60 months". */
+function periodCountNote(
+  result: MetricResult | undefined,
+  period: ReturnPeriod | undefined,
+  timescale: TimescaleCopy,
+): string | undefined {
+  if (result?.status !== "ok" || !period) return undefined;
+  const n = result.details.observations;
+  return typeof n === "number" ? timescale.observations(formatCount(n), timescale.periods[period].noun, n) : undefined;
 }
 
 /** Where the factors came from, from the first factor result that names it. */
@@ -317,7 +331,9 @@ export function RiskTool() {
                             id: `${id}:${ticker}`,
                             label: label(ticker),
                             result: value,
-                            note: FACTOR_GROUPS.has(group) ? factorNote(value, r.factors, r.timescale.periods) : undefined,
+                            note: FACTOR_GROUPS.has(group)
+                              ? factorNote(value, r.factors, r.timescale)
+                              : periodCountNote(value, params?.period, r.timescale),
                           };
                         })
                       : [{ id: `${id}:pending`, result: undefined }]

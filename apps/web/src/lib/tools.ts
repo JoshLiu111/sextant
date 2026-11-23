@@ -1,7 +1,6 @@
-import type { AttributionId } from "./attributions";
-
-// The tool registry: the home page cards, the nav and the footer attribution
-// all read from here. Display strings live in src/i18n (messages.tools[slug]).
+// The tool registry: the home page cards and the nav read from here. Display
+// strings live in src/i18n (messages.tools[slug]). The footer attribution
+// follows the results on the page (components/PageSources.tsx), not the tool.
 export type ToolSlug =
   | "options"
   | "risk"
@@ -16,28 +15,21 @@ export type Tool = {
   slug: ToolSlug;
   href: `/${string}`;
   status: "live" | "coming-soon";
-  /** Data sources the page actually uses; rendered in the footer attribution slot. */
-  attributions: readonly AttributionId[];
 };
 
 export const TOOLS: readonly Tool[] = [
-  { slug: "options", href: "/options", status: "live", attributions: [] },
-  { slug: "risk", href: "/risk", status: "live", attributions: ["demo"] },
-  { slug: "portfolio", href: "/portfolio", status: "live", attributions: ["demo", "frankfurter"] },
-  { slug: "company", href: "/company", status: "live", attributions: ["sec"] },
-  { slug: "valuation", href: "/valuation", status: "live", attributions: ["sec"] },
-  { slug: "macro", href: "/macro", status: "live", attributions: ["fred", "treasury", "world_bank", "ecb"] },
-  { slug: "screener", href: "/screener", status: "live", attributions: ["sec"] },
-  { slug: "ai-analyst", href: "/ai-analyst", status: "live", attributions: [] },
+  { slug: "options", href: "/options", status: "live" },
+  { slug: "risk", href: "/risk", status: "live" },
+  { slug: "portfolio", href: "/portfolio", status: "live" },
+  { slug: "company", href: "/company", status: "live" },
+  { slug: "valuation", href: "/valuation", status: "live" },
+  { slug: "macro", href: "/macro", status: "live" },
+  { slug: "screener", href: "/screener", status: "live" },
+  { slug: "ai-analyst", href: "/ai-analyst", status: "live" },
 ];
 
 export function getTool(slug: ToolSlug): Tool {
   const tool = TOOLS.find((t) => t.slug === slug);
   if (!tool) throw new Error(`Unknown tool: ${slug}`);
   return tool;
-}
-
-/** The tool whose route contains `pathname` (e.g. "/macro" or "/macro/anything"). */
-export function toolForPath(pathname: string): Tool | undefined {
-  return TOOLS.find((t) => pathname === t.href || pathname.startsWith(`${t.href}/`));
 }

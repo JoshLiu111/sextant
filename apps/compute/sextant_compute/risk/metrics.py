@@ -85,31 +85,53 @@ def risk_metric_set(
     ``period`` picks the return period for the period-dependent metrics
     (volatility, every ratio, every VaR/CVaR, beta, alpha, capture), annualized with that period's
     count per year. Annualized return and max drawdown describe the whole wealth
-    path, so they always use the daily data.
+    path, so they always use the daily data. Each period-dependent metric carries
+    ``observations`` in details: how many returns of the period it used (with the
+    benchmark: the periods both series have).
     """
     per_year = PERIODS_PER_YEAR[period]
     r = period_returns(returns, period)
     b = period_returns(benchmark_returns, period)
+    # Period-dependent metrics report how many period returns they used: their own,
+    # or (against the benchmark) the periods both series have.
+    own = _counted(len(r.dropna()))
+    paired = _counted(len(r.dropna().index.intersection(b.dropna().index)))
     computations: dict[str, Callable[[], float | Detailed]] = {
+        # The whole wealth path, always daily: no period count.
         "annualized_return": lambda: performance.annualized_return(returns),
-        "annualized_volatility": lambda: performance.annualized_volatility(r, per_year),
         "max_drawdown": lambda: _max_drawdown(wealth),
-        "sharpe": lambda: performance.sharpe_ratio(r, risk_free_rate, per_year),
-        "sortino": lambda: performance.sortino_ratio(r, risk_free_rate, per_year),
-        "var": lambda: risk.historical_var(r, confidence, period=period),
-        "cvar": lambda: risk.historical_cvar(r, confidence, period=period),
-        "parametric_var": lambda: risk.parametric_var(r, confidence, period=period),
-        "parametric_cvar": lambda: risk.parametric_cvar(r, confidence, period=period),
-        "cornish_fisher_var": lambda: risk.cornish_fisher_var(r, confidence, period=period),
-        "cornish_fisher_cvar": lambda: risk.cornish_fisher_cvar(r, confidence, period=period),
-        "beta": lambda: risk.beta(r, b),
-        "treynor": lambda: risk.treynor_ratio(r, b, risk_free_rate, per_year),
-        "information_ratio": lambda: risk.information_ratio(r, b, per_year),
-        "alpha": lambda: risk.capm_alpha(r, b, risk_free_rate, per_year),
-        "upside_capture": lambda: risk.upside_capture(r, b),
-        "downside_capture": lambda: risk.downside_capture(r, b),
+        "annualized_volatility": own(lambda: performance.annualized_volatility(r, per_year)),
+        "sharpe": own(lambda: performance.sharpe_ratio(r, risk_free_rate, per_year)),
+        "sortino": own(lambda: performance.sortino_ratio(r, risk_free_rate, per_year)),
+        "var": own(lambda: risk.historical_var(r, confidence, period=period)),
+        "cvar": own(lambda: risk.historical_cvar(r, confidence, period=period)),
+        "parametric_var": own(lambda: risk.parametric_var(r, confidence, period=period)),
+        "parametric_cvar": own(lambda: risk.parametric_cvar(r, confidence, period=period)),
+        "cornish_fisher_var": own(lambda: risk.cornish_fisher_var(r, confidence, period=period)),
+        "cornish_fisher_cvar": own(lambda: risk.cornish_fisher_cvar(r, confidence, period=period)),
+        "beta": paired(lambda: risk.beta(r, b)),
+        "treynor": paired(lambda: risk.treynor_ratio(r, b, risk_free_rate, per_year)),
+        "information_ratio": paired(lambda: risk.information_ratio(r, b, per_year)),
+        "alpha": paired(lambda: risk.capm_alpha(r, b, risk_free_rate, per_year)),
+        "upside_capture": paired(lambda: risk.upside_capture(r, b)),
+        "downside_capture": paired(lambda: risk.downside_capture(r, b)),
     }
     return {name: metric(computations[name], unit=METRIC_UNITS[name]) for name in METRIC_NAMES}
+
+
+def _counted(observations: int) -> Callable[[Callable[[], float | Detailed]], Callable[[], Detailed]]:
+    """Wrap a computation so its details say how many period returns it used."""
+
+    def wrap(compute: Callable[[], float | Detailed]) -> Callable[[], Detailed]:
+        def counted() -> Detailed:
+            value = compute()
+            if isinstance(value, Detailed):
+                return Detailed(value.value, {**value.details, "observations": observations})
+            return Detailed(value, {"observations": observations})
+
+        return counted
+
+    return wrap
 
 
 def missing_metric_set(reason: str) -> dict[str, MetricResult]:

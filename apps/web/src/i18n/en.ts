@@ -434,8 +434,6 @@ export const en = {
       },
       tStat: "t =",
       exactFit: "t: undefined (exact fit)",
-      /** Under R²: how many returns of the chosen period the regression used, e.g. "1,303 days". */
-      observations: (count: string, noun: string, n: number) => `${count} ${noun}${n === 1 ? "" : "s"}`,
     },
     /** My data only: the signed-in user's own factor files (ADR 0003). */
     factorFiles: {
@@ -495,8 +493,10 @@ export const en = {
         quarterly: { label: "Quarterly", noun: "quarter", perYear: 4 },
         yearly: { label: "Yearly", noun: "year", perYear: 1 },
       },
+      /** Under R² and every period-dependent value: how many returns of the period it used, e.g. "1,303 days". */
+      observations: (count: string, noun: string, n: number) => `${count} ${noun}${n === 1 ? "" : "s"}`,
       periodNote: (adjective: string, perYear: number, noun: string) =>
-        `Statistics use ${adjective} returns, annualized with ${perYear} period${perYear === 1 ? "" : "s"} a year. VaR and CVaR are one-${noun} losses; the factor regressions use ${adjective} returns and factors. Annualized return and max drawdown use the daily prices whatever the period.`,
+        `Statistics use ${adjective} returns, annualized with ${perYear} period${perYear === 1 ? "" : "s"} a year. A partial first or last period (a range that starts or ends inside one) is left out; each value shows how many ${noun}s it used. VaR and CVaR are one-${noun} losses; the factor regressions use ${adjective} returns and factors. Annualized return and max drawdown use the daily prices whatever the period.`,
       rolling: {
         heading: "Rolling metrics",
         windowNote: (days: number) =>
@@ -2100,10 +2100,26 @@ export const en = {
     pending: "Explaining…",
     signInPrompt: "Sign in to use AI Explain.",
     quota: (remaining: number, limit: number) => `${remaining} of ${limit} AI calls left today`,
-    usedUp: "You have used all of today's AI calls. Your quota resets at 00:00 UTC.",
+    /** `resetsAt` is already a local clock time ("7:00 PM EST"). */
+    usedUp: (resetsAt: string) => `You have used all of today's AI calls. Your quota resets at ${resetsAt}.`,
     generatedBy: "AI-generated from calculation",
     errorHeading: "AI Explain failed",
     unavailable: "AI Explain is temporarily unavailable. Please retry in a moment.",
+  },
+  /** Checked AI answers (AI Analyst and AI Explain): citations and uncited numbers. */
+  answer: {
+    citationOk: (calculationId: string) => `From calculation ${calculationId}.`,
+    openRawResult: "Open its raw result.",
+    citationMismatch: (actual: string, calculationId: string) =>
+      `Does not match: calculation ${calculationId} gives ${actual}.`,
+    citationMissing: (reason: string) => `Can't be checked: ${reason}`,
+    uncited: "Cites no calculation, so this number was not checked.",
+    mismatchNotice: (n: number) =>
+      n === 1
+        ? "1 number in this answer does not match the calculation it cites. It is highlighted in red."
+        : `${n} numbers in this answer do not match the calculations they cite. They are highlighted in red.`,
+    uncitedNotice:
+      "Numbers on a grey background cite no calculation, so they were not checked. Underlined numbers were checked against the calculation they cite.",
   },
   analyst: {
     intro:
@@ -2116,14 +2132,6 @@ export const en = {
     answerHeading: "Answer",
     errorHeading: "AI Analyst failed",
     unavailable: "AI Analyst is temporarily unavailable. Please retry in a moment.",
-    citationOk: (calculationId: string) => `From calculation ${calculationId}. Open its raw result.`,
-    citationMismatch: (actual: string, calculationId: string) =>
-      `Does not match: calculation ${calculationId} gives ${actual}.`,
-    citationMissing: (reason: string) => `Can't be checked: ${reason}`,
-    mismatchNotice: (n: number) =>
-      n === 1
-        ? "1 number in this answer does not match the calculation it cites. It is highlighted in red."
-        : `${n} numbers in this answer do not match the calculations they cite. They are highlighted in red.`,
     callsHeading: "Tools called",
     noCalls: "No tools were called for this answer.",
     parameters: "Parameters",
@@ -2142,10 +2150,13 @@ export const en = {
   footer: {
     disclaimer:
       "Not investment advice. Sextant is for education and research only; results may be wrong or out of date.",
+    analytics: "Sextant uses cookieless, anonymous page-view analytics (Vercel Web Analytics).",
     sourcesLabel: "Data sources",
   },
   operator: {
-    heading: "AI usage",
+    heading: "Operator",
+    window: { label: "Window", option: (days: number) => `Last ${days} days` },
+    aiUsageHeading: "AI usage",
     intro: (since: string, until: string) =>
       `AI calls, tokens and estimated cost per user, ${since} to ${until} (UTC days). Operator only.`,
     pricing: (input: string, output: string) =>
@@ -2167,6 +2178,18 @@ export const en = {
     },
     errorHeading: "AI usage could not be loaded",
     unavailable: "The usage log is unavailable right now. Please retry in a moment.",
+    users: {
+      heading: "Users",
+      total: "Registered users",
+      signedInWithin: (days: number) => `Signed in within ${days} days`,
+      signedInNote:
+        "Counts the last sign-in only. Sessions last 30 days, so these figures undercount daily use.",
+      signUps: "Sign-ups per day",
+      signUpsIntro: (since: string, until: string) => `New sign-ups per UTC day, ${since} to ${until}.`,
+      columns: { day: "Day (UTC)", signUps: "New sign-ups" },
+      errorHeading: "User counts could not be loaded",
+      unavailable: "User counts are unavailable right now. Please retry in a moment.",
+    },
   },
   notFound: {
     heading: "Page not found",

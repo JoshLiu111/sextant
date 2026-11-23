@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { postCompute, type ResultEnvelope } from "./envelope";
+import { useReportSources } from "@/components/PageSources";
+import { postCompute, sourcesOf, type ResultEnvelope } from "./envelope";
 
 export type ComputeState<M extends string, S extends string> = {
   /** Last successful envelope. Kept while a newer request is invalid or failed. */
@@ -17,6 +18,8 @@ export type ComputeState<M extends string, S extends string> = {
  * Keep a compute result in sync with a request body.
  * Runs immediately on mount (so pages show results on load), then re-runs,
  * debounced, whenever `body` changes. `run()` re-runs immediately (submit button).
+ * While shown, the result credits every source it used (`sourcesOf`) in the
+ * footer attribution.
  */
 export function useCompute<M extends string, S extends string>(
   path: `/${string}`,
@@ -62,6 +65,8 @@ export function useCompute<M extends string, S extends string>(
     immediate.current = true;
     setNonce((n) => n + 1);
   }, []);
+
+  useReportSources(sourcesOf(state.result).map((s) => s.id));
 
   return { ...state, run };
 }

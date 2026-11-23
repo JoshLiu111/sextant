@@ -97,6 +97,21 @@ test("the footer shows the SEC attribution on this page", async ({ page }) => {
   await expect(page.getByRole("contentinfo").locator('[data-attribution="sec"]')).toBeVisible();
 });
 
+test("the footer does not credit SEC EDGAR when no EDGAR data came back", async ({ page }) => {
+  await page.route("**/api/compute/company/**", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: { code: "source_unavailable", message: "down", fields: {} } }),
+    }),
+  );
+  const main = await openCompany(page);
+
+  await expect(main.getByTestId("error-notice").first()).toBeVisible();
+  await expect(page.getByRole("contentinfo").getByTestId("attribution-slot")).toBeAttached();
+  await expect(page.getByRole("contentinfo").locator('[data-attribution="sec"]')).toHaveCount(0);
+});
+
 test("the statements have an explainer", async ({ page }) => {
   const main = await openCompany(page);
 

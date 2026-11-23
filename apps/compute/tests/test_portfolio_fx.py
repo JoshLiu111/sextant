@@ -158,3 +158,16 @@ def test_returns_with_a_currency_frankfurter_does_not_publish_are_missing_data(c
     for key in ["twr:portfolio", "twr_annualized:portfolio", "irr:portfolio"]:
         assert m[key]["status"] == "missing_data"
         assert NOT_PUBLISHED in m[key]["reason"]
+
+
+def test_results_name_frankfurter_only_when_an_amount_was_converted(client, alice):
+    frames = {"AAA": price_frame("2024-03-01", [100.0, 110.0]), "EEE": price_frame("2024-03-01", [60.0, 70.0])}
+    mixed = create(client, alice, [held("AAA", 10, 100, "USD"), held("EEE", 4, 50, "EUR")])
+    dollars = create(client, alice, [held("AAA", 10, 100, "USD")])
+    settings = {**MARCH, "benchmark": "AAA", "reporting_currency": "USD"}
+
+    for path in ("metrics", "returns"):
+        converted = post(client, alice, f"{mixed}/{path}", frames, settings)
+        assert converted["fx_source"]["id"] == "frankfurter", path
+        unconverted = post(client, alice, f"{dollars}/{path}", frames, settings)
+        assert unconverted["fx_source"] is None, path

@@ -7,8 +7,14 @@ the answer into text and citation segments and checks each cited number against
 the cited calculation's actual value, at the precision it was written: "10.45"
 matches 10.4506, "10.4" does not. Percentages are read against the metric's
 unit (``decimal`` metrics hold fractions, ``percent`` metrics hold percents).
-A number written without a sign may quote a negative value's magnitude
-("a drawdown of 35%" for -0.35).
+The sign must match too ("2%" does not match an alpha of -0.02), except for
+metrics whose name says the value is a fall or a loss (drawdowns, VaR/CVaR,
+losses): those may be written with or without a minus sign ("a drawdown of 35%").
+
+A number in the prose outside a citation becomes an ``uncited`` segment: nothing
+checked it, and the UI says so rather than pass it off as a checked figure.
+Dates, years and numbers inside names ("DEMO-A", "ff3_alpha", "10-year") are left
+as text. AI Analyst and AI Explain answers are checked the same way.
 """
 
 from __future__ import annotations
@@ -22,6 +28,17 @@ from pydantic import BaseModel
 
 from sextant_compute.envelope import ResultEnvelope
 
+CITING_RULE = """\
+- Cite every number you take from a result, in this exact form: \
+[[<the number as you write it>|<calculation_id>|<metric id>]], for example \
+[[18.3%|calc_0123abcd|annualized_volatility:DEMO-A]] or [[$391.0B|calc_0123abcd|revenue:2024-09-28]]. \
+Only metric ids from the result's "metrics" (or a screener row as <metric>:<TICKER>) can be cited. \
+Write the number in the citation exactly as the reader should see it, rounded sensibly; \
+show decimal metrics as percentages (0.183 as 18.3%). Keep a negative number's minus \
+sign in the citation ([[-2.1%|...|alpha:DEMO-A]]), even when the sentence says "fell" or "lagged".
+"""
+"""The system-prompt rule (AI Analyst and AI Explain) that makes the model write ``CITATION``s."""
+
 CITATION = re.compile(r"\[\[([^\[\]|]*)\|([^\[\]|]*)\|([^\[\]|]*)\]\]")
 
 _NUMBER = re.compile(
@@ -32,6 +49,14 @@ _NUMBER = re.compile(
     re.IGNORECASE,
 )
 
+_UNCITED = re.compile(
+    r"(?<![\w.,/:\-−])[-−+]?\$?\d+(?:,\d{3})*(?:\.\d+)?"
+    r"(?:\s?(?i:%|pp|percentage points?|bps?|basis points?|bn|thousand|million|billion|trillion|[kmbt]|x|×))?"
+    r"(?![\w\-−/:%]|[.,]\d)"
+)
+"""A number in the prose, with its sign, currency symbol and unit."""
+_YEAR = re.compile(r"(19|20)\d\d")
+
 _MULTIPLIERS = {
     "k": 1e3, "thousand": 1e3,
     "m": 1e6, "million": 1e6,
@@ -39,6 +64,8 @@ _MULTIPLIERS = {
     "t": 1e12, "trillion": 1e12,
 }  # fmt: skip
 _PERCENT_UNITS = {"percent", "percentage_points"}
+_LOSS_WORDS = {"drawdown", "var", "cvar", "loss"}
+"""A metric whose name has one of these words states its sign by name."""
 
 
 class Citable(NamedTuple):
@@ -65,13 +92,18 @@ class Citation(BaseModel):
     """Why the citation does not check out (None when it matches)."""
 
 
-Segment = TextSegment | Citation
+class UncitedNumber(BaseModel):
+    type: Literal["uncited"] = "uncited"
+    text: str
+    """A number the model wrote without citing a calculation: not checked."""
+
+
+Segment = TextSegment | Citation | UncitedNumber
 
 
 class Written(NamedTuple):
     value: float
     tolerance: float
-    signed: bool
 
 
 def citable_values(result: ResultEnvelope) -> dict[str, Citable]:
@@ -102,14 +134,19 @@ def read_number(text: str, unit: str | None) -> Written | None:
         scale = 0.01 if unit in _PERCENT_UNITS else 0.0001
     sign = m["sign"] or m["sign2"] or ""
     value = float(num) * scale * (-1 if sign in ("-", "−") else 1)
-    return Written(value, 0.5 * 10**-decimals * scale, signed=bool(sign))
+    return Written(value, 0.5 * 10**-decimals * scale)
 
 
-def _close(written: Written, actual: float) -> bool:
+def _sign_in_name(metric_id: str) -> bool:
+    """Whether the metric's name says its value is a fall or a loss, e.g. ``max_drawdown:DEMO-A``."""
+    return not _LOSS_WORDS.isdisjoint(metric_id.split(":")[0].lower().split("_"))
+
+
+def _close(written: Written, actual: float, *, magnitude_only: bool) -> bool:
     slack = written.tolerance + 1e-9 * max(abs(actual), 1.0)
-    if abs(written.value - actual) <= slack:
-        return True
-    return not written.signed and actual < 0 and abs(written.value + actual) <= slack
+    if magnitude_only:
+        return abs(abs(written.value) - abs(actual)) <= slack
+    return abs(written.value - actual) <= slack
 
 
 def check_citation(text: str, calculation_id: str, metric_id: str, calculations: Mapping[str, ResultEnvelope]) -> Citation:
@@ -135,22 +172,37 @@ def check_citation(text: str, calculation_id: str, metric_id: str, calculations:
     written = read_number(text, found.unit)
     if written is None:
         return cite(found.value, found.unit, "Could not read a number in this citation.")
-    if not _close(written, found.value):
+    if not _close(written, found.value, magnitude_only=_sign_in_name(metric_id)):
         return cite(found.value, found.unit, "The number does not match the calculation's result.")
     return cite(found.value, found.unit, None)
 
 
+def _prose(text: str) -> list[Segment]:
+    """``text`` as text segments, with its uncited numbers split out."""
+    segments: list[Segment] = []
+    at = 0
+    for m in _UNCITED.finditer(text):
+        if _YEAR.fullmatch(m[0]):
+            continue
+        if m.start() > at:
+            segments.append(TextSegment(text=text[at : m.start()]))
+        segments.append(UncitedNumber(text=m[0]))
+        at = m.end()
+    if at < len(text):
+        segments.append(TextSegment(text=text[at:]))
+    return segments
+
+
 def check_answer(answer: str, calculations: Mapping[str, ResultEnvelope]) -> list[Segment]:
+    """``answer`` as segments: prose, checked citations, and uncited numbers."""
     segments: list[Segment] = []
     at = 0
     for m in CITATION.finditer(answer):
-        if m.start() > at:
-            segments.append(TextSegment(text=answer[at : m.start()]))
+        segments += _prose(answer[at : m.start()])
         text, calc, metric_id = (part.strip() for part in m.groups())
         segments.append(check_citation(text, calc, metric_id, calculations))
         at = m.end()
-    if at < len(answer):
-        segments.append(TextSegment(text=answer[at:]))
+    segments += _prose(answer[at:])
     return segments
 
 
