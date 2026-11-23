@@ -1171,6 +1171,34 @@ export const en = {
     errorHeading: "AI Explain failed",
     unavailable: "AI Explain is temporarily unavailable. Please retry in a moment.",
   },
+  analyst: {
+    intro:
+      "Ask a question in plain English. Claude picks Sextant's tools and their inputs, Sextant runs them, and every number in the answer links to the calculation it came from.",
+    signInPrompt: "Sign in to use AI Analyst.",
+    questionLabel: "Your question",
+    questionPlaceholder: "Compare the financial health of MSFT and GOOGL",
+    ask: "Ask",
+    pending: "Working…",
+    answerHeading: "Answer",
+    errorHeading: "AI Analyst failed",
+    unavailable: "AI Analyst is temporarily unavailable. Please retry in a moment.",
+    citationOk: (calculationId: string) => `From calculation ${calculationId}. Open its raw result.`,
+    citationMismatch: (actual: string, calculationId: string) =>
+      `Does not match: calculation ${calculationId} gives ${actual}.`,
+    citationMissing: (reason: string) => `Can't be checked: ${reason}`,
+    mismatchNotice: (n: number) =>
+      n === 1
+        ? "1 number in this answer does not match the calculation it cites. It is highlighted in red."
+        : `${n} numbers in this answer do not match the calculations they cite. They are highlighted in red.`,
+    callsHeading: "Tools called",
+    noCalls: "No tools were called for this answer.",
+    parameters: "Parameters",
+    calculation: "Calculation",
+    callFailed: "Failed",
+    rawResult: "Raw result",
+    usage: (input: number, output: number) =>
+      `${input.toLocaleString("en-US")} input and ${output.toLocaleString("en-US")} output tokens`,
+  },
   compute: {
     label: "Compute service",
     online: "online",
