@@ -15,6 +15,7 @@ export type Unit =
   | "per_vol_point"
   | "per_day"
   | "per_rate_point"
+  | "date"
   | (string & {});
 
 export type MetricResult = {
@@ -22,6 +23,8 @@ export type MetricResult = {
   status: MetricStatus;
   reason: string | null;
   unit: Unit | null;
+  /** Extra facts about an ok value, e.g. a max drawdown's `peak` / `trough` ISO dates. */
+  details: Record<string, string | number | null>;
 };
 
 export type SeriesPoint = { x: number | string; y: number | null };
@@ -89,9 +92,11 @@ export async function postCompute<M extends string, S extends string>(
   const json: unknown = await res.json().catch(() => null);
   if (res.ok && json) return { kind: "ok", result: json as ResultEnvelope<M, S> };
   if (isApiError(json)) {
-    if (json.error.code === "validation_error") {
+    // Field errors (validation_error, or e.g. no_such_data naming an input) show inline.
+    if (json.error.code === "validation_error" || Object.keys(json.error.fields ?? {}).length > 0) {
       return { kind: "invalid", message: json.error.message, fields: json.error.fields };
     }
+    if (json.error.code === "source_unavailable") return { kind: "failed", message: t.sourceUnavailable };
     return { kind: "failed", message: json.error.message };
   }
   return { kind: "failed", message: t.computeUnavailable };

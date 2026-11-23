@@ -117,14 +117,24 @@ export function LineChart({ label, series, xLabel, formatX, formatY, markers = [
             {xLabel}
           </text>
         </g>
-        {markers.map((m) => (
-          <g key={`m${m.label}${m.x}`} className="text-black/50 dark:text-white/50">
-            <line x1={sx(m.x)} x2={sx(m.x)} y1={MARGIN.top} y2={MARGIN.top + innerH} stroke="currentColor" strokeDasharray="2 3" />
-            <text x={sx(m.x) + 4} y={MARGIN.top + 10} fontSize={11} fill="currentColor">
-              {m.label}
-            </text>
-          </g>
-        ))}
+        {markers.map((m, i) => {
+          // Stagger labels so nearby markers don't overlap; flip to the left near the right edge.
+          const flip = sx(m.x) > MARGIN.left + innerW * 0.7;
+          return (
+            <g key={`m${m.label}${m.x}`} data-testid="chart-marker" className="text-black/50 dark:text-white/50">
+              <line x1={sx(m.x)} x2={sx(m.x)} y1={MARGIN.top} y2={MARGIN.top + innerH} stroke="currentColor" strokeDasharray="2 3" />
+              <text
+                x={sx(m.x) + (flip ? -4 : 4)}
+                y={MARGIN.top + 10 + i * 14}
+                textAnchor={flip ? "end" : "start"}
+                fontSize={11}
+                fill="currentColor"
+              >
+                {m.label}
+              </text>
+            </g>
+          );
+        })}
         {series.map((s) => (
           <path
             key={s.id}
