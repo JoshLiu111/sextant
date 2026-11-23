@@ -132,6 +132,14 @@ export const en = {
       badge: "Demo data",
       body: "These results use synthetic prices for fictional tickers, not real market data.",
     },
+    csv: {
+      export: "Export CSV",
+      exportLabel: (table: string) => `Export CSV: ${table}`,
+      ticker: "Ticker",
+      metric: "Metric",
+      value: "Value",
+      currency: "Currency",
+    },
     calculation: {
       id: "Calculation",
       source: "Source",
@@ -387,6 +395,7 @@ export const en = {
       },
     },
     benchmarkSuffix: "(benchmark)",
+    csvLabel: "All risk metrics",
     sections: {
       metrics: "Return and risk",
       tail: "Tail risk: VaR and CVaR",
@@ -741,6 +750,7 @@ export const en = {
       history: "history",
       x: "Date",
       maturity: "Maturity",
+      maturityYears: "Maturity (years)",
     },
     rates: {
       curveLabels: {
