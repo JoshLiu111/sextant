@@ -20,17 +20,21 @@ export function PortfolioReturns({
   name,
   start,
   end,
+  reportingCurrency,
 }: {
   portfolioId: string;
   name: string;
   start: string;
   end: string;
+  /** Values and trades in other currencies convert into this one; null: the first holding's. */
+  reportingCurrency: string | null;
 }) {
   const t = getMessages();
   const r = t.portfolio.saved.returns;
   const { result } = useCompute<ReturnMetricId, never>(`/portfolios/${portfolioId}/returns`, {
     start: start || null,
     end: end || null,
+    reporting_currency: reportingCurrency,
   });
 
   return (

@@ -124,13 +124,14 @@ def test_my_portfolio_explains_a_saved_portfolio_of_its_owner_only(client, model
     alice = sign_in(client, "sub-alice", email="alice@example.test")
     bob = sign_in(client, "sub-bob", email="bob@example.test")
     saved = client.post("/api/compute/portfolios", json=SAVED, headers=bearer(alice)).json()
-    body = {"portfolio_id": saved["id"], **SHORT_HISTORY}
+    body = {"portfolio_id": saved["id"], **SHORT_HISTORY, "reporting_currency": "USD"}
 
     explain(client, "portfolio-saved", body, token=alice)
 
     prompt, result = shown(model)
     assert result["tool"] == "portfolio"
     assert result["meta"]["parameters"]["name"] == "Retirement"
+    assert result["meta"]["parameters"]["reporting_currency"] == "USD"
     assert result["metrics"]["market_value:portfolio"]["status"] == "ok"
     assert result["metrics"]["cost_basis:portfolio"]["value"] == pytest.approx(10 * 95.5 + 2.5 * 40)
     assert_demo_framing(model, prompt)

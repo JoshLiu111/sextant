@@ -42,6 +42,11 @@ const tiingo = {
   // The screener's 52-week price window ends today; pin it to the recorded prices.
   SCREENER_PRICES_AS_OF: "2026-11-20",
 };
+// Frankfurter: exchange rates come from a fake (e2e/fake-frankfurter.mjs) serving
+// the recorded responses, on FRANKFURTER_PORT (default COMPUTE_PORT + 9; +7/+8 are
+// the World Bank and ECB fakes).
+const FRANKFURTER_PORT = Number(process.env.FRANKFURTER_PORT || COMPUTE_PORT + 9);
+const frankfurter = { FRANKFURTER_BASE_URL: `http://127.0.0.1:${FRANKFURTER_PORT}` };
 const isCI = !!process.env.CI;
 const reuse = !isCI && process.env.PW_REUSE_SERVERS === "1";
 const computeUrl = `http://127.0.0.1:${COMPUTE_PORT}`;
@@ -144,6 +149,12 @@ export default defineConfig({
       env: { TIINGO_PORT: String(TIINGO_PORT) },
     },
     {
+      command: "node e2e/fake-frankfurter.mjs",
+      url: `${frankfurter.FRANKFURTER_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { FRANKFURTER_PORT: String(FRANKFURTER_PORT) },
+    },
+    {
       command: e2eDatabaseUrl
         ? uvicorn
         : `uv run python scripts/ephemeral_postgres.py -- ${uvicorn}`,
@@ -160,6 +171,7 @@ export default defineConfig({
         ...worldBankAndEcb,
         ...ai,
         ...tiingo,
+        ...frankfurter,
         ...(e2eDatabaseUrl ? { DATABASE_URL: e2eDatabaseUrl } : {}),
       },
     },

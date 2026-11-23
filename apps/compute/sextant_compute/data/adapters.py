@@ -192,6 +192,25 @@ class YieldCurves:
     curves: list[tuple[date, Curve]]
 
 
+@dataclass(frozen=True)
+class FxRates:
+    """Daily exchange rates, ascending: one unit of ``base`` costs ``rate`` units of ``quote``.
+    A day the provider has no rate for is absent (look up the last rate on or before it)."""
+
+    source: DataSource
+    base: str
+    quote: str
+    rates: list[tuple[date, float]]
+
+
+class FxRatesAdapter(Adapter, Protocol):
+    def fx_rates(self, ctx: RequestContext, base: str, quote: str, year: int) -> FxRates:
+        """Every ``base`` -> ``quote`` rate in calendar ``year``, ascending (empty for a
+        year with none). Raises ``NoSuchData`` (``missing`` keyed by the currency code)
+        for a currency the provider does not publish."""
+        ...
+
+
 class YieldCurveAdapter(Adapter, Protocol):
     def yield_curves(self, ctx: RequestContext, year: int) -> YieldCurves:
         """Every curve published in calendar ``year``, ascending (empty for a year

@@ -15,8 +15,8 @@ from sextant_compute.envelope import ResultEnvelope
 from sextant_compute.macro.api import IndicatorsRequest, RatesRequest, headline_indicators, treasury_rates
 from sextant_compute.options.api import AmericanRequest, OptionsRequest, StrategyRequest, american, strategy
 from sextant_compute.options.api import price as options_price
-from sextant_compute.portfolio.api import AnalysisSettings, PortfolioRequest, portfolio_metrics
-from sextant_compute.portfolio.saved import saved_portfolio_metrics
+from sextant_compute.portfolio.api import PortfolioRequest, portfolio_metrics
+from sextant_compute.portfolio.saved import SavedAnalysisSettings, saved_portfolio_metrics
 from sextant_compute.risk.api import RiskRequest, risk_metrics
 from sextant_compute.screener.api import FilingsRequest, ScreenRequest, filings, screen
 from sextant_compute.valuation.api import DcfRequest, dcf
@@ -109,14 +109,15 @@ My Portfolio, a saved portfolio: the user's holdings (meta.parameters.holdings: 
 quantity, cost_price per unit, currency) held at those quantities (buy and hold) against
 meta.parameters.benchmark over start to end. Metric ids are "<metric>:portfolio" and
 "<metric>:benchmark". market_value:portfolio, cost_basis:portfolio and
-unrealized_pnl:portfolio are money in the holdings' currency (valued at the last close
-in the range); unrealized_return:portfolio is a decimal.
+unrealized_pnl:portfolio are money in meta.parameters.reporting_currency (valued at the
+last close in the range); holdings in another currency are converted at each amount's own
+date's exchange rate (Frankfurter). unrealized_return:portfolio is a decimal.
 {RISK_METRICS.strip()}
 Series: cumulative_return:portfolio and cumulative_return:benchmark (0.25 = up 25% since the start).
 """
 
 
-class SavedPortfolioRequest(AnalysisSettings):
+class SavedPortfolioRequest(SavedAnalysisSettings):
     """A saved portfolio's result is asked for by its id (the rest of its
     ``meta.parameters``, name and holdings, is reloaded from the database)."""
 
@@ -124,7 +125,7 @@ class SavedPortfolioRequest(AnalysisSettings):
 
 
 def _saved_portfolio(req: SavedPortfolioRequest, i: ToolInputs) -> ResultEnvelope:
-    settings = AnalysisSettings(**req.model_dump(exclude={"portfolio_id"}))
+    settings = SavedAnalysisSettings(**req.model_dump(exclude={"portfolio_id"}))
     return saved_portfolio_metrics(req.portfolio_id, settings, i.user, i.db, i.data, i.ctx)
 
 

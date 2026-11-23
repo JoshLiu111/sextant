@@ -23,7 +23,7 @@ export type Tool = {
 export const TOOLS: readonly Tool[] = [
   { slug: "options", href: "/options", status: "live", attributions: [] },
   { slug: "risk", href: "/risk", status: "live", attributions: ["demo"] },
-  { slug: "portfolio", href: "/portfolio", status: "live", attributions: ["demo"] },
+  { slug: "portfolio", href: "/portfolio", status: "live", attributions: ["demo", "frankfurter"] },
   { slug: "company", href: "/company", status: "live", attributions: ["sec"] },
   { slug: "valuation", href: "/valuation", status: "live", attributions: ["sec"] },
   { slug: "macro", href: "/macro", status: "live", attributions: ["fred", "treasury", "world_bank", "ecb"] },
