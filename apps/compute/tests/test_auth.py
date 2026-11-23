@@ -29,7 +29,12 @@ def test_session_cookie_identifies_the_user_like_a_bearer_token(client):
 
 @pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer not-a-real-session"}])
 def test_anonymous_or_unknown_session_is_401(client, headers):
-    assert client.get("/api/compute/me", headers=headers).status_code == 401
+    response = client.get("/api/compute/me", headers=headers)
+
+    assert response.status_code == 401
+    assert response.json() == {
+        "error": {"code": "unauthorized", "message": "Sign in required.", "fields": {}}
+    }
 
 
 def test_sign_out_ends_the_session(client):
@@ -73,14 +78,28 @@ def test_different_google_accounts_are_different_users(client):
         login_assertion(expires_in=-10),
         login_assertion(audience="someone-else"),
         login_assertion(expires_in=24 * 3600),
+        login_assertion(expires_in=61),
+        login_assertion(jti=None),
         "not-a-jwt",
     ],
-    ids=["wrong-secret", "expired", "wrong-audience", "too-long-lived", "garbage"],
+    ids=["wrong-secret", "expired", "wrong-audience", "too-long-lived", "over-60-seconds", "no-jti", "garbage"],
 )
 def test_sign_in_rejects_assertions_not_freshly_signed_by_the_web_app(client, assertion):
     response = client.post("/api/compute/auth/sessions", json={"assertion": assertion})
 
     assert response.status_code == 401
+    assert response.json()["error"]["code"] == "unauthorized"
+
+
+def test_a_login_assertion_opens_only_one_session(client):
+    assertion = login_assertion()
+    first = client.post("/api/compute/auth/sessions", json={"assertion": assertion})
+
+    replay = client.post("/api/compute/auth/sessions", json={"assertion": assertion})
+
+    assert first.status_code == 201
+    assert replay.status_code == 401
+    assert replay.json()["error"]["code"] == "unauthorized"
 
 
 def test_deleting_the_account_signs_out_every_session(client):
@@ -118,3 +137,16 @@ def test_without_a_database_tools_still_work_and_accounts_are_unavailable(monkey
             json={"assertion": login_assertion(secret="x" * 40)},
         )
         assert response.status_code == 503
+        assert response.json()["error"]["code"] == "accounts_unavailable"
+
+
+def test_a_misconfigured_secret_is_logged_but_not_shown_to_the_visitor(client, monkeypatch, caplog):
+    monkeypatch.setenv("SESSION_SECRET", "too-short")
+
+    response = client.post("/api/compute/auth/sessions", json={"assertion": login_assertion()})
+
+    assert response.status_code == 503
+    error = response.json()["error"]
+    assert error["code"] == "accounts_unavailable"
+    assert "SESSION_SECRET" not in response.text
+    assert "SESSION_SECRET" in caplog.text

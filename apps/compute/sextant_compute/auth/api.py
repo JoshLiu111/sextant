@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel
 
 from sextant_compute.auth import sessions
 from sextant_compute.auth.deps import CurrentUser, get_db, session_token
 from sextant_compute.db import Database, DatabaseNotConfigured
+from sextant_compute.errors import ApiError
 
 router = APIRouter(tags=["auth"])
 
 Db = Annotated[Database, Depends(get_db)]
+
+log = logging.getLogger(__name__)
 
 
 class UserOut(BaseModel):
@@ -32,8 +36,14 @@ class SessionOut(BaseModel):
     user: UserOut
 
 
-def _unavailable(reason: str) -> HTTPException:
-    return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"Accounts unavailable: {reason}")
+def _unavailable(reason: str) -> ApiError:
+    """503 for a server misconfiguration. The reason goes to the logs, never to the visitor."""
+    log.error("Accounts unavailable: %s", reason)
+    return ApiError(503, "accounts_unavailable", "Sign-in is temporarily unavailable. Please try again later.")
+
+
+def _invalid_assertion() -> ApiError:
+    return ApiError(401, "unauthorized", "Sign-in failed. Please try again.")
 
 
 @router.post("/auth/sessions", status_code=status.HTTP_201_CREATED, response_model=SessionOut)
@@ -44,12 +54,14 @@ def create_session(body: SessionIn, db: Db) -> SessionOut:
     except sessions.SecretNotConfigured as exc:
         raise _unavailable(str(exc)) from exc
     except sessions.InvalidAssertion as exc:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid login assertion") from exc
+        raise _invalid_assertion() from exc
     try:
         with db.connection() as conn:
             token, expires_at, user = sessions.create_session(conn, claims)
     except DatabaseNotConfigured as exc:
         raise _unavailable(str(exc)) from exc
+    except sessions.InvalidAssertion as exc:
+        raise _invalid_assertion() from exc
     return SessionOut(token=token, expires_at=expires_at, user=UserOut(**user))
 
 
