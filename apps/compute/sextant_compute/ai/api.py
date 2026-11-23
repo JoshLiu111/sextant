@@ -8,7 +8,7 @@
   a failed model call costs nothing.
 
 Each tool registers itself with ``add_explainer(tool, RequestModel, compute, guide)``;
-the registrations and their guides live in ``ai/tools.py``.
+the registrations and their guides live in ``ai/explainers.py``.
 """
 
 # No ``from __future__ import annotations``: ``add_explainer`` builds handlers
@@ -147,4 +147,4 @@ def add_explainer(
 
 
 # Registers every tool's explainer (imports this module, so it comes last).
-from sextant_compute.ai import tools  # noqa: E402, F401
+from sextant_compute.ai import explainers  # noqa: E402, F401

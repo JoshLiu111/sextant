@@ -3,7 +3,7 @@
 // ANTHROPIC_BASE_URL, so the real Claude client runs end to end without the
 // network or a real key.
 //
-// It answers deterministically from the result JSON in the prompt. For an options
+// It answers deterministically from the result JSON in the prompt. For a single-option
 // result it quotes the call price the compute service calculated, and mentions
 // buying so the not-advice notice shows. For any other tool it names the tool,
 // counts the metrics computed, and says so when the result is demo data.
@@ -24,9 +24,8 @@ function resultFrom(prompt) {
 
 function answer(result) {
   if (!result) return "I could not find a result in this prompt.";
-  if (result.tool === "options") {
-    const call = result.metrics?.call_price?.value;
-    if (call == null) return "I could not find a call price in this result.";
+  const call = result.metrics?.call_price?.value;
+  if (call != null) {
     return (
       `With these inputs the call is worth about ${call.toFixed(2)} per share.\n\n` +
       "Someone thinking of buying it would compare that with the market price."

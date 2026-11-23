@@ -13,7 +13,7 @@ from sextant_compute.company.api import StatementsRequest, statements
 from sextant_compute.company.ratios import RatiosRequest, ratios
 from sextant_compute.envelope import ResultEnvelope
 from sextant_compute.macro.api import IndicatorsRequest, RatesRequest, headline_indicators, treasury_rates
-from sextant_compute.options.api import OptionsRequest
+from sextant_compute.options.api import AmericanRequest, OptionsRequest, StrategyRequest, american, strategy
 from sextant_compute.options.api import price as options_price
 from sextant_compute.portfolio.api import AnalysisSettings, PortfolioRequest, portfolio_metrics
 from sextant_compute.portfolio.saved import saved_portfolio_metrics
@@ -53,7 +53,32 @@ meta.parameters.start to end. Metric ids are "<metric>:<ticker>".
 Series: drawdown:<ticker> is the fall below the running peak on each date (0 = at a peak).
 """
 
+OPTIONS_STRATEGY_GUIDE = """
+Options Calculator, strategy builder: several legs (meta.parameters.legs: call, put or
+the underlying; long or short; quantity; strike) on one underlying, valued with
+Black-Scholes. Market inputs are decimals as in the single-option tab (volatility 0.2 =
+20%, time_to_expiry in years). net_cost is what the position costs today (negative = a
+credit received); max_profit and max_loss (a positive amount) are at expiry, net of
+that cost; when either is unlimited its status is "error" with the reason "Unlimited...".
+Greeks delta, gamma, vega, theta, rho are for the whole position (per_dollar, per_vol_point
+= per 1 percentage point of volatility, per_day, per_rate_point). Series profit_at_expiry
+and profit_today are profit across spot prices; <greek>_vs_spot and <greek>_vs_time show
+how the Greeks change with the spot and as expiry nears.
+"""
+
+OPTIONS_AMERICAN_GUIDE = """
+Options Calculator, American options on a binomial (Cox-Ross-Rubinstein) tree with
+meta.parameters.steps steps. For call and put: american_<kind> (tree, early exercise
+allowed), european_<kind>_tree (same tree, no early exercise), european_<kind>
+(Black-Scholes), and <kind>_early_exercise_premium = american minus european on the same
+tree (what the right to exercise early is worth). All in currency per share. Series
+american_<kind>_by_steps and european_<kind>_tree_by_steps show the tree price converging
+as the number of steps grows (x = steps).
+"""
+
 add_explainer("options", OptionsRequest, lambda req, _: options_price(req), OPTIONS_GUIDE)
+add_explainer("options-strategy", StrategyRequest, lambda req, _: strategy(req), OPTIONS_STRATEGY_GUIDE)
+add_explainer("options-american", AmericanRequest, lambda req, _: american(req), OPTIONS_AMERICAN_GUIDE)
 add_explainer("risk", RiskRequest, lambda req, i: risk_metrics(req, i.data, i.ctx), RISK_GUIDE)
 
 
@@ -116,8 +141,13 @@ Each metric is "<ratio id>:<TICKER>:<period id>" (the period id is the fiscal ye
 "ratios" lists the ratio ids with category and unit, "companies" each company's fiscal
 years and the optional share price the user entered. Valuation ratios that need a share
 price (price_to_earnings and so on) are missing_data unless a price was entered.
-altman_z is the Altman Z-Score with details.zone (safe, grey or distress) and its five
-inputs x1..x5. With several companies, compare them on the same ratios and years.
+"models" lists the scoring models: altman_z (Altman Z-Score, details.zone safe, grey
+or distress, inputs x1..x5), piotroski_f (Piotroski F-Score 0-9, details.zone strong,
+neutral or weak) with its nine piotroski_* signals (1 = pass, 0 = fail), beneish_m
+(Beneish M-Score, details.zone likely or unlikely earnings manipulation, threshold
+-1.78), and the DuPont factors dupont_tax_burden and dupont_interest_burden (which
+multiply with net_margin, asset_turnover and equity_multiplier back to
+return_on_equity). With several companies, compare them on the same ratios and years.
 {EDGAR_UNITS.strip()}
 """
 

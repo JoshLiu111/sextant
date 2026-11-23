@@ -57,6 +57,32 @@ def assert_demo_framing(model: StubModel, prompt: str) -> None:
     assert "demo data" in model.prompts[0][0].lower()
 
 
+MARKET = {"spot": 100, "time_to_expiry": 1, "volatility": 0.2, "risk_free_rate": 0.05, "dividend_yield": 0}
+
+
+def test_the_options_strategy_builder_explains_the_position(client, model):
+    # A long call alone: the profit at expiry has no ceiling.
+    explain(client, "options-strategy", {**MARKET, "legs": [{"instrument": "call", "strike": 100}]})
+
+    prompt, result = shown(model)
+    assert result["tool"] == "options"
+    assert result["metrics"]["net_cost"]["value"] == pytest.approx(10.4506, abs=1e-4)
+    max_profit = result["metrics"]["max_profit"]
+    assert max_profit["status"] == "error"
+    assert max_profit["reason"].startswith("Unlimited")
+    assert "synthetic demo data" not in prompt
+
+
+def test_the_american_options_tab_explains_the_early_exercise_premium(client, model):
+    explain(client, "options-american", {**MARKET, "strike": 100, "steps": 200})
+
+    _prompt, result = shown(model)
+    assert result["meta"]["parameters"]["steps"] == 200
+    # No dividends: an American call is never exercised early, so its premium is 0.
+    assert result["metrics"]["call_early_exercise_premium"]["value"] == pytest.approx(0, abs=1e-9)
+    assert result["metrics"]["put_early_exercise_premium"]["value"] > 0
+
+
 def test_risk_explains_the_demo_result_as_demo_data(client, model):
     out = explain(client, "risk", {"tickers": ["DEMO-A"], **SHORT_HISTORY, "confidence": 0.999})
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
 import { LineChart, type ChartSeries } from "@/components/LineChart";
@@ -371,6 +372,7 @@ export function StrategyBuilder() {
           </div>
         </div>
         {result && <CalculationInfo result={result} />}
+        {result && <AiExplain tool="options-strategy" result={result} />}
       </section>
     </div>
   );

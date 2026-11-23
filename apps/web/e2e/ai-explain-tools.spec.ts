@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// AI Explain on every tool besides Options. The model is e2e/fake-anthropic.mjs: for
+// AI Explain on every tool besides the single-option tab of Options. The model is e2e/fake-anthropic.mjs: for
 // these tools it names the tool, counts the metrics computed and says when the
 // result is demo data. The e2e daily quota is 3; each test signs in with its own email.
 
@@ -29,6 +29,19 @@ for (const { path, tool } of [
     const explanation = ai.first().getByTestId("ai-explanation");
     await expect(explanation).toContainText(`This ${tool} result has`);
     await expect(explanation).toContainText("This result uses synthetic demo data, not real market data.");
+  });
+}
+
+for (const tab of ["Strategy builder", "American (binomial)"]) {
+  test(`options, ${tab}: the tab's result gets its own explanation`, async ({ page }) => {
+    await signInOn(page, "/options");
+    await page.getByRole("main").getByRole("tab", { name: tab }).click();
+    const ai = page.getByRole("main").getByRole("region", { name: "AI Explain" });
+
+    await ai.getByRole("button", { name: "AI Explain" }).click();
+
+    await expect(ai.getByTestId("ai-explanation")).toContainText("This options result has");
+    await expect(ai.getByTestId("ai-quota")).toHaveText("2 of 3 AI calls left today");
   });
 }
 
