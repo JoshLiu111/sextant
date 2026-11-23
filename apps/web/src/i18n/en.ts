@@ -358,6 +358,19 @@ export const en = {
       sections: {
         value: "Value and profit",
         valueNote: "Today's value uses each holding's latest close in the date range, in the portfolio's currency.",
+        positions: "Positions",
+        positionsNote:
+          "One row per holding, plus tickers your imports sold out. Realized P&L is booked first in, first out when a sell is imported and covers every sale to date.",
+        total: "Total",
+        columns: {
+          ticker: "Ticker",
+          quantity: "Quantity",
+          cost_basis: "Cost basis",
+          market_value: "Market value",
+          weight: "Weight",
+          unrealized_pnl: "Unrealized P&L",
+          realized_pnl: "Realized P&L",
+        },
         metricsNote:
           "The portfolio holds its quantities from the first day of the range, with dividends reinvested, and is never rebalanced. These metrics are computed on its daily value with the same formulas as Risk & Performance.",
       },
@@ -386,11 +399,17 @@ export const en = {
           how: "(Market value − cost basis) ÷ cost basis.",
           read: "Shown in percent. 10% means the holdings are worth 10% more than they cost.",
         },
+        realized_pnl: {
+          name: "Realized profit or loss",
+          what: "What your imported sells gained or lost versus what those shares cost.",
+          how: "For each sell: quantity × price − fees − the cost of the shares it sold, taking the oldest shares first (FIFO). Shares entered by hand count as the oldest. Summed over every sell to date.",
+          read: "Positive is a gain, negative a loss, in the portfolio's currency. It is booked when the sell is imported, so editing a holding later does not change it.",
+        },
       },
       import: {
         heading: "Import transactions",
         intro:
-          "Upload a CSV of your trades (date, ticker, buy or sell, quantity, price, and optionally fees and currency). You will see a preview and can match your file's columns before anything is imported. Buys add to a holding at their average cost including fees; sells reduce it.",
+          "Upload a CSV of your trades (date, ticker, buy or sell, quantity, price, and optionally fees and currency). You will see a preview and can match your file's columns before anything is imported. Buys add to a holding at their cost including fees; sells take the oldest shares first (FIFO) and book a realized profit or loss.",
         file: "CSV file",
         reading: "Reading file…",
         mappingHeading: "Match your columns",

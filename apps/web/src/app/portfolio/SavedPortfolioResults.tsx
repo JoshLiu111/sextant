@@ -9,9 +9,10 @@ import { getMessages } from "@/i18n";
 import type { SavedPortfolio } from "@/lib/portfolios";
 import { useCompute } from "@/lib/useCompute";
 import { PortfolioResults } from "./PortfolioResults";
+import { PositionsTable } from "./PositionsTable";
 
-/** Value metrics only the saved portfolio has (it knows quantities and cost prices). */
-const VALUE_METRICS = ["market_value", "cost_basis", "unrealized_pnl", "unrealized_return"] as const;
+/** Value metrics only the saved portfolio has (it knows quantities, cost prices and imported sells). */
+const VALUE_METRICS = ["market_value", "cost_basis", "unrealized_pnl", "unrealized_return", "realized_pnl"] as const;
 const SETTINGS = ["benchmark", "start", "end"] as const;
 type Settings = Record<(typeof SETTINGS)[number], string>;
 
@@ -80,6 +81,12 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
               ]}
             />
           ))}
+        </div>
+      </div>
+      <div>
+        <h2 className="text-lg font-semibold">{s.sections.positions}</h2>
+        <div className="mt-2">
+          <PositionsTable result={result} currency={currency} />
         </div>
       </div>
       <PortfolioResults result={result} metricsNote={s.sections.metricsNote} />
