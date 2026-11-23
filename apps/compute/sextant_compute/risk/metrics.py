@@ -85,11 +85,15 @@ def risk_metric_set(
     ``period`` picks the return period for the period-dependent metrics
     (volatility, every ratio, every VaR/CVaR, beta, alpha, capture), annualized with that period's
     count per year. Annualized return and max drawdown describe the whole wealth
-    path, so they always use the daily data.
+    path, so they always use the daily data. Each period-dependent metric carries
+    ``observations`` in details: how many returns of the period it used (with the
+    benchmark: the periods both series have).
     """
     per_year = PERIODS_PER_YEAR[period]
     r = period_returns(returns, period)
     b = period_returns(benchmark_returns, period)
+    own = len(r.dropna())
+    paired = len(r.dropna().index.intersection(b.dropna().index))
     computations: dict[str, Callable[[], float | Detailed]] = {
         "annualized_return": lambda: performance.annualized_return(returns),
         "annualized_volatility": lambda: performance.annualized_volatility(r, per_year),
@@ -109,7 +113,27 @@ def risk_metric_set(
         "upside_capture": lambda: risk.upside_capture(r, b),
         "downside_capture": lambda: risk.downside_capture(r, b),
     }
+    for name in _PERIOD_METRICS:
+        computations[name] = _counted(computations[name], paired if name in _BENCHMARK_METRICS else own)
     return {name: metric(computations[name], unit=METRIC_UNITS[name]) for name in METRIC_NAMES}
+
+
+_PERIOD_METRICS = tuple(name for name in METRIC_NAMES if name not in ("annualized_return", "max_drawdown"))
+_BENCHMARK_METRICS = frozenset(
+    {"beta", "treynor", "information_ratio", "alpha", "upside_capture", "downside_capture"}
+)
+
+
+def _counted(compute: Callable[[], float | Detailed], observations: int) -> Callable[[], Detailed]:
+    """``compute`` with the number of period returns it used added to its details."""
+
+    def counted() -> Detailed:
+        value = compute()
+        if isinstance(value, Detailed):
+            return Detailed(value.value, {**value.details, "observations": observations})
+        return Detailed(value, {"observations": observations})
+
+    return counted
 
 
 def missing_metric_set(reason: str) -> dict[str, MetricResult]:
