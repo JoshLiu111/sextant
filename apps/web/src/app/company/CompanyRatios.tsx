@@ -7,14 +7,26 @@ import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice"
 import { MetricExplainer } from "@/components/MetricExplainer";
 import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
-import { formatValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
+import { useFrequency } from "./FrequencyToggle";
+import { RatioInputs, type Selection } from "./RatioInputs";
+import { formatRatio } from "./ratioFormat";
 
 // Mirrors RatiosEnvelope in apps/compute/sextant_compute/company/ratios.py.
-// Metrics are "<ratio id>:<TICKER>:<period id>"; the period id is the fiscal year end.
-type Period = { id: string; label: string; fiscal_year: number; end: string; filed: string; url: string };
+// Metrics are "<ratio id>:<TICKER>:<period id>"; the period id is the period end
+// (fiscal year, or fiscal quarter with ?frequency=quarterly).
+type Period = {
+  id: string;
+  label: string;
+  fiscal_year: number;
+  fiscal_quarter: number | null;
+  end: string;
+  filed: string;
+  url: string;
+};
 type CompanyOut = { ticker: string; cik: number; name: string; price: number | null; periods: Period[] };
-type RatioOut = { id: string; category: string; unit: string };
+// basis: "ttm" (quarterly, trailing twelve months), "quarter_end" or "fiscal_year".
+type RatioOut = { id: string; category: string; unit: string; basis: "fiscal_year" | "ttm" | "quarter_end" };
 // `models` holds the scores (Altman Z, Piotroski F, Beneish M), the nine Piotroski
 // signals and the DuPont burdens; the DuPont tables also reuse ratios from `ratios`.
 type RatiosResult = ResultEnvelope & { companies: CompanyOut[]; ratios: RatioOut[]; models: RatioOut[] };
@@ -37,19 +49,10 @@ const BAD_ZONES = new Set(["distress", "weak", "likely"]);
 const MAX_COMPANIES = 5;
 const DEFAULT_ROWS: Row[] = [{ ticker: "AAPL", price: "" }];
 
-const TWO = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const ONE = new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-
-function formatRatio(value: number, unit: string | null, id: string): string {
-  const r = getMessages().companyRatios;
-  if (unit === "signal") return value === 1 ? r.pass : r.fail;
-  if (id.startsWith("piotroski_f:")) return `${WHOLE.format(value)} / 9`;
-  if (unit === "days") return `${ONE.format(value)} ${r.days}`;
-  if (unit === "currency") return `${WHOLE.format(value / 1e6)}${r.currencyMillions}`;
-  if (unit === "per_share" || unit === "score" || unit === "ratio") return TWO.format(value);
-  return formatValue(value, unit);
-}
+/** A column: fiscal years, or fiscal quarters, aligned across companies by the company's own fiscal numbering. */
+type Column = { key: number; label: string };
+const columnKey = (p: Period) => p.fiscal_year * 4 + (p.fiscal_quarter ?? 0);
+const columnLabel = (p: Period) => (p.fiscal_quarter ? p.label : `FY${p.fiscal_year}`);
 
 function toRequest(rows: Row[]) {
   return {
@@ -66,7 +69,25 @@ function toRequest(rows: Row[]) {
 // data-dupont-value instead, keeping data-metric-value unique on the page.
 type ValueAttr = "data-metric-value" | "data-dupont-value";
 
-function Value({ id, result, attr }: { id: string; result: MetricResult | undefined; attr: ValueAttr }) {
+function Value(props: { id: string; result: MetricResult | undefined; attr: ValueAttr; drill?: string; onDrill?: () => void }) {
+  const { drill, onDrill } = props;
+  const value = <ValueText {...props} />;
+  if (!props.result || !drill || !onDrill) return value;
+  // Selecting a value opens its drill-down (formula and inputs).
+  return (
+    <button
+      type="button"
+      aria-label={drill}
+      title={props.result.status === "ok" ? drill : undefined}
+      onClick={onDrill}
+      className="rounded text-right hover:bg-black/5 focus-visible:outline focus-visible:outline-2 dark:hover:bg-white/10"
+    >
+      {value}
+    </button>
+  );
+}
+
+function ValueText({ id, result, attr }: { id: string; result: MetricResult | undefined; attr: ValueAttr }) {
   const r = getMessages().companyRatios;
   if (!result) return <span className="text-black/40 dark:text-white/40">…</span>;
   const tag = { [attr]: id };
@@ -109,16 +130,18 @@ function RatioTable({
   category,
   ratios,
   result,
-  years,
+  columns,
   note,
   attr = "data-metric-value",
+  onDrill,
 }: {
   category: string;
   ratios: RatioOut[];
   result: RatiosResult;
-  years: number[];
+  columns: Column[];
   note?: string;
   attr?: ValueAttr;
+  onDrill?: (selection: Omit<Selection, "frequency">) => void;
 }) {
   const r = getMessages().companyRatios;
   const headingId = `ratios-${category}`;
@@ -144,9 +167,9 @@ function RatioTable({
                   {r.companyColumn}
                 </th>
               )}
-              {years.map((fy) => (
-                <th key={fy} scope="col" className="px-3 py-2 text-right font-medium">
-                  FY{fy}
+              {columns.map((col) => (
+                <th key={col.key} scope="col" className="px-3 py-2 text-right font-medium">
+                  {col.label}
                 </th>
               ))}
             </tr>
@@ -154,7 +177,7 @@ function RatioTable({
           <tbody>
             {ratios.flatMap((ratio) =>
               result.companies.map((company, i) => {
-                const byYear = new Map(company.periods.map((p) => [p.fiscal_year, p]));
+                const byColumn = new Map(company.periods.map((p) => [columnKey(p), p]));
                 return (
                   <tr
                     key={`${ratio.id}:${company.ticker}`}
@@ -167,16 +190,42 @@ function RatioTable({
                         className="w-56 px-3 py-1.5 text-left font-normal"
                       >
                         {r.ratios[ratio.id].name}
+                        {ratio.basis === "ttm" && (
+                          <abbr
+                            title={r.ttmTitle}
+                            className="ml-1.5 rounded border border-black/20 px-1 text-[10px] font-medium no-underline dark:border-white/20"
+                          >
+                            {r.ttm}
+                          </abbr>
+                        )}
                         <MetricExplainer explainer={r.ratios[ratio.id]} />
                       </th>
                     )}
                     {many && <td className="px-3 py-1.5 font-mono text-xs">{company.ticker}</td>}
-                    {years.map((fy) => {
-                      const period = byYear.get(fy);
+                    {columns.map((col) => {
+                      const period = byColumn.get(col.key);
                       const id = period ? `${ratio.id}:${company.ticker}:${period.id}` : null;
                       return (
-                        <td key={fy} className="px-3 py-1.5 text-right">
-                          {id ? <Value id={id} result={result.metrics[id]} attr={attr} /> : null}
+                        <td key={col.key} className="px-3 py-1.5 text-right">
+                          {period && id ? (
+                            <Value
+                              id={id}
+                              result={result.metrics[id]}
+                              attr={attr}
+                              drill={r.drill.open(r.ratios[ratio.id].name, `${period.label}${many ? ` (${company.ticker})` : ""}`)}
+                              onDrill={
+                                onDrill &&
+                                (() =>
+                                  onDrill({
+                                    ratio: ratio.id,
+                                    ticker: company.ticker,
+                                    period: period.id,
+                                    periodLabel: period.label,
+                                    price: company.price,
+                                  }))
+                              }
+                            />
+                          ) : null}
                         </td>
                       );
                     })}
@@ -198,10 +247,13 @@ export function CompanyRatios() {
   const linked = useSearchParams().get("ticker")?.trim().toUpperCase();
   const initialRows = linked ? [{ ticker: linked, price: "" }] : DEFAULT_ROWS;
   const [rows, setRows] = useState<Row[]>(initialRows);
+  const frequency = useFrequency();
   // Only submitted inputs are fetched: typing doesn't fire EDGAR requests.
   const [query, setQuery] = useState(() => toRequest(initialRows));
-  const { result, fieldErrors, error, pending, run } = useCompute("/company/ratios", query);
+  const { result, fieldErrors, error, pending, run } = useCompute("/company/ratios", { ...query, frequency });
   const ratios = result as RatiosResult | null;
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const drill = (s: Omit<Selection, "frequency">) => setSelection({ ...s, frequency });
 
   function setRow(i: number, field: keyof Row, value: string) {
     setRows((rs) => rs.map((row, j) => (j === i ? { ...row, [field]: value } : row)));
@@ -214,9 +266,14 @@ export function CompanyRatios() {
     else setQuery(next);
   }
 
-  const years = ratios
-    ? [...new Set(ratios.companies.flatMap((c) => c.periods.map((p) => p.fiscal_year)))].sort((a, b) => a - b)
+  const columns: Column[] = ratios
+    ? [
+        ...new Map(
+          ratios.companies.flatMap((c) => c.periods.map((p) => [columnKey(p), { key: columnKey(p), label: columnLabel(p) }])),
+        ).values(),
+      ].sort((a, b) => a.key - b.key)
     : [];
+  const quarterly = ratios?.companies.some((c) => c.periods.some((p) => p.fiscal_quarter)) ?? false;
   const inputClass = (err: string | undefined) =>
     `w-full min-w-0 rounded-md border px-3 py-2 font-mono dark:bg-white/5 ${
       err ? "border-red-500" : "border-black/20 dark:border-white/20"
@@ -318,18 +375,21 @@ export function CompanyRatios() {
               {ratios.companies.map((c) => `${c.name} (${c.ticker})`).join(" · ")}
             </p>
             <p className="text-xs text-black/50 dark:text-white/50">{r.averageNote}</p>
+            {quarterly && <p className="text-xs text-black/60 dark:text-white/60">{r.quarterlyNote}</p>}
             <RatioTable
               category="scores"
               ratios={ratios.models.filter((x) => x.category === "scores")}
               result={ratios}
-              years={years}
+              columns={columns}
+              onDrill={drill}
               note={r.scoresNote}
             />
             <RatioTable
               category="piotroski"
               ratios={ratios.models.filter((x) => x.category === "piotroski")}
               result={ratios}
-              years={years}
+              columns={columns}
+              onDrill={drill}
               note={r.piotroskiNote}
             />
             {CATEGORIES.map((category) => (
@@ -338,7 +398,8 @@ export function CompanyRatios() {
                 category={category}
                 ratios={ratios.ratios.filter((x) => x.category === category)}
                 result={ratios}
-                years={years}
+                columns={columns}
+                onDrill={drill}
               />
             ))}
             {(["dupont3", "dupont5"] as const).map((category) => {
@@ -349,7 +410,7 @@ export function CompanyRatios() {
                   category={category}
                   ratios={DUPONT[category].flatMap((id) => byId.get(id) ?? [])}
                   result={ratios}
-                  years={years}
+                  columns={columns}
                   note={r.dupontNotes[category]}
                   attr="data-dupont-value"
                 />
@@ -361,6 +422,13 @@ export function CompanyRatios() {
           !error && <p className="text-sm text-black/60 dark:text-white/60">{r.loading}</p>
         )}
       </div>
+      {selection && (
+        <RatioInputs
+          key={JSON.stringify(selection)}
+          selection={selection}
+          onClose={() => setSelection(null)}
+        />
+      )}
     </section>
   );
 }

@@ -592,7 +592,12 @@ export const en = {
   },
   company: {
     intro:
-      "Standardized income statement, balance sheet and cash flow statement for a US-listed company, from its annual reports (10-K) filed with the SEC. Every number links to the filing it came from.",
+      "Standardized income statement, balance sheet and cash flow statement for a US-listed company, from its annual (10-K) and quarterly (10-Q) reports filed with the SEC. Every number links to the filing it came from.",
+    frequency: {
+      legend: "Periods",
+      annual: "Annual",
+      quarterly: "Quarterly",
+    },
     inputsHeading: "Company",
     submit: "Show statements",
     inputs: {
@@ -605,6 +610,9 @@ export const en = {
     },
     lineItem: "Line item",
     yearEnded: "Year ended",
+    quarterEnded: "Quarter ended",
+    quarterlyNote:
+      "Quarters are the company's fiscal quarters. Companies file no fourth-quarter report, so Q4 income and cash flows are the year (10-K) minus the first three quarters; per-share amounts and weighted-average shares aren't derived for Q4. Cash flows in 10-Qs are year to date, so each quarter shows only its own three months.",
     filed: "filed",
     sourceFiling: "Source",
     derived: "derived",
@@ -1022,7 +1030,29 @@ export const en = {
       dupont5: "ROE = tax burden × interest burden × operating margin × asset turnover × equity multiplier.",
     } as Record<string, string>,
     averageNote:
-      "Balance-sheet amounts in ratios with revenue, costs or income are averaged over the opening and closing balance (the prior and current fiscal year end). Hover n/a for the reason.",
+      "Balance-sheet amounts in ratios with revenue, costs or income are averaged over the opening and closing balance (the prior and current fiscal year end). Hover n/a for the reason; select any value to see its formula and inputs.",
+    quarterlyNote:
+      "Quarterly ratios marked TTM use trailing twelve months: income and cash flows are the sum of the four quarters to each quarter end, and balances are averaged over that quarter end and the one a year before. Unmarked ratios use the quarter-end balance sheet. A TTM ratio at Q4 equals the fiscal-year ratio.",
+    ttm: "TTM",
+    ttmTitle: "Trailing twelve months: the four quarters to each quarter end",
+    drill: {
+      open: (name: string, period: string) => `Show the inputs of ${name} for ${period}`,
+      title: (name: string, ticker: string, period: string) => `${name} · ${ticker} · ${period}`,
+      close: "Close",
+      loading: "Loading inputs…",
+      value: "Value",
+      formula: "Formula",
+      inputs: "Inputs",
+      input: "Input",
+      period: "Period",
+      amount: "Value",
+      source: "Source",
+      ttm: "Trailing twelve months: the sum of these quarters",
+      filed: "filed",
+      derived: "derived",
+      unitsNote: "USD millions, except per-share amounts (USD) and share counts (millions).",
+      noInputs: "This value reads no statement items.",
+    },
     ratios: {
       asset_turnover: {
         name: "Asset turnover",
