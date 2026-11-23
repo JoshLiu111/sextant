@@ -28,6 +28,7 @@ from typing import Any
 import httpx
 
 from sextant_compute.data.errors import SourceUnavailable
+from sextant_compute.data.retry import get_with_retries
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ BASE_URL_ENV = "EDGAR_BASE_URL"
 WWW_URL = "https://www.sec.gov"
 DATA_URL = "https://data.sec.gov"
 RETRIES = 2
+RETRY_BACKOFF = 0.5  # seconds, doubled per retry
 TIMEOUT_SECONDS = 20.0
 
 
@@ -137,23 +139,20 @@ class EdgarClient:
     def _get(self, host: str, path: str) -> httpx.Response:
         client = self._client()
         url = self.url(host, path)
-        problem = ""
-        for attempt in range(RETRIES + 1):
-            if attempt:
-                self._sleep(0.5 * 2 ** (attempt - 1))
-            self._limiter.acquire()
-            try:
-                res = client.get(url)
-            except httpx.HTTPError as exc:
-                problem = f"{type(exc).__name__}: {exc}"
-                continue
-            if res.status_code == 404:
-                raise NotFound(url)
-            if res.status_code == 429 or res.status_code >= 500:
-                problem = f"HTTP {res.status_code}"
-                continue
-            if res.status_code != 200:
-                # 403 means a missing/undeclared User-Agent or an IP block; retrying won't help.
-                raise SourceUnavailable(SOURCE_ID, f"HTTP {res.status_code} from {url}")
-            return res
-        raise SourceUnavailable(SOURCE_ID, f"{problem} from {url}")
+        try:
+            res = get_with_retries(
+                lambda: client.get(url),
+                attempts=RETRIES + 1,
+                backoff=RETRY_BACKOFF,
+                sleep=self._sleep,
+                before_attempt=self._limiter.acquire,
+                retry_transport_errors=True,
+            )
+        except httpx.HTTPError as exc:
+            raise SourceUnavailable(SOURCE_ID, f"{type(exc).__name__}: {exc} from {url}") from exc
+        if res.status_code == 404:
+            raise NotFound(url)
+        if res.status_code != 200:
+            # 403 means a missing/undeclared User-Agent or an IP block; retrying won't help.
+            raise SourceUnavailable(SOURCE_ID, f"HTTP {res.status_code} from {url}")
+        return res
