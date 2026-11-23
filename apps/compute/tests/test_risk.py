@@ -205,6 +205,10 @@ def test_a_range_outside_the_demo_history_says_what_is_covered():
         ({"tickers": [f"DEMO-{i}" for i in range(11)]}, "tickers", "Enter at most 10 tickers."),
         ({"tickers": ["DEMO-A"], "start": "last week"}, "start", "Enter a date as YYYY-MM-DD."),
         ({"tickers": ["DEMO-A"], "benchmark": " "}, "benchmark", "Enter a ticker."),
+        ({"tickers": ["DEMO-A"], "confidence": 1.0}, "confidence", "Enter a confidence level between 50% and 99.9%."),
+        ({"tickers": ["DEMO-A"], "confidence": 0.4}, "confidence", "Enter a confidence level between 50% and 99.9%."),
+        ({"tickers": ["DEMO-A"], "risk_free_rate": 0.5}, "risk_free_rate", "Enter a risk-free rate between -5% and 20%."),
+        ({"tickers": ["DEMO-A"], "risk_free_rate": "abc"}, "risk_free_rate", "Enter a number."),
     ],
 )
 def test_invalid_inputs_get_field_messages(body, field, message):
@@ -230,3 +234,136 @@ def test_a_provider_outage_is_reported_as_source_unavailable():
     assert error["code"] == "source_unavailable"
     assert "temporarily unavailable" in error["message"]
     assert "retry" in error["message"].lower()
+
+
+# --- Beta, VaR/CVaR, Sharpe, Sortino (#4) ---
+
+
+@pytest.mark.parametrize("ticker", NO_CRASH)  # an injected crash is idiosyncratic and biases beta
+def test_configured_beta_is_recovered_against_the_demo_benchmark(ticker):
+    body = metrics(tickers=[ticker])
+
+    assert value(body, f"beta:{ticker}") == pytest.approx(PERSONALITIES[ticker].beta, abs=0.06)
+    assert body["metrics"][f"beta:{ticker}"]["unit"] == "ratio"
+    assert value(body, "beta:DEMO-MKT") == pytest.approx(1.0)
+
+
+def closes_from(returns, start=100.0):
+    closes = [start]
+    for r in returns:
+        closes.append(closes[-1] * (1 + r))
+    return closes
+
+
+# 40 daily returns: 36 gains of 1% and four losses of 2%, 4%, 6% and 10%.
+TAIL_RETURNS = [0.01] * 18 + [-0.06, -0.02] + [0.01] * 18 + [-0.10, -0.04]
+
+
+def tail_metrics(**body):
+    frames = {"TAIL": price_frame("2024-01-01", closes_from(TAIL_RETURNS))}
+    with serving(FixtureAdapter(frames)):
+        return metrics(tickers=["TAIL"], benchmark="TAIL", start="2024-01-01", end="2024-12-31", **body)
+
+
+@pytest.mark.parametrize(
+    ("confidence", "var", "cvar"),
+    [
+        # 95%: the 5% tail of 40 returns is the 2 worst (-10%, -6%).
+        (0.95, 0.06, (0.10 + 0.06) / 2),
+        # 90%: the 4 worst.
+        (0.90, 0.02, (0.10 + 0.06 + 0.04 + 0.02) / 4),
+    ],
+)
+def test_historical_var_and_cvar_are_losses_at_the_tail_of_the_daily_returns(confidence, var, cvar):
+    body = tail_metrics(confidence=confidence)
+
+    assert value(body, "var:TAIL") == pytest.approx(var)
+    assert value(body, "cvar:TAIL") == pytest.approx(cvar)
+    assert body["metrics"]["var:TAIL"]["unit"] == "decimal"
+    assert body["meta"]["parameters"]["confidence"] == confidence
+
+
+def test_var_defaults_to_95_percent_confidence():
+    body = tail_metrics()
+
+    assert value(body, "var:TAIL") == pytest.approx(0.06)
+
+
+def test_too_few_returns_for_the_confidence_level_is_missing_data_for_var_and_cvar_only():
+    # A 99% tail needs at least 100 returns; there are 40.
+    body = tail_metrics(confidence=0.99)
+
+    for metric_id in ("var:TAIL", "cvar:TAIL"):
+        assert body["metrics"][metric_id]["status"] == "missing_data"
+        assert "needs at least 100 daily returns" in body["metrics"][metric_id]["reason"]
+    assert body["metrics"]["annualized_volatility:TAIL"]["status"] == "ok"
+    assert body["metrics"]["beta:TAIL"]["status"] == "ok"
+
+
+@pytest.mark.parametrize("ticker", list(PERSONALITIES))
+def test_cvar_is_at_least_var_and_higher_confidence_gives_a_larger_var(ticker):
+    by_confidence = {c: metrics(tickers=[ticker], confidence=c) for c in (0.90, 0.95, 0.99)}
+
+    vars_ = [value(by_confidence[c], f"var:{ticker}") for c in (0.90, 0.95, 0.99)]
+    assert vars_[0] < vars_[1] < vars_[2]
+    for body in by_confidence.values():
+        assert value(body, f"cvar:{ticker}") >= value(body, f"var:{ticker}") > 0
+
+
+# 252 daily returns alternating +2 basis points (2u) and 0.
+U = 0.0001
+ZIGZAG = [2 * U if i % 2 == 0 else 0.0 for i in range(YEAR)]
+
+
+def zigzag_metrics(**body):
+    frames = {"ZZ": price_frame("2024-01-01", closes_from(ZIGZAG))}
+    with serving(FixtureAdapter(frames)):
+        return metrics(tickers=["ZZ"], benchmark="ZZ", start="2024-01-01", end="2025-12-31", **body)
+
+
+def annual_rate_for_daily(daily):
+    return (1 + daily) ** YEAR - 1
+
+
+def test_sharpe_is_the_annualized_mean_excess_return_over_its_volatility():
+    # rf = 0: mean u, sample std u * sqrt(n / (n - 1)), so Sharpe = sqrt(252) * sqrt((n - 1) / n) = sqrt(251).
+    assert value(zigzag_metrics(risk_free_rate=0.0), "sharpe:ZZ") == pytest.approx(251**0.5)
+    # A risk-free rate of u a day leaves excess returns of +u, -u: mean 0.
+    assert value(zigzag_metrics(risk_free_rate=annual_rate_for_daily(U)), "sharpe:ZZ") == pytest.approx(
+        0.0, abs=1e-9
+    )
+
+
+def test_sortino_divides_by_the_downside_deviation_below_the_risk_free_rate():
+    # Daily rf u/2: excess +1.5u, -0.5u. Mean u/2; downside deviation sqrt(mean(min(e, 0)^2)) = (u/2) / sqrt(2).
+    body = zigzag_metrics(risk_free_rate=annual_rate_for_daily(U / 2))
+
+    assert value(body, "sortino:ZZ") == pytest.approx((2 * YEAR) ** 0.5)
+    assert value(body, "sharpe:ZZ") == pytest.approx(0.5 * 251**0.5)
+    assert body["metrics"]["sortino:ZZ"]["unit"] == "ratio"
+    assert body["meta"]["parameters"]["risk_free_rate"] == pytest.approx(annual_rate_for_daily(U / 2))
+
+
+def test_sortino_is_missing_data_when_no_return_falls_below_the_risk_free_rate():
+    body = zigzag_metrics(risk_free_rate=0.0)
+
+    assert body["metrics"]["sortino:ZZ"]["status"] == "missing_data"
+    assert "below the risk-free rate" in body["metrics"]["sortino:ZZ"]["reason"]
+    assert body["metrics"]["sharpe:ZZ"]["status"] == "ok"
+
+
+def test_the_risk_free_rate_defaults_to_zero():
+    assert value(zigzag_metrics(), "sharpe:ZZ") == pytest.approx(251**0.5)
+
+
+def test_a_flat_price_has_no_sharpe_or_beta_but_other_metrics_still_return():
+    frames = {"FLAT": price_frame("2024-01-01", [100.0] * 30), "OK": price_frame("2024-01-01", closes_from(ZIGZAG))}
+
+    with serving(FixtureAdapter(frames)):
+        body = metrics(tickers=["FLAT", "OK"], benchmark="FLAT", start="2024-01-01", end="2025-12-31")
+
+    assert body["metrics"]["sharpe:FLAT"]["status"] == "missing_data"
+    assert body["metrics"]["beta:OK"]["status"] == "missing_data"
+    assert "benchmark" in body["metrics"]["beta:OK"]["reason"]
+    assert value(body, "sharpe:OK") == pytest.approx(251**0.5)
+    assert value(body, "var:FLAT") == 0.0
