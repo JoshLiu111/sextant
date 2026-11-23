@@ -1911,6 +1911,62 @@ export const en = {
       },
     } as Record<string, { name: string; what: string; how: string; read: string }>,
   },
+  portfolioConstruction: {
+    rebalancing: {
+      heading: "Rebalancing backtest",
+      intro:
+        "Start at the target weights above and compare resetting them by a rule with buying and holding (weights drift with prices). Rebalancing is frictionless: no trading costs or taxes.",
+      rule: {
+        label: "Rebalancing rule",
+        hint: "Calendar rules rebalance at the last trading day of each period.",
+        options: {
+          monthly: "Monthly",
+          quarterly: "Quarterly",
+          yearly: "Yearly",
+          drift: "Drift threshold",
+        },
+      },
+      threshold: {
+        label: "Drift threshold (%)",
+        hint: "Rebalance when any weight is this many percentage points away from its target.",
+      },
+      labels: { rebalanced: "Rebalanced", buy_and_hold: "Buy and hold" },
+      chart: { label: "Growth of the portfolio: rebalanced vs buy and hold", x: "Date" },
+      sections: { chart: "Cumulative return", metrics: "Risk and return, side by side", trading: "Trading" },
+      metrics: {
+        rebalance_count: {
+          name: "Rebalances",
+          what: "How many times the rule reset the weights to target.",
+          how: "Calendar rules: one per period end inside the range (the final day never rebalances). Drift rule: every close where some weight strayed further than the threshold from its target.",
+          read: "More rebalances keep the risk profile closer to the target but trade more often.",
+        },
+        turnover: {
+          name: "Total turnover",
+          what: "How much of the portfolio was traded across all rebalances.",
+          how: "At each rebalance, half the sum of the absolute differences between the drifted and target weights (one-way turnover), summed over the backtest.",
+          read: "100% means trading the equivalent of the whole portfolio once. Real trading costs grow with it.",
+        },
+      },
+    },
+    frontier: {
+      heading: "Efficient frontier",
+      intro:
+        "The long-only mean-variance frontier of the holdings above: for each level of expected return, the mix with the lowest volatility. A reference from historical estimates, not a recommendation.",
+      chart: {
+        label: "Efficient frontier: expected return against volatility",
+        x: "Volatility (annualized)",
+        y: "Expected return",
+      },
+      who: { max_sharpe: "Maximum Sharpe", min_variance: "Minimum variance", current: "Current portfolio" },
+      frontierLine: "Frontier",
+      weightsHeading: "Suggested weights",
+      weightsCaption: "Weights by portfolio; every column is long-only and adds up to 100%.",
+      tickerColumn: "Holding",
+      rows: { expected_return: "Expected return", volatility: "Volatility", sharpe: "Sharpe ratio" },
+      method:
+        "Expected return is the annualized mean daily return (×252); volatility comes from the annualized covariance of daily returns. The Sharpe ratio uses the risk-free rate above. Past returns are noisy estimates of future ones, so treat the optimiser's weights with care.",
+    },
+  },
   comingSoon: {
     badge: "Coming soon",
     body: "This tool is not built yet. Check back soon.",

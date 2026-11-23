@@ -34,7 +34,7 @@ test("smoke: open the page, submit the defaults, see the results and the Demo ba
   await chart.hover();
   await expect(main.getByTestId("chart-tooltip")).toContainText("Portfolio");
   await expect(main.getByTestId("chart-tooltip")).toContainText("DEMO-MKT");
-  await expect(main.getByTestId("demo-badge")).toContainText("Demo data");
+  await expect(results.getByTestId("demo-badge")).toContainText("Demo data");
   await expect(main.getByTestId("calculation-id")).toContainText("calc_");
   await expect(page.getByRole("contentinfo").locator('[data-attribution="demo"]')).toBeVisible();
 });

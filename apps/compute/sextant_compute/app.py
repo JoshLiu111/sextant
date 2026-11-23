@@ -26,6 +26,7 @@ from sextant_compute.macro.custom import router as macro_custom_router
 from sextant_compute.macro.world import router as macro_world_router
 from sextant_compute.options.api import router as options_router
 from sextant_compute.portfolio.api import router as portfolio_router
+from sextant_compute.portfolio.construction import router as portfolio_construction_router
 from sextant_compute.portfolio.imports import router as portfolio_transactions_router
 from sextant_compute.portfolio.returns import router as portfolio_returns_router
 from sextant_compute.portfolio.saved import router as saved_portfolios_router
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(company_router, prefix=f"{API_PREFIX}/company")
     app.include_router(company_ratios_router, prefix=f"{API_PREFIX}/company")
     app.include_router(portfolio_router, prefix=f"{API_PREFIX}/portfolio")
+    app.include_router(portfolio_construction_router, prefix=f"{API_PREFIX}/portfolio")
     app.include_router(saved_portfolios_router, prefix=f"{API_PREFIX}/portfolios")
     app.include_router(portfolio_transactions_router, prefix=f"{API_PREFIX}/portfolios")
     app.include_router(portfolio_returns_router, prefix=f"{API_PREFIX}/portfolios")

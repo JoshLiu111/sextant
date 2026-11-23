@@ -8,6 +8,7 @@ import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import { decodeRows, encodeRows, fieldsCodec, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { PortfolioConstruction } from "./PortfolioConstruction";
 import { PortfolioResults } from "./PortfolioResults";
 import { DEFAULT_HOLDINGS, PRESETS, type HoldingInput, type PresetId } from "./presets";
 
@@ -85,7 +86,8 @@ export function PortfolioTool() {
   const p = t.portfolio;
   const { initial, share } = useUrlInputs(URL_CODEC);
   const [form, setForm] = useState<Form>(initial);
-  const { result, fieldErrors, error, run } = useCompute<string, string>("/portfolio/metrics", toRequest(form));
+  const request = toRequest(form);
+  const { result, fieldErrors, error, run } = useCompute<string, string>("/portfolio/metrics", request);
   const set = (field: Exclude<keyof Form, "holdings">) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
   const setHoldings = (update: (holdings: HoldingInput[]) => HoldingInput[]) =>
     setForm((f) => ({ ...f, holdings: update(f.holdings) }));
@@ -258,6 +260,9 @@ export function PortfolioTool() {
         )}
         <PortfolioResults result={result} aiTool="portfolio" />
       </section>
+      <div className="min-w-0 lg:col-span-2">
+        <PortfolioConstruction portfolio={request} />
+      </div>
     </div>
   );
 }

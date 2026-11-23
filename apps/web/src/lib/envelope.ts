@@ -22,6 +22,7 @@ export type Unit =
   | "years"
   | "ratio"
   | "money"
+  | "count"
   | "date"
   | (string & {});
 
