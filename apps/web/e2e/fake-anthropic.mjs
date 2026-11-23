@@ -1,6 +1,6 @@
 // A stand-in for the Claude Messages API (api.anthropic.com/v1/messages), for
 // e2e tests only. Playwright starts it and points the compute service at it with
-// ANTHROPIC_BASE_URL, so the real Claude client runs end to end without the
+// AI_BASE_URL, so the real Claude client runs end to end without the
 // network or a real key.
 //
 // AI Explain (no tools): it answers deterministically from the result JSON in the

@@ -1,14 +1,24 @@
 """The language model behind AI Explain and AI Analyst: Claude, through the Anthropic Messages API.
 
+Production reaches it through the Vercel AI Gateway, which serves the same API
+(https://vercel.com/docs/ai-gateway/sdks-and-apis/anthropic-messages-api), so a
+cheaper model later is only an ``AI_MODEL`` change.
+
 Everything that talks to a model goes through ``ExplainModel.complete`` (one
 prompt, one answer) or ``AnalystModel.converse`` (a tool-use conversation), so
 tests swap in a stub (``app.state.ai_model``) and never reach the network.
 
 Configuration (environment, compute service only):
 
-- ``ANTHROPIC_API_KEY``: required. Without it every call raises ``ModelUnavailable``.
-- ``AI_MODEL``: model id; defaults to ``DEFAULT_MODEL``.
-- ``ANTHROPIC_BASE_URL``: tests only (e2e points it at ``e2e/fake-anthropic.mjs``).
+- ``AI_API_KEY``: required (sent as ``x-api-key``); the gateway key in production.
+  Without it every call raises ``ModelUnavailable``.
+- ``AI_BASE_URL``: Messages API base URL, without ``/v1``; defaults to
+  ``DEFAULT_BASE_URL`` (Anthropic directly). Production: ``https://ai-gateway.vercel.sh``.
+  e2e points it at ``e2e/fake-anthropic.mjs``.
+- ``AI_MODEL``: model id; defaults to ``DEFAULT_MODEL``. The gateway may want
+  the provider prefix (``anthropic/claude-haiku-5-5``).
+- ``ANTHROPIC_API_KEY`` / ``ANTHROPIC_BASE_URL``: older names, read only when
+  the ``AI_`` name is unset.
 """
 
 from __future__ import annotations
@@ -93,16 +103,17 @@ class AnthropicModel:
     ) -> None:
         self._api_key = api_key
         self._model = model
-        self._base_url = base_url.rstrip("/")
+        # The client appends /v1/messages, so a base URL copied with /v1 is trimmed.
+        self._base_url = base_url.rstrip("/").removesuffix("/v1")
         self._transport = transport
         self._sleep = sleep
 
     @classmethod
     def from_env(cls, *, transport: httpx.BaseTransport | None = None) -> AnthropicModel:
         return cls(
-            api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
-            model=os.environ.get("AI_MODEL") or DEFAULT_MODEL,
-            base_url=os.environ.get("ANTHROPIC_BASE_URL") or DEFAULT_BASE_URL,
+            api_key=_env("AI_API_KEY", "ANTHROPIC_API_KEY"),
+            model=_env("AI_MODEL") or DEFAULT_MODEL,
+            base_url=_env("AI_BASE_URL", "ANTHROPIC_BASE_URL") or DEFAULT_BASE_URL,
             transport=transport,
         )
 
@@ -147,7 +158,7 @@ class AnthropicModel:
 
     def _post(self, body: dict) -> dict:
         if not self._api_key:
-            raise ModelUnavailable("ANTHROPIC_API_KEY is not set")
+            raise ModelUnavailable("AI_API_KEY is not set")
         body = {"model": self._model, "thinking": THINKING_OFF, **body}
         headers = {"x-api-key": self._api_key, "anthropic-version": API_VERSION}
         try:
@@ -170,3 +181,8 @@ class AnthropicModel:
         if not isinstance(data, dict):
             raise ModelUnavailable("Claude API returned an unexpected response")
         return data
+
+
+def _env(*names: str) -> str | None:
+    """The first of ``names`` set to a non-empty value."""
+    return next((value for name in names if (value := os.environ.get(name))), None)
