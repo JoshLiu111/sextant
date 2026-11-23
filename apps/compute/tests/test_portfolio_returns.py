@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from data_fixtures import FixtureAdapter, price_frame, serving
+from sextant_compute.data.errors import SourceUnavailable
 from tests.auth_helpers import bearer, sign_in
 
 BASE = "/api/compute/portfolios"
@@ -185,6 +186,25 @@ def test_a_buy_before_a_split_counts_in_todays_share_count(client, alice):
     assert metrics["twr:portfolio"]["details"]["start_value"] == pytest.approx(0)
     assert metrics["twr:portfolio"]["value"] == pytest.approx(0.10)
     assert metrics["irr:portfolio"]["value"] == pytest.approx(0.10)
+
+
+class SplitsUnavailable(FixtureAdapter):
+    def splits(self, ctx, ticker, start):
+        raise SourceUnavailable(self.source.id, "The provider returned splits in an unexpected shape.")
+
+
+def test_splits_the_source_cannot_serve_make_the_returns_missing_not_the_request_fail(client, alice):
+    portfolio_id = new_portfolio(client, alice, [holding("DEMO-A", 40)])
+    import_csv(client, alice, portfolio_id, "date,ticker,side,quantity,price\n2024-01-02,DEMO-A,buy,10,400\n")
+
+    with serving(SplitsUnavailable({"DEMO-A": yearly([100, 100, 110])}), on=client.app):
+        response = client.post(f"{BASE}/{portfolio_id}/returns", json=RANGE, headers=alice)
+
+    assert response.status_code == 200, response.text
+    for metric_id in ("twr:portfolio", "twr_annualized:portfolio", "irr:portfolio"):
+        metric = response.json()["metrics"][metric_id]
+        assert metric["status"] == "missing_data"
+        assert "stock splits" in metric["reason"]
 
 
 def test_returns_are_private_to_the_owner(client, alice, bob):

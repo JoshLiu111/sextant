@@ -18,7 +18,9 @@ A currency Frankfurter does not publish makes every metric ``missing_data``.
 
 Holdings and prices are in today's share count; each trade's quantity is in the
 share count of its date, so a trade before a stock split is multiplied by the
-split's ratio (from the price source's split history) before it is undone.
+split's ratio (from the price source's split history) before it is undone. When
+the source cannot serve those splits (unknown, or an unexpected answer), every
+metric is ``missing_data`` with the reason.
 
 When the holdings were edited by hand so that undoing the transactions would leave
 a negative quantity, every metric is ``missing_data`` with the ticker in the reason.
@@ -34,7 +36,7 @@ from fastapi import APIRouter
 
 from sextant_compute.analytics import flow_returns
 from sextant_compute.auth import CurrentUser
-from sextant_compute.data.errors import NoSuchData
+from sextant_compute.data.errors import NoSuchData, SourceUnavailable
 from sextant_compute.data.service import Ctx, Data
 from sextant_compute.envelope import Detailed, MetricResult, MetricStatus, envelope, metric
 from sextant_compute.errors import ApiError
@@ -122,7 +124,8 @@ def portfolio_returns(
             undone_since[r["ticker"]] = min(r["date"], undone_since.get(r["ticker"], r["date"]))
     try:
         splits = {t: data.splits(ctx, t, since, source=settings.source) for t, since in undone_since.items()}
-    except NoSuchData as exc:
+    except (NoSuchData, SourceUnavailable) as exc:
+        # Like missing prices, splits the source can't serve leave only these returns missing.
         return all_missing(f"needs the stock splits of every traded ticker. {exc.message}")
     fx = Converter(data, ctx, reporting, currency_of.values(), first, last)
 
