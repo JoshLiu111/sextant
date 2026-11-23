@@ -194,7 +194,7 @@ test.describe("Risk & Performance", () => {
     // DEMO-D's injected crash: exactly 45% from 2022-02-28 to the 2022-04-11 bottom.
     const main = await open(page, "/risk?tickers=DEMO-D&start=2022-02-28&end=2022-04-11", "Risk & Performance");
     await expect(main.getByLabel("Tickers")).toHaveValue("DEMO-D");
-    await expect(main.getByLabel("Benchmark")).toHaveValue("DEMO-MKT");
+    await expect(main.getByRole("textbox", { name: "Benchmark" })).toHaveValue("DEMO-MKT");
     await expect(metric(main, "max_drawdown:DEMO-D")).toContainText("45.00%");
     await expect(metric(main, "max_drawdown:DEMO-A")).toHaveCount(0);
   });
