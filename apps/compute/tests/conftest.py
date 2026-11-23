@@ -11,38 +11,18 @@ Otherwise DB tests are skipped locally and fail in CI. Never touches Neon.
 from __future__ import annotations
 
 import os
-import shutil
-import socket
-import subprocess
-import tempfile
 import uuid
 from collections.abc import Iterator
-from pathlib import Path
 
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
 
+from scripts.ephemeral_postgres import ephemeral_cluster, find_pg_bin
 from sextant_compute.app import create_app
 from sextant_compute.db import migrate
 from tests.auth_helpers import TEST_SESSION_SECRET
-
-
-def _free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
-def _find_pg_bin(name: str) -> str | None:
-    found = shutil.which(name)
-    if found:
-        return found
-    for candidate in sorted(Path("/opt/homebrew/opt").glob("postgresql@*/bin"), reverse=True):
-        if (candidate / name).exists():
-            return str(candidate / name)
-    return None
 
 
 @pytest.fixture(scope="session")
@@ -51,35 +31,13 @@ def pg_server_url() -> Iterator[str]:
     if url := os.environ.get("TEST_DATABASE_URL"):
         yield url
         return
-
-    initdb, pg_ctl = _find_pg_bin("initdb"), _find_pg_bin("pg_ctl")
-    if not (initdb and pg_ctl):
+    if not (find_pg_bin("initdb") and find_pg_bin("pg_ctl")):
         message = "No TEST_DATABASE_URL and no Postgres binaries on PATH"
         if os.environ.get("CI"):
             pytest.fail(message)
         pytest.skip(message)
-
-    tmp = Path(tempfile.mkdtemp(prefix="sextant-pg-"))
-    data = tmp / "data"
-    port = _free_port()
-    subprocess.run(
-        [initdb, "-D", str(data), "-U", "postgres", "--auth=trust", "-E", "UTF8"],
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        [
-            pg_ctl, "-D", str(data), "-l", str(tmp / "log"), "-w", "start",
-            "-o", f"-p {port} -k {tmp} -c listen_addresses=127.0.0.1 -c fsync=off",
-        ],
-        check=True,
-        capture_output=True,
-    )
-    try:
-        yield f"postgresql://postgres@127.0.0.1:{port}/postgres"
-    finally:
-        subprocess.run([pg_ctl, "-D", str(data), "-m", "immediate", "stop"], capture_output=True)
-        shutil.rmtree(tmp, ignore_errors=True)
+    with ephemeral_cluster() as url:
+        yield url
 
 
 @pytest.fixture(scope="session")
