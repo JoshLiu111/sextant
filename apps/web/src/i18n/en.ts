@@ -8,6 +8,30 @@ export const en = {
     menu: "Menu",
     toolsNavLabel: "Tools",
   },
+  auth: {
+    signIn: "Sign in with Google",
+    signOut: "Sign out",
+    account: "Account",
+  },
+  account: {
+    heading: "Account",
+    signedInAs: "Signed in as",
+    signedOut: "You are not signed in. Every tool works without an account; sign in to save your work.",
+    deleted: "Your account and all of its data were deleted.",
+    errors: {
+      signin: "Sign-in did not complete. Please try again.",
+      unavailable: "Sign-in is not available right now.",
+      delete: "Your account could not be deleted. Please try again.",
+    },
+    delete: {
+      heading: "Delete account",
+      body: "Permanently delete your account and everything saved under it. This cannot be undone.",
+      button: "Delete account",
+      confirm: "Yes, permanently delete my account",
+      cancel: "Cancel",
+      warning: "Are you sure? All of your data will be removed and you will be signed out.",
+    },
+  },
   home: {
     heading: "Finance tools",
     intro:
