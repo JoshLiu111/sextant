@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from sextant_compute.ai.citations import check_answer
+from sextant_compute.ai.citations import check_answer, plain_text
 from sextant_compute.envelope import MetricResult, MetricStatus, ResultEnvelope
 
 
@@ -46,3 +46,45 @@ def test_a_fall_or_loss_may_be_quoted_with_or_without_its_sign(metric, actual, w
 
 def test_a_fall_or_loss_still_has_to_be_the_right_size():
     assert cite("max_drawdown:DEMO-A", -0.35, "30%") is False
+
+
+# Uncited numbers (issue #56): a number in the prose that cites no calculation is
+# not checked against anything, so the answer says so instead of passing it off
+# as a checked figure. Dates, years and numbers inside names are not figures.
+
+
+def uncited(answer: str) -> list[str]:
+    return [s.text for s in check_answer(answer, {}) if s.type == "uncited"]
+
+
+@pytest.mark.parametrize(
+    ("answer", "numbers"),
+    [
+        ("The call is worth about 10.45 per share.", ["10.45"]),
+        ("Volatility was 18.3% and alpha -2.1%.", ["18.3%", "-2.1%"]),
+        ("Revenue was $391.0B, up from $383 billion.", ["$391.0B", "$383 billion"]),
+        ("It trades at 1,234.5, or 3x book.", ["1,234.5", "3x"]),
+        ("The 95% VaR is 3 bps (2 of 250 days).", ["95%", "3 bps", "2", "250"]),
+    ],
+)
+def test_numbers_that_cite_no_calculation_are_marked_uncited(answer, numbers):
+    assert uncited(answer) == numbers
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "Fiscal 2024 ended on 2024-09-28.",
+        "DEMO-A and the S&P500 index, Q3 results, a 10-year note, the ff3_alpha.",
+    ],
+)
+def test_dates_years_and_numbers_inside_names_are_not_marked(answer):
+    assert uncited(answer) == []
+
+
+def test_marking_uncited_numbers_keeps_the_text_intact():
+    answer = "Vol was 18.3%, and [[10.45|calc_1|call_price]] is cited.\n\nIn 2024 it fell 5%."
+    segments = check_answer(answer, {})
+
+    assert [s.type for s in segments] == ["text", "uncited", "text", "citation", "text", "uncited", "text"]
+    assert plain_text(segments) == answer.replace("[[10.45|calc_1|call_price]]", "10.45")

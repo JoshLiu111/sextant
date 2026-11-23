@@ -4,7 +4,8 @@
 - ``POST /explain/<tool>``: the body is that tool's own request model (the
   ``meta.parameters`` of the result on screen). The service recomputes the result
   itself, so the model only ever sees numbers Sextant calculated, then asks the
-  model for a plain-English reading. One call costs one unit of the daily quota;
+  model for a plain-English reading that cites its numbers the way AI Analyst
+  does; each citation is checked against that one result (``ai/citations.py``). One call costs one unit of the daily quota;
   a failed model call costs nothing.
 
 Each tool registers itself with ``add_explainer(tool, RequestModel, compute, guide)``;
@@ -22,6 +23,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from sextant_compute.ai import prompts, usage
+from sextant_compute.ai.citations import Segment, check_answer, plain_text
 from sextant_compute.ai.model import ExplainModel, ModelUnavailable
 from sextant_compute.auth import CurrentUser, User
 from sextant_compute.auth.deps import get_db
@@ -62,6 +64,9 @@ class Explanation(BaseModel):
     calculation_id: str
     """The calculation the explanation reads (recomputed server-side)."""
     explanation: str
+    """The answer as plain text (the citations' numbers as written, without their markup)."""
+    answer: list[Segment]
+    """The answer as text, citation and uncited-number segments, each citation checked against the calculation."""
     advice_notice: str | None
     """Set when the answer touches on buying or selling: it is only a reading, not advice."""
     usage: TokenUsage
@@ -102,11 +107,14 @@ def explain(tool: str, guide: str, result: ResultEnvelope, user_id, db: Database
     with db.connection() as conn:
         usage.record(conn, user_id, usage_id, completion.input_tokens, completion.output_tokens)
         remaining = usage.quota(conn, user_id, limit)
+    segments = check_answer(completion.text, {result.calculation_id: result})
+    text = plain_text(segments)
     return Explanation(
         tool=tool,
         calculation_id=result.calculation_id,
-        explanation=completion.text,
-        advice_notice=prompts.advice_notice(completion.text),
+        explanation=text,
+        answer=segments,
+        advice_notice=prompts.advice_notice(text),
         usage=TokenUsage(input_tokens=completion.input_tokens, output_tokens=completion.output_tokens),
         quota=QuotaOut(**remaining.as_json()),
     )

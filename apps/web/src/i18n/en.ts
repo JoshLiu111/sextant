@@ -2106,6 +2106,21 @@ export const en = {
     errorHeading: "AI Explain failed",
     unavailable: "AI Explain is temporarily unavailable. Please retry in a moment.",
   },
+  /** Checked AI answers (AI Analyst and AI Explain): citations and uncited numbers. */
+  answer: {
+    citationOk: (calculationId: string) => `From calculation ${calculationId}.`,
+    openRawResult: "Open its raw result.",
+    citationMismatch: (actual: string, calculationId: string) =>
+      `Does not match: calculation ${calculationId} gives ${actual}.`,
+    citationMissing: (reason: string) => `Can't be checked: ${reason}`,
+    uncited: "Cites no calculation, so this number was not checked.",
+    mismatchNotice: (n: number) =>
+      n === 1
+        ? "1 number in this answer does not match the calculation it cites. It is highlighted in red."
+        : `${n} numbers in this answer do not match the calculations they cite. They are highlighted in red.`,
+    uncitedNotice:
+      "Numbers on a grey background cite no calculation, so they were not checked. Underlined numbers were checked against the calculation they cite.",
+  },
   analyst: {
     intro:
       "Ask a question in plain English. Claude picks Sextant's tools and their inputs, Sextant runs them, and every number in the answer links to the calculation it came from.",
@@ -2117,14 +2132,6 @@ export const en = {
     answerHeading: "Answer",
     errorHeading: "AI Analyst failed",
     unavailable: "AI Analyst is temporarily unavailable. Please retry in a moment.",
-    citationOk: (calculationId: string) => `From calculation ${calculationId}. Open its raw result.`,
-    citationMismatch: (actual: string, calculationId: string) =>
-      `Does not match: calculation ${calculationId} gives ${actual}.`,
-    citationMissing: (reason: string) => `Can't be checked: ${reason}`,
-    mismatchNotice: (n: number) =>
-      n === 1
-        ? "1 number in this answer does not match the calculation it cites. It is highlighted in red."
-        : `${n} numbers in this answer do not match the calculations they cite. They are highlighted in red.`,
     callsHeading: "Tools called",
     noCalls: "No tools were called for this answer.",
     parameters: "Parameters",

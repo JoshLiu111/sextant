@@ -5,6 +5,9 @@ The model is always a stub here (``StubModel``); no test reaches the network.
 
 from __future__ import annotations
 
+import json
+import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import psycopg
@@ -29,9 +32,11 @@ OPTIONS = {
 
 @dataclass
 class StubModel:
-    """Stands in for Claude: records each prompt and answers ``reply``."""
+    """Stands in for Claude: records each prompt and answers ``reply``, or
+    ``reply_to(result)`` when set, where ``result`` is the envelope in the prompt."""
 
     reply: str = "The call is worth about 10.45 under these inputs."
+    reply_to: Callable[[dict], str] | None = None
     input_tokens: int = 1200
     output_tokens: int = 180
     fail: bool = False
@@ -41,7 +46,15 @@ class StubModel:
         self.prompts.append((system, prompt))
         if self.fail:
             raise ModelUnavailable("stubbed outage")
-        return Completion(self.reply, self.input_tokens, self.output_tokens)
+        reply = self.reply_to(result_in(prompt)) if self.reply_to else self.reply
+        return Completion(reply, self.input_tokens, self.output_tokens)
+
+
+def result_in(prompt: str) -> dict:
+    """The result envelope AI Explain put in the prompt."""
+    match = re.search(r"Result \(JSON\):\n(.*?)\n\nExplain this result\.", prompt, re.DOTALL)
+    assert match, prompt
+    return json.loads(match[1])
 
 
 @pytest.fixture
@@ -76,6 +89,50 @@ def test_a_signed_in_user_gets_an_explanation_of_the_calculated_result(client, m
     assert "10.45" in prompt
     assert "call_price" in prompt
     assert "not investment advice" in system.lower()
+
+
+def test_numbers_cited_from_the_result_are_checked_against_it(client, model):
+    model.reply_to = lambda r: (
+        f"The call is worth [[10.45|{r['calculation_id']}|call_price]] "
+        f"and the put [[9.99|{r['calculation_id']}|put_price]]."
+    )
+    token = sign_in(client)
+
+    body = explain(client, token).json()
+
+    calc = body["calculation_id"]
+    _, call, _, put, _ = body["answer"]
+    assert (call["text"], call["calculation_id"], call["metric"], call["matches"]) == (
+        "10.45", calc, "call_price", True
+    )
+    assert call["actual"] == pytest.approx(10.4506, abs=1e-4)
+    # BS put for these inputs: 10.4506 - 100 + 100 e^-0.05 = 5.5735.
+    assert (put["text"], put["matches"]) == ("9.99", False)
+    assert put["actual"] == pytest.approx(5.5735, abs=1e-4)
+    # The explanation reads as plain text, without the citation markup.
+    assert body["explanation"] == "The call is worth 10.45 and the put 9.99."
+
+
+def test_numbers_that_cite_nothing_are_marked_uncited(client, model):
+    model.reply = "The call is worth about 10.45 per share."
+    token = sign_in(client)
+
+    body = explain(client, token).json()
+
+    assert body["answer"] == [
+        {"type": "text", "text": "The call is worth about "},
+        {"type": "uncited", "text": "10.45"},
+        {"type": "text", "text": " per share."},
+    ]
+
+
+def test_the_model_is_told_to_cite_every_number_it_takes_from_the_result(client, model):
+    token = sign_in(client)
+
+    explain(client, token)
+
+    system, _ = model.prompts[0]
+    assert "[[<the number as you write it>|<calculation_id>|<metric id>]]" in system
 
 
 def quota(client: TestClient, token: str) -> dict:

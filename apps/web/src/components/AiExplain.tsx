@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CheckedAnswer } from "@/components/CheckedAnswer";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { SignInLink } from "@/components/SignInLink";
 import { getMessages } from "@/i18n";
@@ -112,12 +113,7 @@ export function AiExplain({ tool, result }: { tool: string; result: ResultEnvelo
           {error && !usedUp && <ErrorNotice title={t.errorHeading} message={error} />}
           {shown && (
             <div data-testid="ai-explanation" aria-live="polite" className="space-y-2 text-sm leading-relaxed">
-              {shown.explanation
-                .split(/\n\s*\n/)
-                .filter((p) => p.trim())
-                .map((paragraph, i) => (
-                  <p key={i}>{paragraph}</p>
-                ))}
+              <CheckedAnswer segments={shown.answer} />
               {shown.advice_notice && (
                 <p
                   data-testid="ai-advice-notice"

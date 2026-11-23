@@ -5,14 +5,9 @@ import { ErrorNotice } from "@/components/ErrorNotice";
 import { SignInLink } from "@/components/SignInLink";
 import { getMessages } from "@/i18n";
 import { fetchAiQuota, type AiQuota } from "@/lib/ai";
-import {
-  askAnalyst,
-  type AnalystAnswer,
-  type AnswerCitation,
-  type AnswerSegment,
-} from "@/lib/analyst";
-import type { Unit } from "@/lib/envelope";
-import { formatLocalTime, formatValue } from "@/lib/format";
+import { CheckedAnswer, type CitationLink } from "@/components/CheckedAnswer";
+import { askAnalyst, type AnalystAnswer } from "@/lib/analyst";
+import { formatLocalTime } from "@/lib/format";
 
 type Account =
   | { kind: "loading" }
@@ -32,6 +27,11 @@ function openRawResult(calculationId: string) {
     panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 }
+
+const linkToRawResult: CitationLink = (calculationId) => ({
+  href: `#${rawResultId(calculationId)}`,
+  onClick: () => openRawResult(calculationId),
+});
 
 /**
  * AI Analyst: a signed-in user asks a question; Claude picks Sextant's tools,
@@ -157,9 +157,6 @@ export function AiAnalyst() {
 function Answer({ answer }: { answer: AnalystAnswer }) {
   const t = getMessages().analyst;
   const headingId = useId();
-  const mismatches = answer.answer.filter(
-    (s) => s.type === "citation" && !s.matches,
-  ).length;
   return (
     <section
       aria-labelledby={headingId}
@@ -173,27 +170,8 @@ function Answer({ answer }: { answer: AnalystAnswer }) {
         aria-live="polite"
         className="space-y-2 leading-relaxed"
       >
-        {paragraphs(answer.answer).map((paragraph, i) => (
-          <p key={i}>
-            {paragraph.map((segment, j) =>
-              segment.type === "text" ? (
-                <span key={j}>{segment.text}</span>
-              ) : (
-                <Cited key={j} citation={segment} />
-              ),
-            )}
-          </p>
-        ))}
+        <CheckedAnswer segments={answer.answer} link={linkToRawResult} />
       </div>
-      {mismatches > 0 && (
-        <p
-          data-testid="analyst-mismatch-notice"
-          role="alert"
-          className="rounded-md bg-red-50 p-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-100"
-        >
-          {t.mismatchNotice(mismatches)}
-        </p>
-      )}
       {answer.advice_notice && (
         <p
           data-testid="ai-advice-notice"
@@ -207,53 +185,6 @@ function Answer({ answer }: { answer: AnalystAnswer }) {
         {t.usage(answer.usage.input_tokens, answer.usage.output_tokens)}
       </p>
     </section>
-  );
-}
-
-/** Split the answer into paragraphs at blank lines, keeping citations in place. */
-function paragraphs(segments: AnswerSegment[]): AnswerSegment[][] {
-  const out: AnswerSegment[][] = [[]];
-  for (const segment of segments) {
-    if (segment.type === "citation") {
-      out[out.length - 1].push(segment);
-      continue;
-    }
-    segment.text.split(/\n\s*\n/).forEach((part, i) => {
-      if (i > 0) out.push([]);
-      if (part) out[out.length - 1].push({ type: "text", text: part });
-    });
-  }
-  return out.filter((p) =>
-    p.some((s) => s.type === "citation" || s.text.trim()),
-  );
-}
-
-function Cited({ citation }: { citation: AnswerCitation }) {
-  const t = getMessages().analyst;
-  // The title is the link's accessible description (its name is the number).
-  const description = citation.matches
-    ? t.citationOk(citation.calculation_id)
-    : citation.actual !== null
-      ? t.citationMismatch(
-          formatValue(citation.actual, citation.unit as Unit | null),
-          citation.calculation_id,
-        )
-      : t.citationMissing(citation.reason ?? "");
-  return (
-    <a
-      href={`#${rawResultId(citation.calculation_id)}`}
-      onClick={() => openRawResult(citation.calculation_id)}
-      data-testid="citation"
-      data-matches={String(citation.matches)}
-      title={description}
-      className={
-        citation.matches
-          ? "font-medium underline decoration-dotted underline-offset-2"
-          : "rounded bg-red-50 px-0.5 font-semibold text-red-700 underline decoration-wavy underline-offset-2 dark:bg-red-950 dark:text-red-300"
-      }
-    >
-      {citation.text}
-    </a>
   );
 }
 

@@ -9,15 +9,16 @@ from __future__ import annotations
 import json
 import re
 
+from sextant_compute.ai.citations import CITING_RULE
 from sextant_compute.envelope import ResultEnvelope
 
-SYSTEM = """\
+SYSTEM = f"""\
 You explain the result of one calculation from Sextant, a suite of finance tools, \
 to a non-expert in plain English.
 
 Rules:
 - Use only the numbers in the result below. Do not invent, estimate or look up other figures.
-- Say what the main numbers mean for this case and how they relate to each other.
+{CITING_RULE}- Say what the main numbers mean for this case and how they relate to each other.
 - If a metric has a status other than "ok", say briefly why it could not be computed.
 - If the result's source has "is_demo": true, the numbers come from Sextant's synthetic \
 demo data for fictional tickers (DEMO-A, DEMO-MKT, ...). Say plainly that this is demo \

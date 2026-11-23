@@ -4,9 +4,11 @@
 // network or a real key.
 //
 // AI Explain (no tools): it answers deterministically from the result JSON in the
-// prompt. For a single-option result it quotes the call price the compute service
-// calculated, and mentions buying so the not-advice notice shows. For any other
-// tool it names the tool, counts the metrics computed, and says so when the result
+// prompt. For a single-option result it cites the call price the compute service
+// calculated as [[value|calculation_id|call_price]], mentions buying so the
+// not-advice notice shows, and writes the strike without a citation (an uncited
+// number). With a spot of 99 it cites 12.00 instead, so the mismatch highlighting
+// can be tested. For any other tool it names the tool, counts the metrics computed, and says so when the result
 // is demo data.
 //
 // AI Analyst (a tool-use conversation): the first turn calls options_price with
@@ -79,8 +81,10 @@ function answer(result) {
   if (!result) return "I could not find a result in this prompt.";
   const call = result.metrics?.call_price?.value;
   if (call != null) {
+    const written = result.meta?.parameters?.spot === 99 ? "12.00" : call.toFixed(2);
     return (
-      `With these inputs the call is worth about ${call.toFixed(2)} per share.\n\n` +
+      `With these inputs the call is worth about [[${written}|${result.calculation_id}|call_price]] per share, ` +
+      `for a strike of ${result.meta?.parameters?.strike}.\n\n` +
       "Someone thinking of buying it would compare that with the market price."
     );
   }

@@ -3,7 +3,7 @@
 The model picks Sextant's tools (``ai/tools.py``) and their parameters; Sextant
 runs them and sends back the result envelopes; the model then writes the answer,
 citing each number as ``[[number|calculation_id|metric id]]``. The response
-carries the answer split into text and checked citations (``ai/citations.py``),
+carries the answer split into text, checked citations and uncited numbers (``ai/citations.py``),
 the tool-call trace, and the raw result of every calculation run.
 
 One question costs one unit of the daily AI quota shared with AI Explain (usage
@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, BeforeValidator
 
 from sextant_compute.ai import prompts, tools, usage
-from sextant_compute.ai.citations import Segment, check_answer, plain_text
+from sextant_compute.ai.citations import CITING_RULE, Segment, check_answer, plain_text
 from sextant_compute.ai.model import AnalystModel, ModelUnavailable, Turn
 from sextant_compute.auth import CurrentUser
 from sextant_compute.auth.deps import get_db
@@ -38,7 +38,7 @@ MAX_TOOL_ROUNDS = 5
 """Rounds in which the model may call tools; after that it must answer."""
 UNAVAILABLE_MESSAGE = "AI Analyst is temporarily unavailable. Please retry in a moment."
 
-SYSTEM = """\
+SYSTEM = f"""\
 You are AI Analyst in Sextant, a suite of finance tools. You answer the user's question \
 by calling Sextant's tools and explaining their results in plain English.
 
@@ -47,14 +47,7 @@ Rules:
 yourself. If the tools can't answer the question, say so.
 - Call the tools you need (several at once is fine), then answer. Use each tool's defaults \
 unless the question says otherwise.
-- Cite every number you take from a result, in this exact form: \
-[[<the number as you write it>|<calculation_id>|<metric id>]], for example \
-[[18.3%|calc_0123abcd|annualized_volatility:DEMO-A]] or [[$391.0B|calc_0123abcd|revenue:2024-09-28]]. \
-Only metric ids from the result's "metrics" (or a screener row as <metric>:<TICKER>) can be cited. \
-Write the number in the citation exactly as the reader should see it, rounded sensibly; \
-show decimal metrics as percentages (0.183 as 18.3%). Keep a negative number's minus \
-sign in the citation ([[-2.1%|...|alpha:DEMO-A]]), even when the sentence says "fell" or "lagged".
-- Plain text in short paragraphs: no headings, tables or Markdown.
+{CITING_RULE}- Plain text in short paragraphs: no headings, tables or Markdown.
 - This is not investment advice. Never recommend buying, selling or holding anything. \
 If you mention buying or selling at all, say clearly that this is only a reading of \
 the calculations, not advice.
@@ -97,7 +90,7 @@ class QuotaOut(BaseModel):
 class AnalystAnswer(BaseModel):
     question: str
     answer: list[Segment]
-    """The answer as text and citation segments; join their ``text`` to read it."""
+    """The answer as text, citation and uncited-number segments; join their ``text`` to read it."""
     calls: list[ToolCall]
     """Every tool call, in order, with its parameters and the calculation it produced."""
     calculations: dict[str, dict[str, Any]]
