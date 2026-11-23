@@ -1,6 +1,8 @@
 // All user-facing English strings. Keep UI copy here (not inline in components)
 // so a second locale can be added later by providing another object of the
 // same `Messages` shape.
+import { riskTechnical } from "./en-technical";
+
 export const en = {
   site: {
     name: "Sextant",
@@ -419,7 +421,8 @@ export const en = {
       },
       tStat: "t =",
       exactFit: "t: undefined (exact fit)",
-      observations: { daily: "days", monthly: "months" },
+      /** Under R²: how many returns of the chosen period the regression used, e.g. "1,303 days". */
+      observations: (count: string, noun: string, n: number) => `${count} ${noun}${n === 1 ? "" : "s"}`,
     },
     /** My data only: the signed-in user's own factor files (ADR 0003). */
     factorFiles: {
@@ -427,7 +430,7 @@ export const en = {
       body: "Factor regressions on My data use a factor file you download yourself from the Kenneth R. French Data Library. Sextant ships no real factor data. Your files are used only for you and are deleted with your account.",
       none: "No factor file yet.",
       upload: "Upload a factor file",
-      hint: "The library's CSV (unzipped): F-F_Research_Data_Factors.CSV (monthly) or its _daily version, plus F-F_Momentum_Factor.CSV for Carhart, at the same frequency. Monthly files regress month-end to month-end returns.",
+      hint: "The library's CSV (unzipped): F-F_Research_Data_Factors.CSV (monthly) or its _daily version, plus F-F_Momentum_Factor.CSV for Carhart, at the same frequency. A monthly file gives monthly regressions (month-end to month-end returns) whatever the return period; a daily file follows the return period.",
       kinds: { three_factor: "3-factor", momentum: "Momentum" },
       frequency: { daily: "daily", monthly: "monthly" },
       to: "to",
@@ -457,6 +460,73 @@ export const en = {
       to: "to",
       recovered: "recovered",
       notRecovered: "not recovered by the end of the range",
+      recovery: "Recovered",
+      band: "Max drawdown",
+    },
+    // Time-scale views (#24): return period, rolling curves, return distribution.
+    timescale: {
+      inputs: {
+        period: {
+          label: "Return period",
+          hint: "Volatility, the ratios, every VaR and CVaR, the benchmark statistics, the factor regressions and the distribution use returns of this length.",
+        },
+        rolling_window: {
+          label: "Rolling window (trading days)",
+          hint: "For the rolling curves, on daily returns. 20 to 756; 63 is about three months.",
+        },
+      },
+      periods: {
+        daily: { label: "Daily", noun: "day", perYear: 252 },
+        weekly: { label: "Weekly", noun: "week", perYear: 52 },
+        monthly: { label: "Monthly", noun: "month", perYear: 12 },
+        quarterly: { label: "Quarterly", noun: "quarter", perYear: 4 },
+        yearly: { label: "Yearly", noun: "year", perYear: 1 },
+      },
+      periodNote: (adjective: string, perYear: number, noun: string) =>
+        `Statistics use ${adjective} returns, annualized with ${perYear} period${perYear === 1 ? "" : "s"} a year. VaR and CVaR are one-${noun} losses; the factor regressions use ${adjective} returns and factors. Annualized return and max drawdown use the daily prices whatever the period.`,
+      rolling: {
+        heading: "Rolling metrics",
+        windowNote: (days: number) =>
+          `Each point covers the previous ${days} trading days of daily returns, up to that date.`,
+        x: "Date",
+        charts: {
+          rolling_volatility: {
+            name: "Rolling volatility",
+            label: "Rolling volatility chart: annualized volatility over the rolling window, per ticker",
+          },
+          rolling_sharpe: {
+            name: "Rolling Sharpe ratio",
+            label: "Rolling Sharpe ratio chart: annualized Sharpe ratio over the rolling window, per ticker",
+          },
+          rolling_beta: {
+            name: "Rolling Beta",
+            label: "Rolling Beta chart: Beta against the benchmark over the rolling window, per ticker",
+          },
+        },
+      },
+      distribution: {
+        heading: "Return distribution",
+        select: "Distribution for",
+        label: "Histogram of returns for the selected ticker",
+        x: "Return",
+        count: (n: number, adjective: string) => `${n} ${adjective} returns`,
+        summary: (n: number, adjective: string, width: string) =>
+          `${n} ${adjective} returns in bins ${width} wide.`,
+        metrics: {
+          skewness: {
+            name: "Skewness",
+            what: "How lopsided the distribution of returns is around its average.",
+            how: "Adjusted Fisher-Pearson sample skewness G1 of the period returns (the same as Excel's SKEW): the average cubed deviation from the mean, divided by the cubed standard deviation, with a small-sample correction.",
+            read: "0 means symmetric. Negative means a longer left tail: losses are rarer but bigger than gains, the common case for stocks. Positive means occasional large gains.",
+          },
+          excess_kurtosis: {
+            name: "Excess kurtosis",
+            what: "How fat the tails of the distribution are compared with a normal distribution.",
+            how: "Bias-corrected sample excess kurtosis G2 of the period returns (the same as Excel's KURT): the average fourth-power deviation over the squared variance, minus 3, with a small-sample correction.",
+            read: "0 matches a normal distribution. Positive means fat tails: extreme days happen more often than a bell curve predicts, so volatility-based risk measures understate the tail. Daily stock returns are usually well above 0.",
+          },
+        },
+      },
     },
     metrics: {
       annualized_return: {
@@ -629,6 +699,56 @@ export const en = {
       },
     },
   },
+  // Risk & Performance model checks (VaR backtest, GARCH); see src/app/risk/ModelChecks.tsx.
+  riskChecks: {
+    heading: "Model checks: VaR backtest and GARCH volatility",
+    select: "Model checks for",
+    backtest: {
+      caption: "VaR backtest",
+      columns: {
+        method: "VaR method",
+        breaches: "Breaches",
+        expected: "Expected",
+        statistic: "Kupiec LR",
+        pValue: "p-value",
+        reading: "Reading",
+      },
+      methods: {
+        backtest_var: "Historical",
+        backtest_parametric_var: "Parametric (normal)",
+        backtest_cornish_fisher_var: "Cornish-Fisher",
+      },
+      accept: "Accept",
+      reject: "Reject",
+      at: "at",
+      explainer: {
+        name: "the VaR backtest",
+        what: "A check of whether each one-day VaR method would have held up: how often the actual loss exceeded the VaR forecast for that day, compared with how often it should have.",
+        how: "Each day after the first 250 returns gets a VaR forecast from the 250 returns before it (no look-ahead), with the same historical, parametric and Cornish-Fisher formulas as the tail-risk cards. A breach is a day whose loss exceeded its forecast. Expected breaches = tested days × (1 − confidence). Kupiec's proportion-of-failures test: LR = −2 ln[(1 − p)^(n − x) p^x / (1 − x/n)^(n − x) (x/n)^x], with n tested days, x breaches and p = 1 − confidence; the p-value comes from a chi-squared distribution with 1 degree of freedom.",
+        read: "Accept means the breach count is consistent with the confidence level; Reject means the p-value is below 1 − confidence (below 5% at 95%), so the method breached too often (it understates risk) or too rarely (it is too conservative). Kupiec only checks the count, not whether breaches cluster together.",
+      },
+    },
+    garch: {
+      heading: "GARCH(1,1) conditional volatility",
+      chartLabel: "GARCH(1,1) conditional volatility over time, annualized, for the selected ticker",
+      x: "Date",
+      params: {
+        omega: "ω (daily)",
+        alpha: "α",
+        beta: "β",
+        persistence: "α + β",
+        longRun: "Long-run volatility",
+        nextDay: "Next-day volatility",
+      },
+      explainer: {
+        name: "GARCH(1,1)",
+        what: "A model of volatility that changes over time: a big move today raises the expected size of tomorrow's move, and calm periods let it decay. It shows volatility clustering.",
+        how: "Daily variance h_t = ω + α × e²(t−1) + β × h(t−1), where e is the daily total return minus its mean. ω, α and β are fitted by maximum likelihood (normal shocks) with α + β < 1. The chart shows √(252 × h_t); long-run volatility is √(252 × ω / (1 − α − β)); next-day volatility is the forecast for the day after the range. It needs at least 250 daily returns.",
+        read: "α is how strongly volatility reacts to a shock; β is how long it remembers. α + β close to 1 means shocks fade slowly (a half-life of ln 0.5 / ln(α + β) days). The chart peaks in turbulent periods and sinks toward the long-run level in calm ones.",
+      },
+    },
+  },
+  riskTechnical,
   portfolio: {
     intro:
       "Build a demo portfolio from tickers and weights, or load a classic allocation, and compare its cumulative return and risk with a benchmark. Change any input and the results update.",

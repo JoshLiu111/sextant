@@ -146,6 +146,27 @@ def test_an_unknown_ticker_gets_a_missing_data_reason_and_the_rest_still_compute
         assert result["reason"] == "Tiingo has no ticker ZZZZ."
     assert body["series"]["drawdown:ZZZZ"]["status"] == "missing_data"
     assert body["metrics"]["max_drawdown:AAPL"]["status"] == "ok"
+    # The time-scale views (#24) mark the unknown ticker too, rather than leaving its ids out.
+    for metric in ("skewness", "excess_kurtosis"):
+        assert body["metrics"][f"{metric}:ZZZZ"] == {
+            "value": None,
+            "status": "missing_data",
+            "reason": "Tiingo has no ticker ZZZZ.",
+            "unit": "ratio",
+            "details": {},
+        }
+    for chart in ("rolling_volatility", "rolling_sharpe", "rolling_beta", "return_distribution"):
+        assert body["series"][f"{chart}:ZZZZ"]["status"] == "missing_data"
+        assert body["series"][f"{chart}:ZZZZ"]["reason"] == "Tiingo has no ticker ZZZZ."
+
+
+def test_my_data_follows_the_return_period(client, alice):
+    response = risk(client, alice, period="weekly", rolling_window=20)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["meta"]["parameters"]["period"] == "weekly"
+    assert body["metrics"]["annualized_volatility:AAPL"]["status"] == "ok"
 
 
 def test_a_range_without_benchmark_prices_is_shown_next_to_the_benchmark_input(client, alice):
@@ -182,3 +203,47 @@ def test_a_key_tiingo_stops_accepting_asks_the_user_to_replace_it(client, tiingo
     assert response.json()["error"]["code"] == "key_required"
     assert "Replace it in Settings" in response.json()["error"]["message"]
     assert ALICE_KEY not in response.text
+
+
+def test_model_checks_run_on_my_data_and_mark_an_unknown_ticker_missing_data(client, alice):
+    body = risk(client, alice, tickers=["AAPL", "ZZZZ"]).json()
+
+    # #25's VaR backtests and GARCH fit come back for the user's own prices too...
+    for metric in ("backtest_var", "backtest_parametric_var", "backtest_cornish_fisher_var", "garch_volatility"):
+        assert body["metrics"][f"{metric}:AAPL"]["status"] in {"ok", "missing_data"}
+        result = body["metrics"][f"{metric}:ZZZZ"]
+        assert result["status"] == "missing_data"
+        assert result["reason"] == "Tiingo has no ticker ZZZZ."
+    # ...and the unknown ticker's GARCH curve is marked rather than left out.
+    assert body["series"]["garch_volatility:ZZZZ"]["status"] == "missing_data"
+    assert "garch_volatility:AAPL" in body["series"]
+
+
+def test_the_correlation_heatmap_runs_on_my_data_and_marks_an_unknown_ticker_missing_data(client, alice):
+    response = client.post(
+        "/api/compute/risk/correlation", json={**BODY, "tickers": ["AAPL", "ZZZZ"]}, headers=alice
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["source"]["is_demo"] is False
+    assert body["metrics"]["correlation:AAPL:AAPL"]["value"] == pytest.approx(1.0)
+    assert body["metrics"]["correlation:AAPL:SPY"]["status"] == "ok"
+    for pair in ("ZZZZ:AAPL", "SPY:ZZZZ", "ZZZZ:ZZZZ"):
+        result = body["metrics"][f"correlation:{pair}"]
+        assert result["status"] == "missing_data"
+        assert result["reason"] == "Tiingo has no ticker ZZZZ."
+
+
+def test_indicators_run_on_my_data(client, alice):
+    response = client.post(
+        "/api/compute/risk/indicators",
+        json={"ticker": "AAPL", "start": "2024-01-01", "end": "2024-12-31", "sma": {"window": 5}, "source": "tiingo"},
+        headers=alice,
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["source"]["is_demo"] is False
+    assert body["series"]["price"]["status"] == "ok"
+    assert body["series"]["sma"]["status"] == "ok"

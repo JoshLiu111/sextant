@@ -13,6 +13,7 @@ from datetime import date
 import pandas as pd
 
 from sextant_compute.analytics.errors import MissingData
+from sextant_compute.analytics.periods import period_name
 
 TRADING_DAYS = 252
 
@@ -47,16 +48,16 @@ def monthly_returns(wealth: pd.Series, through: date) -> pd.Series:
     return returns[returns.index <= pd.Timestamp(through)]
 
 
-def _require(returns: pd.Series, minimum: int) -> pd.Series:
+def _require(returns: pd.Series, minimum: int, periods_per_year: int = TRADING_DAYS) -> pd.Series:
     clean = returns.dropna()
     if len(clean) < minimum:
-        raise MissingData(f"needs at least {minimum} daily returns, got {len(clean)}")
+        raise MissingData(f"needs at least {minimum} {period_name(periods_per_year)} returns, got {len(clean)}")
     return clean
 
 
 def annualized_return(returns: pd.Series, periods_per_year: int = TRADING_DAYS) -> float:
     """Compound annual growth rate: ``prod(1 + r) ** (periods_per_year / n) - 1``."""
-    r = _require(returns, 1)
+    r = _require(returns, 1, periods_per_year)
     growth = float((1 + r).prod())
     if growth <= 0:
         raise MissingData("the position was wiped out, so there is no compound annual rate")
@@ -65,7 +66,7 @@ def annualized_return(returns: pd.Series, periods_per_year: int = TRADING_DAYS) 
 
 def annualized_volatility(returns: pd.Series, periods_per_year: int = TRADING_DAYS) -> float:
     """Sample standard deviation of returns (ddof=1) scaled by ``sqrt(periods_per_year)``."""
-    r = _require(returns, 2)
+    r = _require(returns, 2, periods_per_year)
     return float(r.std(ddof=1)) * math.sqrt(periods_per_year)
 
 
@@ -75,7 +76,7 @@ def periodic_rate(annual_rate: float, periods_per_year: int = TRADING_DAYS) -> f
 
 
 def _excess(returns: pd.Series, risk_free_rate: float, periods_per_year: int) -> pd.Series:
-    return _require(returns, 2) - periodic_rate(risk_free_rate, periods_per_year)
+    return _require(returns, 2, periods_per_year) - periodic_rate(risk_free_rate, periods_per_year)
 
 
 def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, periods_per_year: int = TRADING_DAYS) -> float:

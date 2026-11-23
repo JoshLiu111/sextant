@@ -15,6 +15,7 @@ import pandas as pd
 
 from sextant_compute.analytics import factors as factor_models
 from sextant_compute.analytics import performance, risk
+from sextant_compute.analytics.periods import PERIODS_PER_YEAR, ReturnPeriod, period_returns
 from sextant_compute.envelope import Detailed, MetricResult, MetricStatus, MissingData, SeriesResult, metric, series
 
 METRIC_NAMES = (
@@ -74,30 +75,39 @@ def risk_metric_set(
     *,
     confidence: float,
     risk_free_rate: float,
+    period: ReturnPeriod = "daily",
 ) -> dict[str, MetricResult]:
     """Every P3 metric for one return series, keyed by metric name (see ``METRIC_NAMES``).
 
-    ``returns`` are simple daily returns; ``wealth`` is the matching wealth series
-    (1.0 on the day before the first return).
+    ``returns`` and ``benchmark_returns`` are simple daily returns; ``wealth`` is
+    the matching wealth series (1.0 on the day before the first return).
+
+    ``period`` picks the return period for the period-dependent metrics
+    (volatility, every ratio, every VaR/CVaR, beta, alpha, capture), annualized with that period's
+    count per year. Annualized return and max drawdown describe the whole wealth
+    path, so they always use the daily data.
     """
+    per_year = PERIODS_PER_YEAR[period]
+    r = period_returns(returns, period)
+    b = period_returns(benchmark_returns, period)
     computations: dict[str, Callable[[], float | Detailed]] = {
         "annualized_return": lambda: performance.annualized_return(returns),
-        "annualized_volatility": lambda: performance.annualized_volatility(returns),
+        "annualized_volatility": lambda: performance.annualized_volatility(r, per_year),
         "max_drawdown": lambda: _max_drawdown(wealth),
-        "sharpe": lambda: performance.sharpe_ratio(returns, risk_free_rate),
-        "sortino": lambda: performance.sortino_ratio(returns, risk_free_rate),
-        "var": lambda: risk.historical_var(returns, confidence),
-        "cvar": lambda: risk.historical_cvar(returns, confidence),
-        "parametric_var": lambda: risk.parametric_var(returns, confidence),
-        "parametric_cvar": lambda: risk.parametric_cvar(returns, confidence),
-        "cornish_fisher_var": lambda: risk.cornish_fisher_var(returns, confidence),
-        "cornish_fisher_cvar": lambda: risk.cornish_fisher_cvar(returns, confidence),
-        "beta": lambda: risk.beta(returns, benchmark_returns),
-        "treynor": lambda: risk.treynor_ratio(returns, benchmark_returns, risk_free_rate),
-        "information_ratio": lambda: risk.information_ratio(returns, benchmark_returns),
-        "alpha": lambda: risk.capm_alpha(returns, benchmark_returns, risk_free_rate),
-        "upside_capture": lambda: risk.upside_capture(returns, benchmark_returns),
-        "downside_capture": lambda: risk.downside_capture(returns, benchmark_returns),
+        "sharpe": lambda: performance.sharpe_ratio(r, risk_free_rate, per_year),
+        "sortino": lambda: performance.sortino_ratio(r, risk_free_rate, per_year),
+        "var": lambda: risk.historical_var(r, confidence, period=period),
+        "cvar": lambda: risk.historical_cvar(r, confidence, period=period),
+        "parametric_var": lambda: risk.parametric_var(r, confidence, period=period),
+        "parametric_cvar": lambda: risk.parametric_cvar(r, confidence, period=period),
+        "cornish_fisher_var": lambda: risk.cornish_fisher_var(r, confidence, period=period),
+        "cornish_fisher_cvar": lambda: risk.cornish_fisher_cvar(r, confidence, period=period),
+        "beta": lambda: risk.beta(r, b),
+        "treynor": lambda: risk.treynor_ratio(r, b, risk_free_rate, per_year),
+        "information_ratio": lambda: risk.information_ratio(r, b, per_year),
+        "alpha": lambda: risk.capm_alpha(r, b, risk_free_rate, per_year),
+        "upside_capture": lambda: risk.upside_capture(r, b),
+        "downside_capture": lambda: risk.downside_capture(r, b),
     }
     return {name: metric(computations[name], unit=METRIC_UNITS[name]) for name in METRIC_NAMES}
 
@@ -119,8 +129,6 @@ def missing_series(reason: str, *, y_unit: str = "decimal") -> SeriesResult:
 FACTOR_MODELS: dict[str, tuple[str, ...]] = {"ff3": factor_models.FF3, "carhart": factor_models.CARHART}
 """Metric-id prefix -> the factor columns the model regresses on."""
 
-_PERIODS_PER_YEAR = {"daily": performance.TRADING_DAYS, "monthly": 12}
-
 _COEFFICIENT = {"Mkt-RF": "market", "SMB": "smb", "HML": "hml", "MOM": "mom"}
 
 
@@ -134,26 +142,38 @@ def factor_metric_set(
     factors: pd.DataFrame | MissingData,
     *,
     factor_source: str | None,
+    period: ReturnPeriod = "daily",
     frequency: Literal["daily", "monthly"] = "daily",
 ) -> dict[str, MetricResult]:
     """FF3 and Carhart regression metrics for one return series, keyed like ``factor_metric_names``.
 
     ``factors`` is any frame in the ``analytics.factors`` layout, whatever its origin, or
     the ``MissingData`` that explains why there is none (every metric then reports it).
-    Coefficients carry ``t_stat`` in details, R-squared carries ``observations`` and
-    ``frequency``; every metric names the ``factor_source``. ``returns`` and ``factors``
-    are both daily or both monthly (``frequency``), which sets the alpha annualization.
+    Coefficients carry ``t_stat`` in details, R-squared carries ``observations`` and the
+    regression's return ``period``; every metric names the ``factor_source``.
+
+    ``returns`` and ``factors`` are at ``frequency``. Daily inputs: ``period`` compounds
+    both into that return period first and annualizes alpha with its count per year,
+    like ``risk_metric_set``. Monthly inputs (a user's monthly factor file) are already
+    the regression's period, so it is monthly whatever ``period`` says.
     """
+    if frequency == "monthly":
+        period = "monthly"
+    per_year = PERIODS_PER_YEAR[period]
+    r, f = returns, factors
+    if not isinstance(factors, MissingData) and period != "daily" and frequency == "daily":
+        # Compound over the same days on both sides, so each period pairs like with like.
+        days = returns.index.intersection(factors.index)
+        r = period_returns(returns.loc[days], period)
+        f = factor_models.period_factors(factors.loc[days], period)
     out: dict[str, MetricResult] = {}
     for model, columns in FACTOR_MODELS.items():
 
         @cache
         def fit(columns: tuple[str, ...] = columns) -> factor_models.FactorRegression:
-            if isinstance(factors, MissingData):
-                raise factors
-            return factor_models.factor_regression(
-                returns, factors, columns, periods_per_year=_PERIODS_PER_YEAR[frequency]
-            )
+            if isinstance(f, MissingData):
+                raise f
+            return factor_models.factor_regression(r, f, columns, periods_per_year=per_year)
 
         def coefficient(name: str, value: Callable[[factor_models.FactorRegression], float]) -> Detailed:
             result = fit()
@@ -167,7 +187,7 @@ def factor_metric_set(
         out[f"{model}_r_squared"] = metric(
             lambda: Detailed(
                 fit().r_squared,
-                {"observations": fit().observations, "frequency": frequency, "factor_source": factor_source},
+                {"observations": fit().observations, "period": period, "factor_source": factor_source},
             ),
             unit="ratio",
         )

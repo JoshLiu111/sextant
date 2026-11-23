@@ -76,6 +76,9 @@ test("a user with a Tiingo key switches to My data and sees metrics from their o
   for (const id of ["ff3_alpha:AAPL", "carhart_mom:AAPL", "carhart_r_squared:SPY"]) {
     await expect(metric(page, id)).toHaveAttribute("data-status", "missing_data");
   }
+  // #27's heatmap and price chart read the user's prices too (they pass the source through).
+  await expect(main.locator('[data-correlation="AAPL:SPY"]')).toHaveAttribute("data-status", "ok");
+  await expect(main.getByRole("img", { name: /^Price chart/ })).toBeVisible();
 
   // Export CSV works on My data: real prices, so no "Synthetic demo data" column.
   const csv = await exportCsv(page);

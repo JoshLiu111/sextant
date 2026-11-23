@@ -162,6 +162,40 @@ def test_a_series_too_short_for_the_regression_is_missing_data_without_breaking_
     assert body["metrics"]["beta:TILT"]["status"] == "ok"
 
 
+@pytest.mark.parametrize(("period", "per_year", "observations"), [("weekly", 52, 261), ("monthly", 12, 60)])
+def test_the_regressions_follow_the_return_period(period, per_year, observations):
+    """Returns and factors are both compounded into the period; alpha annualizes with its count."""
+    body = metrics(tickers=["DEMO-H"], start="2021-01-01", end="2025-12-31", period=period)
+
+    r2 = ok(body, "carhart_r_squared:DEMO-H")
+    assert r2["details"]["observations"] == observations
+    configured = PERSONALITIES["DEMO-H"]
+    for coefficient, attribute in CARHART.items():
+        assert ok(body, f"carhart_{coefficient}:DEMO-H")["value"] == pytest.approx(
+            getattr(configured, attribute), abs=0.15
+        ), coefficient
+    # Mkt-RF is rebuilt from the compounded market and RF, so the market is still an exact fit.
+    assert ok(body, "ff3_market:DEMO-MKT")["value"] == pytest.approx(1.0, abs=1e-9)
+    assert ok(body, "ff3_r_squared:DEMO-MKT")["value"] == pytest.approx(1.0, abs=1e-9)
+    assert ok(body, "ff3_market:DEMO-MKT")["details"]["t_stat"] is None
+
+
+def test_the_period_alpha_is_the_period_intercept_times_the_periods_per_year():
+    weekly = fixture_metrics(250, period="weekly")
+
+    # A constant 0.0002 daily alpha compounds to about 5 x 0.0002 a week, x 52 a year.
+    assert ok(weekly, "carhart_alpha:TILT")["value"] == pytest.approx(0.0002 * 252, abs=5e-3)
+    assert ok(weekly, "carhart_market:TILT")["value"] == pytest.approx(1.3, abs=0.02)
+
+
+def test_too_few_returns_of_the_period_names_the_period():
+    body = metrics(tickers=["DEMO-A"], start="2021-01-01", end="2025-12-31", period="yearly")
+
+    result = body["metrics"]["ff3_alpha:DEMO-A"]
+    assert result["status"] == "missing_data"
+    assert "needs at least 24 yearly returns" in result["reason"]
+
+
 def test_a_source_without_factor_data_leaves_only_the_factor_metrics_missing():
     frames, _ = hand_built(250)
     with serving(FixtureAdapter(frames)):

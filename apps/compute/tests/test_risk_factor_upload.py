@@ -255,7 +255,7 @@ def test_monthly_factors_regress_month_end_returns_and_recover_the_loadings(clie
         r2 = metrics[f"{model}_r_squared:AAA"]
         # Dec 2020 is the base month; Jan 2021..Dec 2023 are the 36 monthly returns.
         assert r2["details"]["observations"] == 36
-        assert r2["details"]["frequency"] == "monthly"
+        assert r2["details"]["period"] == "monthly"
     carhart = {c: metrics[f"carhart_{c}:AAA"]["value"] for c in ("market", "smb", "hml", "mom")}
     assert carhart == pytest.approx({"market": 1.2, "smb": 0.5, "hml": -0.3, "mom": 0.4}, abs=0.05)
     # Monthly alpha annualizes x12.
@@ -270,6 +270,16 @@ def test_a_range_that_ends_mid_month_drops_the_partial_month(client, alice):
     metrics = risk(client, alice, end="2023-12-15")
 
     assert metrics["ff3_r_squared:AAA"]["details"]["observations"] == 35
+
+
+def test_a_monthly_file_regresses_monthly_whatever_return_period_is_chosen(client, alice):
+    upload(client, alice, three_factor_file())
+
+    metrics = risk(client, alice, period="weekly")
+
+    r2 = metrics["ff3_r_squared:AAA"]["details"]
+    assert (r2["period"], r2["observations"]) == ("monthly", 36)
+    assert metrics["ff3_market:AAA"]["value"] == pytest.approx(1.2, abs=0.05)
 
 
 def test_without_an_upload_the_factor_metrics_say_how_to_get_them(client, alice):

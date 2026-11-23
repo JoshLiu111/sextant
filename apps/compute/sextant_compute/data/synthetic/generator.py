@@ -61,9 +61,9 @@ HISTORY_END = date(2025, 12, 31)
 TRADING_DAYS = 252
 BENCHMARK = "DEMO-MKT"
 
-# GARCH(1,1) persistence shared by every series (alpha + beta = 0.96).
-_GARCH_ALPHA = 0.06
-_GARCH_BETA = 0.90
+# GARCH(1,1) parameters shared by every series's shocks (alpha + beta = 0.96): ground truth for the GARCH fit.
+GARCH_ALPHA = 0.06
+GARCH_BETA = 0.90
 
 COLUMNS = ["open", "high", "low", "close", "volume", "dividend"]
 
@@ -240,12 +240,12 @@ def trading_days() -> pd.DatetimeIndex:
 def _garch_shocks(rng: np.random.Generator, n: int, daily_var: float) -> np.ndarray:
     """Zero-mean GARCH(1,1) shocks with unconditional variance ``daily_var``."""
     z = rng.standard_normal(n)
-    omega = daily_var * (1 - _GARCH_ALPHA - _GARCH_BETA)
+    omega = daily_var * (1 - GARCH_ALPHA - GARCH_BETA)
     out = np.empty(n)
     h = daily_var
     for t in range(n):
         out[t] = np.sqrt(h) * z[t]
-        h = omega + _GARCH_ALPHA * out[t] ** 2 + _GARCH_BETA * h
+        h = omega + GARCH_ALPHA * out[t] ** 2 + GARCH_BETA * h
     return out
 
 
