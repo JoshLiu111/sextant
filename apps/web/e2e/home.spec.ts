@@ -11,6 +11,9 @@ const TOOLS = [
   "AI Analyst",
 ];
 
+// Tools that are built; every other tool page still says "Coming soon".
+const LIVE_TOOLS = new Set(["Options Calculator"]);
+
 test("home page lists all eight tools with a description", async ({ page }) => {
   await page.goto("/");
 
@@ -44,7 +47,9 @@ test("nav reaches every tool from any page, and unbuilt tools say coming soon", 
   for (const name of TOOLS) {
     await nav.getByRole("link", { name, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
-    await expect(page.getByRole("main").getByText("Coming soon", { exact: true })).toBeVisible();
+    const comingSoon = page.getByRole("main").getByText("Coming soon", { exact: true });
+    if (LIVE_TOOLS.has(name)) await expect(comingSoon).toHaveCount(0);
+    else await expect(comingSoon).toBeVisible();
     await expect(page.getByRole("contentinfo")).toContainText("Not investment advice");
   }
 });

@@ -21,7 +21,7 @@ export type Tool = {
 };
 
 export const TOOLS: readonly Tool[] = [
-  { slug: "options", href: "/options", status: "coming-soon", attributions: [] },
+  { slug: "options", href: "/options", status: "live", attributions: [] },
   { slug: "risk", href: "/risk", status: "coming-soon", attributions: [] },
   { slug: "portfolio", href: "/portfolio", status: "coming-soon", attributions: [] },
   { slug: "company", href: "/company", status: "coming-soon", attributions: [] },
