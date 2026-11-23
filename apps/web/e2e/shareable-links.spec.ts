@@ -13,6 +13,126 @@ async function open(page: Page, url: string, h1: string) {
   return main;
 }
 
+// EDGAR, FRED and Treasury come from the e2e fakes; a cold compute cache is slow.
+const COLD = { timeout: 30_000 };
+
+test.describe("Company Health Check", () => {
+  test("a link with several companies and a price shows their ratios side by side", async ({ page }) => {
+    const main = await open(page, "/company?companies=MSFT:400,AAPL&ticker=JPM", "Company Health Check");
+    const ratios = main.getByTestId("ratios");
+    await expect(ratios.getByLabel("Compare company 1", { exact: true })).toHaveValue("MSFT");
+    await expect(ratios.getByLabel("Share price 1", { exact: true })).toHaveValue("400");
+    await expect(ratios.getByLabel("Compare company 2", { exact: true })).toHaveValue("AAPL");
+    // The price values only MSFT's latest year; AAPL has none.
+    await expect(ratios.locator('[data-metric-value^="price_to_earnings:MSFT:"][data-status="ok"]')).toHaveCount(1, COLD);
+    await expect(metric(ratios, "price_to_earnings:AAPL:2026-09-26")).toHaveAttribute("data-status", "missing_data");
+    // The statements below follow `ticker`.
+    await expect(main.getByLabel("Ticker")).toHaveValue("JPM");
+    await expect(main.getByTestId("results").getByRole("heading", { name: /JPMORGAN/i })).toBeVisible(COLD);
+  });
+
+  test("submitting each form writes its own inputs to the URL", async ({ page }) => {
+    const main = await open(page, "/company", "Company Health Check");
+    const ratios = main.getByTestId("ratios");
+    await expect(metric(ratios, "current_ratio:AAPL:2026-09-26")).toHaveAttribute("data-status", "ok", COLD);
+    await ratios.getByLabel("Share price 1", { exact: true }).fill("250");
+    await ratios.getByRole("button", { name: "Show ratios" }).click();
+    await expect(page).toHaveURL(/[?&]companies=AAPL:250(&|$)/);
+
+    await main.getByLabel("Ticker").fill("MSFT");
+    await main.getByRole("button", { name: "Show statements" }).click();
+    await expect(page).toHaveURL(/[?&]ticker=MSFT(&|$)/);
+    await expect(page).toHaveURL(/[?&]companies=AAPL:250(&|$)/);
+  });
+
+  test("a duplicate company shows the normal validation error", async ({ page }) => {
+    const main = await open(page, "/company?companies=AAPL,AAPL", "Company Health Check");
+    await expect(main.getByTestId("field-error-companies.1.ticker")).toBeVisible(COLD);
+  });
+});
+
+test.describe("Macro Dashboard", () => {
+  test("a link with a later start date shows history from that date", async ({ page }) => {
+    const main = await open(page, "/macro?start=2023-01-01", "Macro Dashboard");
+    await expect(main.getByLabel("History from")).toHaveValue("2023-01-01");
+    const spread = main.getByRole("img", { name: "10Y–2Y spread history" });
+    await expect(spread.getByTestId("chart-band").first()).toBeAttached(COLD);
+    // The 2019 inversion is before the start; the long 2022–24 one is cut at it.
+    await expect(spread.locator('[data-testid="chart-band"][data-band-start="2019-08-27"]')).toHaveCount(0);
+    await expect(spread.locator('[data-testid="chart-band"][data-band-end="2024-08-26"]')).toHaveAttribute(
+      "data-band-start",
+      "2023-01-03",
+    );
+  });
+
+  test("submitting writes the start date to the URL", async ({ page }) => {
+    const main = await open(page, "/macro", "Macro Dashboard");
+    // Wait for a first result so hydration doesn't race the fill.
+    await expect(main.getByRole("img", { name: "10Y–2Y spread history" })).toBeVisible(COLD);
+    await main.getByLabel("History from").fill("2020-01-01");
+    await main.getByRole("button", { name: "Update charts" }).click();
+    await expect(page).toHaveURL(/[?&]start=2020-01-01(&|$)/);
+  });
+
+  test("an out-of-range start date shows the normal validation error", async ({ page }) => {
+    const main = await open(page, "/macro?start=1980-01-01", "Macro Dashboard");
+    await expect(main.getByTestId("field-error-start")).toContainText("1990-01-02", COLD);
+  });
+});
+
+test.describe("Screener", () => {
+  type Main = Awaited<ReturnType<typeof open>>;
+  const rowTickers = (main: Main) =>
+    main
+      .getByRole("table", { name: "Screen results" })
+      .locator("[data-ticker]")
+      .evaluateAll((rows) => rows.map((r) => r.getAttribute("data-ticker")));
+
+  test("a link with criteria and a sort shows the matching companies in that order", async ({ page }) => {
+    const main = await open(
+      page,
+      "/screener?criteria=revenue_growth:min:10,debt_ratio:max:30&sort=ticker&direction=asc",
+      "Screener & Calendar",
+    );
+    const criteria = main.getByRole("group", { name: "Criteria" });
+    await expect(criteria.getByLabel("Metric for criterion 2")).toHaveValue("debt_ratio");
+    await expect(criteria.getByLabel("Condition for criterion 2")).toHaveValue("max");
+    await expect(criteria.getByLabel("Value for criterion 2")).toHaveValue("30");
+    await expect(criteria.getByLabel("Metric for criterion 3")).toHaveCount(0);
+    await expect(main.getByTestId("screen-summary")).toBeVisible(COLD);
+    await expect.poll(() => rowTickers(main)).toEqual(["AMD", "NVDA"]);
+  });
+
+  test("running a screen and sorting write the inputs to the URL", async ({ page }) => {
+    const main = await open(page, "/screener", "Screener & Calendar");
+    await expect(main.getByTestId("screen-summary")).toBeVisible(COLD);
+    const criteria = main.getByRole("group", { name: "Criteria" });
+    await criteria.getByLabel("Value for criterion 2").fill("75");
+    await main.getByRole("button", { name: "Run screen" }).click();
+    await expect(page).toHaveURL(/[?&]criteria=revenue_growth:min:10,gross_margin:min:75,roe:min:15(&|$)/);
+
+    await main.getByRole("table", { name: "Screen results" }).getByRole("button", { name: "Ticker" }).click();
+    await expect(page).toHaveURL(/[?&]sort=ticker&direction=asc(&|$)/);
+    await page.reload();
+    await expect.poll(() => rowTickers(main), COLD).toEqual(["ADBE", "LLY", "META"]);
+  });
+
+  test("a link to one company's filings shows that company's filings", async ({ page }) => {
+    const main = await open(page, "/screener?filings_ticker=AAPL&filings_form=10-K", "Screener & Calendar");
+    await expect(main.getByLabel("Company ticker")).toHaveValue("AAPL");
+    await expect(main.getByLabel("Form type")).toHaveValue("10-K");
+    const filings = main.getByRole("table", { name: "Latest SEC filings" });
+    await expect(main.getByTestId("filings-heading")).toContainText("Apple Inc.", COLD);
+    await expect(filings.getByRole("row")).toHaveCount(2);
+    await expect(filings.getByRole("row").nth(1)).toContainText("10-K - Annual report");
+  });
+
+  test("a bad criterion value shows the normal validation error", async ({ page }) => {
+    const main = await open(page, "/screener?criteria=revenue_growth:min:", "Screener & Calendar");
+    await expect(main.getByTestId("field-error-criteria.0.value")).toBeVisible(COLD);
+  });
+});
+
 test.describe("Options Calculator", () => {
   test("a link with non-default inputs shows results computed from them", async ({ page }) => {
     // S = 110 (others default: K = 100, T = 1, sigma = 20%, r = 5%, q = 0) -> call 17.66.
