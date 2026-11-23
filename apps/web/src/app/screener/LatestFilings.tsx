@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { csvFilename } from "@/lib/csv";
 import type { ResultEnvelope } from "@/lib/envelope";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
 // Mirrors FilingsEnvelope in apps/compute/sextant_compute/screener/api.py.
@@ -15,20 +19,25 @@ type Query = { ticker: string; form: string };
 
 // Must match FilingForm in the compute request model.
 const FORMS = ["10-K", "10-Q", "8-K", "4", "S-1", "DEF 14A", "20-F", "6-K"];
+// Shareable links: `/screener?filings_ticker=MSFT&filings_form=10-K` (blank ticker = market-wide).
+// Prefixed so they don't collide with the screen's params on the same page.
+const URL_CODEC = fieldsCodec({ filings_ticker: "", filings_form: "" });
 
 export function LatestFilings() {
   const t = getMessages();
   const f = t.screener.filings;
-  const [scope, setScope] = useState<"market" | "company">("market");
-  const [ticker, setTicker] = useState("");
-  const [form, setForm] = useState("");
-  const [query, setQuery] = useState<Query>({ ticker: "", form: "" });
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [scope, setScope] = useState<"market" | "company">(initial.filings_ticker ? "company" : "market");
+  const [ticker, setTicker] = useState(initial.filings_ticker);
+  const [form, setForm] = useState(initial.filings_form);
+  const [query, setQuery] = useState<Query>({ ticker: initial.filings_ticker.trim(), form: initial.filings_form });
   const { result, fieldErrors, error, pending, run } = useCompute("/screener/filings", query);
   const list = result as FilingsResult | null;
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     const next = { ticker: scope === "company" ? ticker.trim() : "", form };
+    share({ filings_ticker: next.ticker.toUpperCase(), filings_form: form });
     if (next.ticker === query.ticker && next.form === query.form) run();
     else setQuery(next);
   }
@@ -101,9 +110,26 @@ export function LatestFilings() {
         )}
         {list ? (
           <>
-            <h3 data-testid="filings-heading" className="text-base font-semibold">
-              {list.scope === "company" && list.company ? f.companyHeading(list.company) : f.marketHeading}
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 data-testid="filings-heading" className="text-base font-semibold">
+                {list.scope === "company" && list.company ? f.companyHeading(list.company) : f.marketHeading}
+              </h3>
+              {list.filings.length > 0 && (
+                <ExportCsvButton
+                  label={f.tableLabel}
+                  filename={csvFilename(
+                    "screener",
+                    "filings",
+                    [query.ticker || "market", query.form].filter(Boolean).join("_"),
+                  )}
+                  demo={list.source.is_demo}
+                  table={{
+                    columns: [f.formColumn, f.title, f.companyColumn, f.filed],
+                    rows: list.filings.map((row) => [row.form, row.title, row.company, row.filed]),
+                  }}
+                />
+              )}
+            </div>
             {list.filings.length === 0 ? (
               <p className="text-sm text-black/60 dark:text-white/60">{f.none}</p>
             ) : (
@@ -143,6 +169,7 @@ export function LatestFilings() {
               </div>
             )}
             <CalculationInfo result={list} />
+            <AiExplain tool="screener-filings" result={list} />
           </>
         ) : (
           !error && <p className="text-sm text-black/60 dark:text-white/60">{f.loading}</p>

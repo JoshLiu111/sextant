@@ -1,12 +1,16 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { DataModeToggle } from "@/components/DataModeToggle";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
 import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { DEMO_SOURCE, useMyDataProviders, type PriceSource } from "@/lib/myData";
+import { decodeRows, encodeRows, fieldsCodec, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { PortfolioConstruction } from "./PortfolioConstruction";
 import { PortfolioResults } from "./PortfolioResults";
 import { DEFAULT_HOLDINGS, PRESETS, type HoldingInput, type PresetId } from "./presets";
 
@@ -29,6 +33,40 @@ const DEFAULTS: Form = {
   risk_free_rate: "0",
 };
 
+/** The first switch to My data starts from real tickers; each mode keeps its own inputs. */
+const MY_DATA_DEFAULTS: Form = {
+  ...DEFAULTS,
+  holdings: [
+    { ticker: "AAPL", weight: "50" },
+    { ticker: "MSFT", weight: "50" },
+  ],
+  benchmark: "SPY",
+};
+
+const defaultsFor = (source: PriceSource): Form => (source === DEMO_SOURCE ? DEFAULTS : MY_DATA_DEFAULTS);
+
+// Shareable links: `/portfolio?holdings=DEMO-C:60,DEMO-E:40&start=2022-01-01`.
+// Only these demo inputs go in the URL; saved portfolios and My data inputs never do.
+const SETTINGS_CODEC = fieldsCodec({
+  benchmark: DEFAULTS.benchmark,
+  start: DEFAULTS.start,
+  end: DEFAULTS.end,
+  confidence: DEFAULTS.confidence,
+  risk_free_rate: DEFAULTS.risk_free_rate,
+});
+const URL_CODEC: UrlCodec<Form> = {
+  keys: ["holdings", ...SETTINGS_CODEC.keys],
+  read(params) {
+    const raw = params.get("holdings");
+    const rows = raw === null ? [] : decodeRows(raw, 2);
+    const holdings = rows.length ? rows.map(([ticker, weight]) => ({ ticker, weight })) : DEFAULTS.holdings;
+    return { holdings, ...SETTINGS_CODEC.read(params) };
+  },
+  write({ holdings, ...settings }) {
+    return { holdings: encodeRows(holdings.map((h) => [h.ticker, h.weight])), ...SETTINGS_CODEC.write(settings) };
+  },
+};
+
 function percentToDecimal(raw: string): number | null {
   if (raw.trim() === "") return null;
   const n = Number(raw);
@@ -36,8 +74,9 @@ function percentToDecimal(raw: string): number | null {
 }
 
 /** Empty inputs go to the API as null so it reports the field. */
-function toRequest(form: Form) {
+function toRequest(form: Form, source: PriceSource) {
   return {
+    source,
     holdings: form.holdings.map((h) => ({ ticker: h.ticker.trim(), weight: percentToDecimal(h.weight) })),
     benchmark: form.benchmark.trim() || null,
     start: form.start || null,
@@ -60,8 +99,19 @@ const inputClass = (error: string | undefined) =>
 export function PortfolioTool() {
   const t = getMessages();
   const p = t.portfolio;
-  const [form, setForm] = useState<Form>(DEFAULTS);
-  const { result, fieldErrors, error, run } = useCompute<string, string>("/portfolio/metrics", toRequest(form));
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const providers = useMyDataProviders();
+  const [chosen, setChosen] = useState<PriceSource>(DEMO_SOURCE);
+  // A provider whose key is gone falls back to demo data.
+  const source: PriceSource = chosen !== DEMO_SOURCE && !providers.includes(chosen) ? DEMO_SOURCE : chosen;
+  const myData = source !== DEMO_SOURCE;
+  const [forms, setForms] = useState<Partial<Record<PriceSource, Form>>>(() => ({ [DEMO_SOURCE]: initial }));
+  const form = forms[source] ?? defaultsFor(source);
+  const setForm = (update: (f: Form) => Form) =>
+    setForms((all) => ({ ...all, [source]: update(all[source] ?? defaultsFor(source)) }));
+  const request = toRequest(form, source);
+  const { result, fieldErrors, error, run } = useCompute<string, string>("/portfolio/metrics", request);
+  const hints = myData ? { ...p.inputs, ...p.myDataInputs } : p.inputs;
   const set = (field: Exclude<keyof Form, "holdings">) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
   const setHoldings = (update: (holdings: HoldingInput[]) => HoldingInput[]) =>
     setForm((f) => ({ ...f, holdings: update(f.holdings) }));
@@ -70,6 +120,7 @@ export function PortfolioTool() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!myData) share(form);
     run();
   }
 
@@ -79,28 +130,34 @@ export function PortfolioTool() {
         <h2 id="portfolio-inputs" className="text-lg font-semibold">
           {p.inputsHeading}
         </h2>
+        <DataModeToggle providers={providers} value={source} onChange={setChosen} />
 
-        <fieldset className="min-w-0">
-          <legend className="text-sm font-medium">{p.presets.heading}</legend>
-          <p className="mt-1 text-xs text-black/50 dark:text-white/50">{p.presets.hint}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {(Object.keys(PRESETS) as PresetId[]).map((id) => (
-              <button
-                key={id}
-                type="button"
-                title={p.presets.items[id].description}
-                onClick={() => setHoldings(() => PRESETS[id].map((h) => ({ ...h })))}
-                className="rounded-md border border-black/20 px-3 py-1 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-              >
-                {p.presets.items[id].name}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        {/* The presets are made of demo tickers, so My data has none. */}
+        {!myData && (
+          <fieldset className="min-w-0">
+            <legend className="text-sm font-medium">{p.presets.heading}</legend>
+            <p className="mt-1 text-xs text-black/50 dark:text-white/50">{p.presets.hint}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(Object.keys(PRESETS) as PresetId[]).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  title={p.presets.items[id].description}
+                  onClick={() => setHoldings(() => PRESETS[id].map((h) => ({ ...h })))}
+                  className="rounded-md border border-black/20 px-3 py-1 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                >
+                  {p.presets.items[id].name}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
 
         <fieldset className="min-w-0" aria-describedby={fieldErrors.holdings ? fieldErrorId("holdings") : undefined}>
           <legend className="text-sm font-medium">{p.holdings.heading}</legend>
-          <p className="mt-1 text-xs text-black/50 dark:text-white/50">{p.holdings.hint}</p>
+          <p className="mt-1 text-xs text-black/50 dark:text-white/50">
+            {myData ? p.myDataInputs.holdings.hint : p.holdings.hint}
+          </p>
           <div aria-hidden className="mt-2 grid grid-cols-[minmax(0,1fr)_6rem_2rem] gap-2 text-xs text-black/60 dark:text-white/60">
             <span>{p.holdings.ticker}</span>
             <span>
@@ -172,7 +229,7 @@ export function PortfolioTool() {
         <TextField
           name="benchmark"
           label={p.inputs.benchmark.label}
-          hint={p.inputs.benchmark.hint}
+          hint={hints.benchmark.hint}
           value={form.benchmark}
           onChange={set("benchmark")}
           error={fieldErrors.benchmark}
@@ -182,7 +239,7 @@ export function PortfolioTool() {
             type="date"
             name="start"
             label={p.inputs.start.label}
-            hint={p.inputs.start.hint}
+            hint={hints.start.hint}
             value={form.start}
             onChange={set("start")}
             error={fieldErrors.start}
@@ -191,7 +248,7 @@ export function PortfolioTool() {
             type="date"
             name="end"
             label={p.inputs.end.label}
-            hint={p.inputs.end.hint}
+            hint={hints.end.hint}
             value={form.end}
             onChange={set("end")}
             error={fieldErrors.end}
@@ -201,7 +258,7 @@ export function PortfolioTool() {
           <NumberField
             name="confidence"
             label={p.inputs.confidence.label}
-            hint={p.inputs.confidence.hint}
+            hint={hints.confidence.hint}
             value={form.confidence}
             onChange={set("confidence")}
             error={fieldErrors.confidence}
@@ -209,7 +266,7 @@ export function PortfolioTool() {
           <NumberField
             name="risk_free_rate"
             label={p.inputs.risk_free_rate.label}
-            hint={p.inputs.risk_free_rate.hint}
+            hint={hints.risk_free_rate.hint}
             value={form.risk_free_rate}
             onChange={set("risk_free_rate")}
             error={fieldErrors.risk_free_rate}
@@ -231,8 +288,11 @@ export function PortfolioTool() {
             message={error}
           />
         )}
-        <PortfolioResults result={result} />
+        <PortfolioResults result={result} aiTool="portfolio" />
       </section>
+      <div className="min-w-0 lg:col-span-2">
+        <PortfolioConstruction portfolio={request} />
+      </div>
     </div>
   );
 }

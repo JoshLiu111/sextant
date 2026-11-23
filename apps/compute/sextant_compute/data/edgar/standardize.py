@@ -45,7 +45,7 @@ def filing_url(cik: int, accession: str) -> str:
 
 
 @dataclass(frozen=True)
-class _Fact:
+class Fact:
     start: date | None
     end: date
     value: float
@@ -59,18 +59,29 @@ class _Fact:
         return (self.end - self.start).days if self.start else None
 
 
-def _facts(body: Mapping[str, Any], taxonomy: str, name: str, unit: str, *, instant: bool) -> list[_Fact]:
+def facts_for(
+    body: Mapping[str, Any],
+    taxonomy: str,
+    name: str,
+    unit: str,
+    *,
+    instant: bool,
+    forms: frozenset[str] = ANNUAL_FORMS,
+    days: range | None = ANNUAL_DAYS,
+) -> list[Fact]:
+    """The tag's facts from ``forms``: instants, or durations spanning ``days``
+    (any length when ``days`` is None)."""
     concept = body.get("facts", {}).get(taxonomy, {}).get(name)
     if not concept:
         return []
     out = []
     for row in concept.get("units", {}).get(unit, []):
-        if row.get("form") not in ANNUAL_FORMS or row.get("val") is None:
+        if row.get("form") not in forms or row.get("val") is None:
             continue
         start = date.fromisoformat(row["start"]) if row.get("start") else None
         if instant != (start is None):
             continue
-        fact = _Fact(
+        fact = Fact(
             start=start,
             end=date.fromisoformat(row["end"]),
             value=float(row["val"]),
@@ -79,15 +90,15 @@ def _facts(body: Mapping[str, Any], taxonomy: str, name: str, unit: str, *, inst
             filed=date.fromisoformat(row["filed"]),
             fy=row.get("fy"),
         )
-        if not instant and fact.days not in ANNUAL_DAYS:
+        if not instant and days is not None and fact.days not in days:
             continue
         out.append(fact)
     return out
 
 
-def _first_reported(facts: Sequence[_Fact]) -> dict[date, _Fact]:
+def first_reported(facts: Sequence[Fact]) -> dict[date, Fact]:
     """Per period end, the earliest-filed fact."""
-    best: dict[date, _Fact] = {}
+    best: dict[date, Fact] = {}
     for f in facts:
         cur = best.get(f.end)
         if cur is None or (f.filed, f.accession) < (cur.filed, cur.accession):
@@ -102,18 +113,18 @@ def standardize(
     company = Company(ticker=ticker, cik=cik, name=str(body.get("entityName") or ticker))
 
     # Per item, per candidate tag (priority order): period end -> first-reported fact.
-    by_tag: dict[str, list[tuple[str, dict[date, _Fact]]]] = {}
+    by_tag: dict[str, list[tuple[str, dict[date, Fact]]]] = {}
     for spec in specs:
         instant = spec.item.statement == "balance"
         by_tag[spec.id] = [
-            (str(tag), _first_reported(_facts(body, tag.taxonomy, tag.name, spec.item.unit, instant=instant)))
+            (str(tag), first_reported(facts_for(body, tag.taxonomy, tag.name, spec.item.unit, instant=instant)))
             for tag in spec.tags
         ]
 
-    periods = _fiscal_periods(by_tag, specs, cik)
+    periods = fiscal_periods(by_tag, specs, cik)
     filings: dict[str, Filing] = {}
 
-    def filing(f: _Fact) -> Filing:
+    def filing(f: Fact) -> Filing:
         if f.accession not in filings:
             filings[f.accession] = Filing(f.accession, f.form, f.filed, filing_url(cik, f.accession))
         return filings[f.accession]
@@ -129,6 +140,29 @@ def standardize(
                     break
         found[spec.id] = row
 
+    ever = {spec.id: any(facts for _, facts in by_tag[spec.id]) for spec in specs}
+    cells = complete(specs, periods, found, ever)
+
+    return FinancialStatements(
+        source=source,
+        company=company,
+        items=tuple(s.item for s in specs),
+        periods=tuple(periods),
+        cells=cells,
+    )
+
+
+
+def complete(
+    specs: Sequence[LineItemSpec],
+    periods: Sequence[FiscalPeriod],
+    found: Mapping[str, dict[str, Reported]],
+    ever: Mapping[str, bool],
+    missing: Mapping[str, Mapping[str, str]] | None = None,
+) -> dict[str, dict[str, Cell]]:
+    """Fill each item's gaps: its ``derive`` formula when every input is there,
+    else ``Missing``. ``ever``: whether the company reports the item at all;
+    ``missing``: item -> period id -> a message to use instead of the default."""
     for spec in specs:
         if spec.derive is None:
             continue
@@ -146,45 +180,39 @@ def standardize(
                     derived_from=spec.derive.formula,
                 )
 
-    cells: dict[str, dict[str, Cell]] = {}
+    out: dict[str, dict[str, Cell]] = {}
     for spec in specs:
         row = found[spec.id]
-        ever = bool(row) or any(facts for _, facts in by_tag[spec.id])
         label = spec.item.label
-        cells[spec.id] = {
+        special = (missing or {}).get(spec.id, {})
+        out[spec.id] = {
             p.id: row.get(p.id)
             or (
-                Missing("not_reported_for_period", f"{label} is not reported by this company for {p.label}.")
-                if ever
+                Missing("not_reported_for_period", special[p.id])
+                if p.id in special
+                else Missing("not_reported_for_period", f"{label} is not reported by this company for {p.label}.")
+                if ever[spec.id] or row
                 else Missing("not_reported", f"{label} is not reported by this company.")
             )
             for p in periods
         }
+    return out
 
-    return FinancialStatements(
-        source=source,
-        company=company,
-        items=tuple(s.item for s in specs),
-        periods=tuple(periods),
-        cells=cells,
-    )
-
-
-def _fiscal_periods(
-    by_tag: Mapping[str, list[tuple[str, dict[date, _Fact]]]], specs: Sequence[LineItemSpec], cik: int
+def fiscal_periods(
+    by_tag: Mapping[str, list[tuple[str, dict[date, Fact]]]], specs: Sequence[LineItemSpec], cik: int
 ) -> list[FiscalPeriod]:
     """One period per annual report's own fiscal year (see module docstring)."""
-    durations: list[_Fact] = []
+    durations: list[Fact] = []
     for spec in specs:
         if spec.item.statement != "balance":
             for _, facts in by_tag[spec.id]:
                 durations.extend(facts.values())
-    own_end: dict[str, _Fact] = {}  # accession -> its latest annual duration fact
+    own_end: dict[str, Fact] = {}  # accession -> its latest annual duration fact
     for f in durations:
         cur = own_end.get(f.accession)
         if cur is None or f.end > cur.end:
             own_end[f.accession] = f
-    first: dict[date, _Fact] = _first_reported(list(own_end.values()))
+    first: dict[date, Fact] = first_reported(list(own_end.values()))
     periods = []
     for end in sorted(first):
         f = first[end]

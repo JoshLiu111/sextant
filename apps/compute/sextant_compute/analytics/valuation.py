@@ -85,3 +85,11 @@ def debt_weight(*, equity: float, debt: float) -> float:
 def wacc(*, cost_of_equity: float, cost_of_debt: float, tax_rate: float, debt_weight: float) -> float:
     """WACC = E/V · Re + D/V · Rd · (1 − t)."""
     return (1 - debt_weight) * cost_of_equity + debt_weight * cost_of_debt * (1 - tax_rate)
+
+
+def margin_of_safety(*, intrinsic_value: float, price: float) -> float:
+    """(intrinsic − price) / intrinsic: the share of intrinsic value the price leaves
+    as a cushion (Graham). Negative when the price is above intrinsic value."""
+    if intrinsic_value <= 0:
+        raise MetricError("Intrinsic value is zero or negative, so a margin of safety isn't meaningful.")
+    return (intrinsic_value - price) / intrinsic_value

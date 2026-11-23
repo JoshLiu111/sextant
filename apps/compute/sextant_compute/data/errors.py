@@ -35,3 +35,11 @@ class NoSuchData(DataError):
     def __init__(self, source: str, message: str, missing: Mapping[str, str] | None = None) -> None:
         super().__init__(source, message)
         self.missing = dict(missing or {})
+
+
+class KeyRequired(DataError):
+    """The source needs the visitor's own key and none works: not signed in, no
+    key saved, or the provider no longer accepts the saved one. ``DataService``
+    raises it before a user-scope source is used without a key; a user-scope
+    adapter raises it when the provider rejects the key. The API answers 403
+    ``key_required`` with ``message`` (which says what to do: Settings)."""

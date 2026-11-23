@@ -16,14 +16,17 @@ from functools import cache
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ValidationInfo, field_validator
+from pydantic import AfterValidator, BaseModel, ValidationInfo, field_validator
 from pydantic_core import PydanticCustomError
 
 from sextant_compute.analytics import valuation as v
 from sextant_compute.data.errors import NoSuchData
-from sextant_compute.data.service import Ctx, Data
+from sextant_compute.data.context import RequestContext
+from sextant_compute.data.service import Ctx, Data, DataService
+from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
 from sextant_compute.data.statements import FinancialStatements, Missing
 from sextant_compute.envelope import (
+    DataSource,
     Detailed,
     MetricError,
     MetricResult,
@@ -35,6 +38,7 @@ from sextant_compute.envelope import (
     series,
 )
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
+from sextant_compute.request_models import Ticker
 
 router = APIRouter(tags=["valuation"])
 
@@ -49,17 +53,18 @@ DEFAULT_RISK_FREE_RATE = 0.045  # about the 10-year US Treasury yield in 2025-26
 DEFAULT_BETA = 1.0  # the market average
 DEFAULT_EQUITY_RISK_PREMIUM = 0.05  # Damodaran's implied US ERP has been about 4-6% since 2010
 
-def _normalize_ticker(value: object) -> object:
-    return value.strip().upper() if isinstance(value, str) else value
+NO_PRICE_MESSAGE = "Enter a share price to compare the market value with the intrinsic value."
 
 
 def _rate(low: float, high: float, name: str) -> AfterValidator:
     return check(lambda x: low <= x <= high, f"Enter {name} between {low:.0%} and {high:.0%}.")
 
 
-class DcfRequest(BaseModel):
-    ticker: Annotated[str, BeforeValidator(_normalize_ticker), check(lambda x: x != "", "Enter a ticker.")] = "MSFT"
-    source: Literal["sec_edgar"] = "sec_edgar"
+
+
+class ValuationAssumptions(BaseModel):
+    """Every DCF/WACC input the user chooses (what a saved assumption set stores)."""
+
     forecast_years: Annotated[int, check(lambda x: 1 <= x <= 20, "Choose between 1 and 20 years.")] = 5
     growth_rate: Annotated[float, _rate(-0.5, 1.0, "a growth rate")] = 0.05
     """Annual FCF growth during the forecast years (decimal)."""
@@ -80,7 +85,8 @@ class DcfRequest(BaseModel):
     ] = None
     """Override for D / (D + E); null = from total debt and the value of equity."""
     share_price: Annotated[float | None, check(lambda x: x > 0, "Enter a share price greater than 0.")] = None
-    """Optional. Market value of equity = price × shares outstanding; null = book equity."""
+    """Optional. Market value of equity = price × shares outstanding (for the weights, market
+    cap and margin of safety); null = the latest close on My data, else book equity and no comparison."""
 
     @field_validator("terminal_growth")
     @classmethod
@@ -89,6 +95,14 @@ class DcfRequest(BaseModel):
         if r is not None and g >= r:
             raise PydanticCustomError(INPUT_ERROR, "Terminal growth must be below the discount rate.")
         return g
+
+
+class DcfRequest(ValuationAssumptions):
+    ticker: Ticker = "MSFT"
+    source: Literal["sec_edgar"] = "sec_edgar"
+    price_source: PriceSource = DEMO_SOURCE
+    """Where a missing ``share_price`` comes from: ``"synthetic"`` (Demo) looks nothing up;
+    a My data provider (``"tiingo"``) uses its latest close, on the user's own key."""
 
 
 class CompanyOut(BaseModel):
@@ -114,6 +128,8 @@ class SensitivityOut(BaseModel):
 
 class ValuationEnvelope(ResultEnvelope):
     company: CompanyOut
+    price_source: DataSource | None = None
+    """The provider the share price came from (My data); null when it was typed in or there is none."""
     base_period: BasePeriodOut
     sensitivity: SensitivityOut
 
@@ -180,9 +196,16 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
             )
         return fcf()
 
+    price, price_source = _share_price(req, data, ctx)
+
+    def share_price() -> Detailed:
+        if isinstance(price, MissingData):
+            raise price
+        return price
+
     def equity_for_weights() -> float:
-        if req.share_price is not None:
-            return req.share_price * st.value("shares_outstanding", pid)
+        if not isinstance(price, MissingData):
+            return price.value * st.value("shares_outstanding", pid)
         return st.value("total_equity", pid)
 
     re_ = _Result(
@@ -235,6 +258,7 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
     equity = _Result(
         lambda: v.equity_value(base.get().enterprise_value, cash=cash_and_investments(), total_debt=total_debt())
     )
+    intrinsic = _Result(lambda: v.per_share(equity.get(), st.value("shares_outstanding", pid)))
 
     def sourced(compute: Callable[[], float]) -> Callable[[], Detailed]:
         """Statement-derived value with the base period's 10-K as its source."""
@@ -266,8 +290,12 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
         "pv_terminal_value": metric(lambda: base.get().pv_terminal, unit="currency"),
         "enterprise_value": metric(lambda: base.get().enterprise_value, unit="currency"),
         "equity_value": metric(equity.get, unit="currency"),
-        "intrinsic_value_per_share": metric(
-            lambda: v.per_share(equity.get(), st.value("shares_outstanding", pid)), unit="per_share"
+        "intrinsic_value_per_share": metric(intrinsic.get, unit="per_share"),
+        # Market comparison (needs a share price)
+        "share_price": metric(share_price, unit="per_share"),
+        "market_cap": metric(lambda: share_price().value * st.value("shares_outstanding", pid), unit="currency"),
+        "margin_of_safety": metric(
+            lambda: v.margin_of_safety(intrinsic_value=intrinsic.get(), price=share_price().value), unit="decimal"
         ),
     }
 
@@ -291,10 +319,29 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
     )
     return ValuationEnvelope(
         **env.model_dump(),
+        price_source=price_source,
         company=CompanyOut(ticker=st.company.ticker, cik=st.company.cik, name=st.company.name),
         base_period=BasePeriodOut(id=pid, label=period.label, filed=period.filed.isoformat(), url=period.filing.url),
         sensitivity=SensitivityOut(growth_rates=growth_rates, discount_rates=discount_rates),
     )
+
+
+def _share_price(
+    req: DcfRequest, data: DataService, ctx: RequestContext
+) -> tuple[Detailed | MissingData, DataSource | None]:
+    """The share price to compare with (and to weight equity at), and the provider it came from.
+
+    A typed-in price wins (and spends none of the user's provider quota); otherwise
+    My data looks up the latest close. ``KeyRequired`` propagates (403)."""
+    if req.share_price is not None:
+        return Detailed(req.share_price, {"basis": "entered"}), None
+    if req.price_source == DEMO_SOURCE:
+        return MissingData(NO_PRICE_MESSAGE), None
+    try:
+        close = data.latest_close(ctx, req.ticker, source=req.price_source)
+    except NoSuchData as exc:
+        return MissingData(exc.missing.get(req.ticker, exc.message)), data.source_info(req.price_source)
+    return Detailed(close.close, {"basis": "latest_close", "date": close.date.isoformat()}), close.source
 
 
 def _fcf_history(st: FinancialStatements) -> list[tuple[str, float | None]]:

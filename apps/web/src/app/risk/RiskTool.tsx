@@ -1,29 +1,46 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
+import { DataModeToggle } from "@/components/DataModeToggle";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
-import { LineChart, type ChartMarker, type ChartSeries } from "@/components/LineChart";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
+import { LineChart, type ChartBand, type ChartMarker, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { FactorFiles } from "./FactorFiles";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
-import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
+import { csvFilename } from "@/lib/csv";
+import { formatChartDate, formatChartPercent, formatCount, formatValue } from "@/lib/format";
+import { DEMO_SOURCE, useMyDataProviders, type PriceSource } from "@/lib/myData";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { ReturnDistribution } from "./ReturnDistribution";
+import { RollingCharts } from "./RollingCharts";
+import { DEFAULT_ROLLING_WINDOW, PeriodNote, TimescaleInputs, type ReturnPeriod } from "./TimescaleInputs";
+import { ModelChecks } from "./ModelChecks";
+import { TechnicalAnalysis, type RiskSelection } from "./TechnicalAnalysis";
 
 // Metric ids are "<metric>:<ticker>", series ids "drawdown:<ticker>".
-const METRICS = [
-  "annualized_return",
-  "annualized_volatility",
-  "max_drawdown",
-  "var",
-  "cvar",
-  "sharpe",
-  "sortino",
-  "beta",
-] as const;
+// Cards are grouped by section; the order within a group is the display order.
+const METRIC_GROUPS = {
+  metrics: ["annualized_return", "annualized_volatility", "max_drawdown"],
+  tail: ["var", "cvar", "parametric_var", "parametric_cvar", "cornish_fisher_var", "cornish_fisher_cvar"],
+  riskAdjusted: ["sharpe", "sortino", "treynor", "information_ratio"],
+  benchmark: ["beta", "alpha", "upside_capture", "downside_capture"],
+  ff3: ["ff3_alpha", "ff3_market", "ff3_smb", "ff3_hml", "ff3_r_squared"],
+  carhart: ["carhart_alpha", "carhart_market", "carhart_smb", "carhart_hml", "carhart_mom", "carhart_r_squared"],
+} as const;
+
+/** The factor sections; their values carry a t-statistic or an observation count. */
+const FACTOR_GROUPS: ReadonlySet<string> = new Set(["ff3", "carhart"]);
+
+type MetricId = (typeof METRIC_GROUPS)[keyof typeof METRIC_GROUPS][number];
+const ALL_METRICS: MetricId[] = Object.values(METRIC_GROUPS).flat();
 
 // confidence and risk_free_rate are kept in percent; the API takes decimals.
 type Form = {
@@ -33,16 +50,29 @@ type Form = {
   end: string;
   confidence: string;
   risk_free_rate: string;
+  period: ReturnPeriod;
+  rolling_window: string;
 };
 
-const DEFAULTS: Form = {
+const DEMO_DEFAULTS: Form = {
   tickers: "DEMO-A, DEMO-B, DEMO-D",
   benchmark: "DEMO-MKT",
   start: "2021-01-01",
   end: "2025-12-31",
   confidence: "95",
   risk_free_rate: "0",
+  period: "daily",
+  rolling_window: DEFAULT_ROLLING_WINDOW,
 };
+
+/** The first switch to My data starts from real tickers; each mode keeps its own inputs. */
+const MY_DATA_DEFAULTS: Form = { ...DEMO_DEFAULTS, tickers: "AAPL, MSFT", benchmark: "SPY" };
+
+const defaultsFor = (source: PriceSource): Form => (source === DEMO_SOURCE ? DEMO_DEFAULTS : MY_DATA_DEFAULTS);
+
+// Shareable links: `/risk?tickers=DEMO-A,DEMO-D&start=2022-01-01`, one param per field.
+// Demo inputs only: My data needs the visitor's own key, so a link never carries it.
+const URL_CODEC = fieldsCodec(DEMO_DEFAULTS);
 
 function percentToDecimal(raw: string): number | null {
   if (raw.trim() === "") return null;
@@ -51,8 +81,9 @@ function percentToDecimal(raw: string): number | null {
 }
 
 /** Empty inputs go to the API as null so it reports the field. */
-function toRequest(form: Form) {
+function toRequest(form: Form, source: PriceSource) {
   return {
+    source,
     tickers: form.tickers
       .split(/[\s,]+/)
       .map((t) => t.trim())
@@ -62,6 +93,8 @@ function toRequest(form: Form) {
     end: form.end || null,
     confidence: percentToDecimal(form.confidence),
     risk_free_rate: percentToDecimal(form.risk_free_rate),
+    period: form.period,
+    rolling_window: form.rolling_window.trim() === "" ? null : Number(form.rolling_window),
   };
 }
 
@@ -75,20 +108,52 @@ function dateMarker(result: MetricResult | undefined, key: string, label: string
   return typeof iso === "string" ? [{ x: Date.parse(iso), label }] : [];
 }
 
+type FactorCopy = ReturnType<typeof getMessages>["risk"]["factors"];
+type PeriodCopy = ReturnType<typeof getMessages>["risk"]["timescale"]["periods"];
+
+/** The line under a factor regression value: its t-statistic, or for R² the returns used
+ * (days, weeks, ... after the regression's return period: the request's, or for a
+ * monthly uploaded factor file "monthly", named in `details.period`). */
+function factorNote(result: MetricResult | undefined, copy: FactorCopy, periods: PeriodCopy): string | undefined {
+  if (result?.status !== "ok") return undefined;
+  const { t_stat: t, observations: n, period } = result.details;
+  const noun = periods[typeof period === "string" && period in periods ? (period as keyof PeriodCopy) : "daily"].noun;
+  if (typeof n === "number") return copy.observations(formatCount(n), noun, n);
+  if (typeof t === "number") return `${copy.tStat} ${formatValue(t, "ratio")}`;
+  return copy.exactFit;
+}
+
+/** Where the factors came from, from the first factor result that names it. */
+function factorSource(result: { metrics: Record<string, MetricResult> } | null | undefined): string | undefined {
+  const named = Object.values(result?.metrics ?? {}).find((m) => typeof m.details.factor_source === "string");
+  return named?.details.factor_source as string | undefined;
+}
+
 export function RiskTool() {
   const t = getMessages();
   const r = t.risk;
-  const [form, setForm] = useState<Form>(DEFAULTS);
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const providers = useMyDataProviders();
+  const [chosen, setChosen] = useState<PriceSource>(DEMO_SOURCE);
+  // A provider whose key is gone falls back to demo data.
+  const source: PriceSource = chosen !== DEMO_SOURCE && !providers.includes(chosen) ? DEMO_SOURCE : chosen;
+  const [forms, setForms] = useState<Partial<Record<PriceSource, Form>>>(() => ({ [DEMO_SOURCE]: initial }));
+  const form = forms[source] ?? defaultsFor(source);
   const [chartTicker, setChartTicker] = useState<string | null>(null);
-  const { result, fieldErrors, error, run } = useCompute<string, string>("/risk/metrics", toRequest(form));
-  const set = (field: keyof Form) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
+  const { result, fieldErrors, error, run } = useCompute<string, string>("/risk/metrics", toRequest(form, source));
+  const set = (field: keyof Form) => (value: string) =>
+    setForms((all) => ({ ...all, [source]: { ...(all[source] ?? defaultsFor(source)), [field]: value } }));
+  const hints = source === DEMO_SOURCE ? r.inputs : { ...r.inputs, ...r.myDataInputs };
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (source === DEMO_SOURCE) share(form);
     run();
   }
 
-  const params = result?.meta.parameters as { tickers: string[]; benchmark: string } | undefined;
+  const params = result?.meta.parameters as
+    | { tickers: string[]; benchmark: string; period: ReturnPeriod }
+    | undefined;
   const benchmark = params?.benchmark ?? "";
   const symbols = params ? [...new Set([...params.tickers, benchmark])] : [];
   const label = (ticker: string) => (ticker === benchmark ? `${ticker} ${r.benchmarkSuffix}` : ticker);
@@ -112,7 +177,22 @@ export function RiskTool() {
             : []),
         ]
       : [];
-  const markers = [...dateMarker(mdd, "peak", r.chart.peak), ...dateMarker(mdd, "trough", r.chart.trough)];
+  const markers = [
+    ...dateMarker(mdd, "peak", r.chart.peak),
+    ...dateMarker(mdd, "trough", r.chart.trough),
+    ...dateMarker(mdd, "recovery", r.chart.recovery),
+  ];
+  const bands: ChartBand[] = (selected ? result?.series[`drawdown:${selected}`]?.bands ?? [] : []).map((b) => ({
+    start: Date.parse(String(b.start)),
+    end: Date.parse(String(b.end)),
+    label: r.chart.band,
+    color: "#dc2626",
+  }));
+  const factorSourceId = factorSource(result);
+  const factorSourceText =
+    factorSourceId && factorSourceId in r.factors.source
+      ? r.factors.source[factorSourceId as keyof typeof r.factors.source]
+      : undefined;
 
   return (
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
@@ -120,10 +200,12 @@ export function RiskTool() {
         <h2 id="risk-inputs" className="text-lg font-semibold">
           {r.inputsHeading}
         </h2>
+        <DataModeToggle providers={providers} value={source} onChange={setChosen} />
+        {source !== DEMO_SOURCE && <FactorFiles onChange={run} />}
         <TextField
           name="tickers"
           label={r.inputs.tickers.label}
-          hint={r.inputs.tickers.hint}
+          hint={hints.tickers.hint}
           value={form.tickers}
           onChange={set("tickers")}
           error={fieldErrors.tickers}
@@ -131,7 +213,7 @@ export function RiskTool() {
         <TextField
           name="benchmark"
           label={r.inputs.benchmark.label}
-          hint={r.inputs.benchmark.hint}
+          hint={hints.benchmark.hint}
           value={form.benchmark}
           onChange={set("benchmark")}
           error={fieldErrors.benchmark}
@@ -141,7 +223,7 @@ export function RiskTool() {
             type="date"
             name="start"
             label={r.inputs.start.label}
-            hint={r.inputs.start.hint}
+            hint={hints.start.hint}
             value={form.start}
             onChange={set("start")}
             error={fieldErrors.start}
@@ -150,7 +232,7 @@ export function RiskTool() {
             type="date"
             name="end"
             label={r.inputs.end.label}
-            hint={r.inputs.end.hint}
+            hint={hints.end.hint}
             value={form.end}
             onChange={set("end")}
             error={fieldErrors.end}
@@ -160,7 +242,7 @@ export function RiskTool() {
           <NumberField
             name="confidence"
             label={r.inputs.confidence.label}
-            hint={r.inputs.confidence.hint}
+            hint={hints.confidence.hint}
             value={form.confidence}
             onChange={set("confidence")}
             error={fieldErrors.confidence}
@@ -168,12 +250,21 @@ export function RiskTool() {
           <NumberField
             name="risk_free_rate"
             label={r.inputs.risk_free_rate.label}
-            hint={r.inputs.risk_free_rate.hint}
+            hint={hints.risk_free_rate.hint}
             value={form.risk_free_rate}
             onChange={set("risk_free_rate")}
             error={fieldErrors.risk_free_rate}
           />
         </div>
+        <TimescaleInputs
+          period={form.period}
+          rollingWindow={form.rolling_window}
+          onPeriod={(period) =>
+            setForms((all) => ({ ...all, [source]: { ...(all[source] ?? defaultsFor(source)), period } }))
+          }
+          onRollingWindow={set("rolling_window")}
+          fieldErrors={fieldErrors}
+        />
         <button
           type="submit"
           className="w-full rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
@@ -190,27 +281,52 @@ export function RiskTool() {
             message={error}
           />
         )}
-        <div>
-          <h2 className="text-lg font-semibold">{r.sections.metrics}</h2>
-          <div className="mt-2 grid gap-4 xl:grid-cols-3">
-            {METRICS.map((id) => (
-              <MetricCard
-                key={id}
-                id={id}
-                explainer={r.metrics[id]}
-                values={
-                  symbols.length
-                    ? symbols.map((ticker) => ({
-                        id: `${id}:${ticker}`,
-                        label: label(ticker),
-                        result: result?.metrics[`${id}:${ticker}`],
-                      }))
-                    : [{ id: `${id}:pending`, result: undefined }]
-                }
-              />
-            ))}
+        {result && params && (
+          <div className="flex justify-end">
+            <ExportCsvButton
+              label={r.csvLabel}
+              filename={csvFilename("risk", "metrics", params.tickers.join("_"))}
+              demo={result.source.is_demo}
+              table={{
+                columns: [t.common.csv.ticker, ...ALL_METRICS.map((id) => r.metrics[id].name)],
+                rows: symbols.map((ticker) => [ticker, ...ALL_METRICS.map((id) => result.metrics[`${id}:${ticker}`])]),
+              }}
+            />
           </div>
-        </div>
+        )}
+        <PeriodNote period={params?.period} />
+        {(Object.keys(METRIC_GROUPS) as (keyof typeof METRIC_GROUPS)[]).map((group) => (
+          <div key={group}>
+            <h2 className="text-lg font-semibold">{r.sections[group]}</h2>
+            {group === "ff3" && factorSourceText && (
+              <p data-testid="factor-source" className="mt-1 text-sm text-black/70 dark:text-white/70">
+                {factorSourceText}
+              </p>
+            )}
+            <div className="mt-2 grid gap-4 xl:grid-cols-3">
+              {METRIC_GROUPS[group].map((id: MetricId) => (
+                <MetricCard
+                  key={id}
+                  id={id}
+                  explainer={r.metrics[id]}
+                  values={
+                    symbols.length
+                      ? symbols.map((ticker) => {
+                          const value = result?.metrics[`${id}:${ticker}`];
+                          return {
+                            id: `${id}:${ticker}`,
+                            label: label(ticker),
+                            result: value,
+                            note: FACTOR_GROUPS.has(group) ? factorNote(value, r.factors, r.timescale.periods) : undefined,
+                          };
+                        })
+                      : [{ id: `${id}:pending`, result: undefined }]
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        ))}
         <div>
           <div className="flex flex-wrap items-end justify-between gap-2">
             <h2 className="text-lg font-semibold">{r.sections.chart}</h2>
@@ -240,6 +356,7 @@ export function RiskTool() {
                 formatX={formatChartDate}
                 formatY={formatChartPercent}
                 markers={markers}
+                bands={bands}
               />
             )}
           </div>
@@ -251,7 +368,14 @@ export function RiskTool() {
             </p>
           )}
         </div>
+        {result && <RollingCharts result={result} symbols={symbols} benchmark={benchmark} label={label} />}
+        {result && params && (
+          <ReturnDistribution result={result} symbols={symbols} label={label} period={params.period} />
+        )}
+        <ModelChecks result={result} symbols={symbols} label={label} />
+        {result && <TechnicalAnalysis selection={result.meta.parameters as RiskSelection} />}
         {result && <CalculationInfo result={result} />}
+        {result && <AiExplain tool="risk" result={result} />}
       </section>
     </div>
   );

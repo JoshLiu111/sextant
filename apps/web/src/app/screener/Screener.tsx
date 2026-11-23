@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { MetricExplainer } from "@/components/MetricExplainer";
 import { getMessages } from "@/i18n";
-import type { ResultEnvelope } from "@/lib/envelope";
+import { csvFilename } from "@/lib/csv";
+import type { DataSource, ResultEnvelope } from "@/lib/envelope";
+import { PROVIDER_NAMES, useMyDataProviders, type MyDataProvider } from "@/lib/myData";
+import { decodeRows, encodeRows, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
 // Mirrors ScreenEnvelope in apps/compute/sextant_compute/screener/api.py.
@@ -18,7 +23,9 @@ type MetricId =
   | "net_margin"
   | "roe"
   | "debt_ratio"
-  | "current_ratio";
+  | "current_ratio"
+  | "change_52w"
+  | "from_52w_high";
 type Op = "min" | "max";
 type SortColumn = "ticker" | "name" | MetricId;
 type Direction = "asc" | "desc";
@@ -36,6 +43,8 @@ type ScreenResult = ResultEnvelope & {
   universe: number;
   matched: number;
   excluded: { total: number; by_criterion: Exclusion[] };
+  price_source: DataSource | null;
+  prices_as_of: string | null;
 };
 type Query = { criteria: Criterion[]; year: number | null; sort: SortColumn; direction: Direction };
 
@@ -49,6 +58,9 @@ const METRICS: MetricId[] = [
   "debt_ratio",
   "current_ratio",
 ];
+// My data only: offered to users with a price data key, run on their own provider.
+const PRICE_METRICS: MetricId[] = ["change_52w", "from_52w_high"];
+const MAX_PRICED = 25; // MAX_PRICED in screener/api.py
 // How each metric's value is entered: percent for decimals, USD millions for revenue.
 const UNIT: Record<MetricId, "decimal" | "currency" | "ratio"> = {
   revenue: "currency",
@@ -59,6 +71,8 @@ const UNIT: Record<MetricId, "decimal" | "currency" | "ratio"> = {
   roe: "decimal",
   debt_ratio: "decimal",
   current_ratio: "ratio",
+  change_52w: "decimal",
+  from_52w_high: "decimal",
 };
 const SCALE = { decimal: 100, currency: 1e-6, ratio: 1 } as const;
 
@@ -72,7 +86,8 @@ const DEFAULT_ROWS: FormRow[] = [
 function toCriterion(row: FormRow): Criterion {
   const raw = row.value.trim();
   const n = raw === "" ? null : Number(raw);
-  const value = n === null || Number.isNaN(n) ? null : n / SCALE[UNIT[row.metric]];
+  // An unknown metric (from a hand-edited link) goes as is: the API names the field.
+  const value = n === null || Number.isNaN(n) ? null : n / (SCALE[UNIT[row.metric]] ?? 1);
   return { metric: row.metric, op: row.op, value };
 }
 
@@ -97,6 +112,43 @@ const DEFAULT_QUERY: Query = {
   sort: "revenue",
   direction: "desc",
 };
+
+// Shareable links: `/screener?criteria=revenue_growth:min:10,roe:min:15&year=2024&sort=roe&direction=desc`.
+// Criteria values are in the form's units (percent, USD millions).
+type UrlForm = { rows: FormRow[]; year: string; sort: string; direction: string };
+const URL_CODEC: UrlCodec<UrlForm> = {
+  keys: ["criteria", "year", "sort", "direction"],
+  read(params) {
+    const raw = params.get("criteria");
+    const rows =
+      raw === null
+        ? DEFAULT_ROWS
+        : decodeRows(raw, 3).map(([metric, op, value], i) => ({ key: i + 1, metric: metric as MetricId, op: op as Op, value }));
+    return {
+      rows,
+      year: params.get("year") ?? "",
+      sort: params.get("sort") ?? DEFAULT_QUERY.sort,
+      direction: params.get("direction") ?? DEFAULT_QUERY.direction,
+    };
+  },
+  write: ({ rows, year, sort, direction }) => ({
+    criteria: encodeRows(rows.map((r) => [r.metric, r.op, r.value])),
+    year: year || null,
+    sort,
+    direction,
+  }),
+};
+
+/** The screen a link asks for. Bad values go as typed so the API reports them. */
+function toQuery({ rows, year, sort, direction }: UrlForm): Query {
+  const n = Number(year);
+  return {
+    criteria: rows.map(toCriterion),
+    year: year === "" ? null : Number.isInteger(n) ? n : (year as unknown as number),
+    sort: sort as SortColumn,
+    direction: direction as Direction,
+  };
+}
 
 /** The default (latest complete) year and the seven before it. */
 function yearOptions(latest: number | undefined): number[] {
@@ -141,12 +193,24 @@ const inputClass =
 export function Screener() {
   const t = getMessages();
   const s = t.screener;
-  const [rows, setRows] = useState<FormRow[]>(DEFAULT_ROWS);
-  const [nextKey, setNextKey] = useState(DEFAULT_ROWS.length + 1);
-  const [year, setYear] = useState("");
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [rows, setRows] = useState<FormRow[]>(initial.rows);
+  const [nextKey, setNextKey] = useState(initial.rows.length + 1);
+  const [year, setYear] = useState(initial.year);
   // Only a submitted screen is fetched: editing criteria doesn't hit EDGAR.
-  const [query, setQuery] = useState<Query>(DEFAULT_QUERY);
-  const { result, fieldErrors, error, pending, run } = useCompute("/screener/screen", query);
+  const [query, setQuery] = useState<Query>(() => toQuery(initial));
+  // The form as last submitted: sorting re-shares it, not unsubmitted edits.
+  const [submitted, setSubmitted] = useState({ rows: initial.rows, year: initial.year });
+  // Price criteria run on the user's own provider (their pick when they have
+  // several keys); a link with them opened without a key gets the API's
+  // "needs My data" message on the criterion.
+  const providers = useMyDataProviders();
+  const [chosenProvider, setChosenProvider] = useState<MyDataProvider | null>(null);
+  const priceSource =
+    chosenProvider !== null && providers.includes(chosenProvider) ? chosenProvider : (providers[0] ?? null);
+  const hasPriceCriteria = query.criteria.some((c) => PRICE_METRICS.includes(c.metric));
+  const body = hasPriceCriteria && priceSource ? { ...query, price_source: priceSource } : query;
+  const { result, fieldErrors, error, pending, run } = useCompute("/screener/screen", body);
   const screen = result as ScreenResult | null;
 
   function update(key: number, patch: Partial<FormRow>) {
@@ -164,15 +228,19 @@ export function Screener() {
       sort,
       direction: sort === query.sort ? query.direction : "desc",
     };
+    setSubmitted({ rows, year });
+    share({ rows, year, sort: next.sort, direction: next.direction });
     if (JSON.stringify(next) === JSON.stringify(query)) run();
     else setQuery(next);
   }
 
   function sortBy(column: SortColumn) {
-    setQuery((q) => {
-      if (q.sort === column) return { ...q, direction: q.direction === "asc" ? "desc" : "asc" };
-      return { ...q, sort: column, direction: column === "ticker" || column === "name" ? "asc" : "desc" };
-    });
+    const next: Query =
+      query.sort === column
+        ? { ...query, direction: query.direction === "asc" ? "desc" : "asc" }
+        : { ...query, sort: column, direction: column === "ticker" || column === "name" ? "asc" : "desc" };
+    share({ ...submitted, sort: next.sort, direction: next.direction });
+    setQuery(next);
   }
 
   const sortProps = { sort: query.sort, direction: query.direction, onSort: sortBy };
@@ -201,7 +269,7 @@ export function Screener() {
                     onChange={(e) => update(row.key, { metric: e.target.value as MetricId })}
                     className={inputClass}
                   >
-                    {METRICS.map((m) => (
+                    {[...METRICS, ...(priceSource || PRICE_METRICS.includes(row.metric) ? PRICE_METRICS : [])].map((m) => (
                       <option key={m} value={m}>
                         {s.metrics[m]}
                       </option>
@@ -290,7 +358,26 @@ export function Screener() {
             {s.run}
           </button>
         </div>
-        <p className="text-xs text-black/50 dark:text-white/50">{s.noPriceCriteria}</p>
+        {priceSource && providers.length > 1 && (
+          <label className="block text-sm font-medium">
+            {s.priceCriteria.provider}
+            <select
+              name="price_source"
+              value={priceSource}
+              onChange={(e) => setChosenProvider(e.target.value as MyDataProvider)}
+              className={`${inputClass} sm:max-w-xs`}
+            >
+              {providers.map((p) => (
+                <option key={p} value={p}>
+                  {PROVIDER_NAMES[p]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <p data-testid="price-criteria-note" className="text-xs text-black/50 dark:text-white/50">
+          {priceSource ? s.priceCriteria.myData(PROVIDER_NAMES[priceSource], MAX_PRICED) : s.priceCriteria.signIn}
+        </p>
       </form>
 
       <div data-testid="results" aria-busy={pending} className="min-w-0 space-y-4">
@@ -322,11 +409,35 @@ export function Screener() {
                     ))}
                 </ul>
               )}
+              {screen.price_source && (
+                <p data-testid="prices-info" className="text-black/70 dark:text-white/70">
+                  {s.pricesInfo(screen.price_source.name, screen.prices_as_of ?? "–")}
+                </p>
+              )}
               <MetricExplainer explainer={s.explainer} />
+              {screen.price_source && <MetricExplainer explainer={s.priceExplainer} />}
             </div>
             {screen.rows.length === 0 ? (
               <p className="text-sm text-black/60 dark:text-white/60">{s.noMatches}</p>
             ) : (
+              <div className="flex justify-end">
+                <ExportCsvButton
+                  label={s.resultsLabel}
+                  filename={csvFilename("screener", "results", String(screen.year))}
+                  demo={screen.source.is_demo}
+                  table={{
+                    columns: [s.ticker, s.company, ...screen.columns.map((c) => c.label), s.fiscalYearEnd],
+                    rows: screen.rows.map((r) => [
+                      r.ticker,
+                      r.name,
+                      ...screen.columns.map((c) => r.values[c.id]),
+                      r.period_end,
+                    ]),
+                  }}
+                />
+              </div>
+            )}
+            {screen.rows.length > 0 && (
               <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
                 <table aria-label={s.resultsLabel} className="w-full min-w-[40rem] border-collapse text-sm">
                   <thead>
@@ -356,7 +467,10 @@ export function Screener() {
                         ))}
                         <td className="px-2 py-1.5 text-right font-mono text-xs">{r.period_end ?? "–"}</td>
                         <td className="whitespace-nowrap px-2 py-1.5">
-                          <Link href={`/company?ticker=${encodeURIComponent(r.ticker)}`} className="underline">
+                          <Link
+                            href={`/company?companies=${encodeURIComponent(r.ticker)}&ticker=${encodeURIComponent(r.ticker)}`}
+                            className="underline"
+                          >
                             {s.healthCheck}
                           </Link>{" "}
                           ·{" "}
@@ -372,6 +486,7 @@ export function Screener() {
             )}
             <p className="text-xs text-black/50 dark:text-white/50">{s.unitsNote}</p>
             <CalculationInfo result={screen} />
+            <AiExplain tool="screener" result={screen} />
           </>
         ) : (
           !error && <p className="text-sm text-black/60 dark:text-white/60">{s.loading}</p>

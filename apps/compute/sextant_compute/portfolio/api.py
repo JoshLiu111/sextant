@@ -11,20 +11,21 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import date
-from typing import Annotated, Literal
+from typing import Annotated
 
 import pandas as pd
 from fastapi import APIRouter
-from pydantic import BaseModel, ValidationInfo, field_validator
+from pydantic import BaseModel, field_validator
 from pydantic_core import PydanticCustomError
 
 from sextant_compute.analytics import performance, portfolio
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data, DataService, PriceHistory
+from sextant_compute.data.sources import DEMO_SOURCE, is_demo_ticker
 from sextant_compute.envelope import MetricResult, ResultEnvelope, SeriesResult, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
-from sextant_compute.risk.api import Ticker
+from sextant_compute.request_models import PriceRangeRequest, Ticker
 from sextant_compute.risk.metrics import date_series, risk_metric_set
 
 router = APIRouter(tags=["portfolio"])
@@ -49,27 +50,16 @@ def _percent(x: float) -> str:
     return f"{x * 100:.2f}".rstrip("0").rstrip(".") + "%"
 
 
-class AnalysisSettings(BaseModel):
+class AnalysisSettings(PriceRangeRequest):
     """How a portfolio is scored: benchmark, date range, VaR confidence, risk-free rate, data source."""
 
     benchmark: Ticker = "DEMO-MKT"
-    start: date
-    end: date
     confidence: Annotated[
         float, check(lambda v: 0.5 <= v <= 0.999, "Enter a confidence level between 50% and 99.9%.")
     ] = 0.95
     risk_free_rate: Annotated[
         float, check(lambda v: -0.05 <= v <= 0.2, "Enter a risk-free rate between -5% and 20%.")
     ] = 0.0
-    source: Literal["synthetic"] = "synthetic"
-
-    @field_validator("end")
-    @classmethod
-    def _end_after_start(cls, end: date, info: ValidationInfo) -> date:
-        start = info.data.get("start")
-        if start is not None and end <= start:
-            raise PydanticCustomError(INPUT_ERROR, "End date must be after the start date.")
-        return end
 
 
 class PortfolioRequest(AnalysisSettings):
@@ -101,26 +91,76 @@ def _fields_for(exc: NoSuchData, tickers: Sequence[str], benchmark: str) -> dict
     return fields
 
 
+def fetch_prices(
+    data: DataService,
+    ctx: RequestContext,
+    symbols: Sequence[str],
+    start: date,
+    end: date,
+    source: str,
+    *,
+    allow_missing: bool = False,
+) -> PriceHistory:
+    """Prices for every symbol, or ``NoSuchData`` naming each symbol that has none.
+
+    On My data each ticker is fetched and cached on its own (``partial``), sharing
+    entries with Risk & Performance, and demo tickers are never sent to the provider.
+    With ``allow_missing`` (saved portfolios on My data, like Risk & Performance) the
+    symbols without prices come back in ``PriceHistory.missing`` instead; a portfolio
+    built from weights can't be scored with a holding missing, so it fails instead.
+    Demo data always fails on an unknown ticker (the demo set is small and listed).
+    """
+    if source == DEMO_SOURCE:
+        return data.daily_prices(ctx, symbols, start, end, source=source)
+    provider = data.source_info(source).name
+    demo = {
+        s: f"{s} is a demo ticker, so it only has Demo data. My data uses real tickers from {provider}, like AAPL."
+        for s in symbols
+        if is_demo_ticker(s)
+    }
+    if demo and not allow_missing:
+        raise NoSuchData(source, " ".join(demo.values()), demo)
+    real = [s for s in symbols if s not in demo]
+    prices = data.daily_prices(ctx, real, start, end, source=source, partial=True) if real else None
+    missing = {**demo, **(prices.missing if prices else {})}
+    if missing and not allow_missing:
+        raise NoSuchData(source, " ".join(missing.values()), missing)
+    return PriceHistory(data.source_info(source), prices.frames if prices else {}, missing)
+
+
 def load_prices(
-    data: DataService, ctx: RequestContext, tickers: Sequence[str], settings: AnalysisSettings
+    data: DataService,
+    ctx: RequestContext,
+    tickers: Sequence[str],
+    settings: AnalysisSettings,
+    *,
+    allow_missing: bool = False,
 ) -> tuple[PriceHistory, dict[str, pd.DataFrame]]:
     """Prices for the holdings and the benchmark, restricted to the trading days every symbol has.
 
     Scoring portfolio and benchmark on the same days keeps them comparable.
-    Unknown tickers come back as field errors on their holding row.
+    Unknown tickers come back as field errors on their holding row, or with
+    ``allow_missing`` in ``PriceHistory.missing`` (and not in the frames). The
+    benchmark must have prices either way.
     """
     symbols = list(dict.fromkeys([*tickers, settings.benchmark]))
     try:
-        prices = data.daily_prices(ctx, symbols, settings.start, settings.end, source=settings.source)
+        prices = fetch_prices(
+            data, ctx, symbols, settings.start, settings.end, settings.source, allow_missing=allow_missing
+        )
     except NoSuchData as exc:
         raise ApiError(422, "no_such_data", exc.message, _fields_for(exc, tickers, settings.benchmark)) from exc
-    common = prices.frames[symbols[0]].index
-    for symbol in symbols[1:]:
+    if settings.benchmark in prices.missing:
+        message = prices.missing[settings.benchmark]
+        raise ApiError(422, "no_such_data", message, {"benchmark": message})
+    present = [s for s in symbols if s not in prices.missing]
+    common = prices.frames[present[0]].index
+    for symbol in present[1:]:
         common = common.intersection(prices.frames[symbol].index)
     if len(common) < 2:
         message = "The holdings and the benchmark share fewer than 2 trading days in this range."
         raise ApiError(422, "no_such_data", message, {"start": message})
-    return prices, {s: prices.frames[s].loc[common] for s in symbols}
+    return prices, {s: prices.frames[s].loc[common] for s in present}
 
 
 def returns_of(frame: pd.DataFrame) -> pd.Series:

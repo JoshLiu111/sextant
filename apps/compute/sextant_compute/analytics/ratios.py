@@ -29,9 +29,11 @@ from typing import Literal, NamedTuple
 from sextant_compute.analytics.errors import MissingData
 from sextant_compute.analytics.guards import positive
 
-Category = Literal["efficiency", "liquidity", "profitability", "solvency", "valuation", "distress"]
-CATEGORIES: tuple[Category, ...] = ("efficiency", "liquidity", "profitability", "solvency", "valuation", "distress")
-RatioUnit = Literal["ratio", "decimal", "days", "currency", "per_share", "score"]  # envelope units
+Category = Literal[
+    "efficiency", "liquidity", "profitability", "solvency", "valuation", "scores", "piotroski", "dupont"
+]
+CATEGORIES: tuple[Category, ...] = ("efficiency", "liquidity", "profitability", "solvency", "valuation")
+RatioUnit = Literal["ratio", "decimal", "days", "currency", "per_share", "score", "signal"]  # envelope units
 DAYS = 365
 
 Detail = str | float | int | None
@@ -52,6 +54,7 @@ class PeriodValues:
     label: str  # "FY2025"
     values: Mapping[str, float]
     missing: Mapping[str, str] = field(default_factory=dict)
+    period_id: str = ""  # for ``Trace``: which period a read came from
 
     def get(self, item_id: str, label: str) -> float:
         if item_id in self.values:
@@ -59,8 +62,27 @@ class PeriodValues:
         raise MissingData(self.missing.get(item_id) or f"{label} is not reported for {self.label}.")
 
 
+Read = tuple[str, str]  # (period id, item id)
+
+
+class Trace:
+    """Records every line item a computation reads, in order, so a caller can
+    show a ratio's inputs. Share one across a chain of ``Year``s (``last_year``)."""
+
+    def __init__(self) -> None:
+        self.reads: list[Read] = []
+
+    def clear(self) -> None:
+        self.reads.clear()
+
+    def unique(self) -> list[Read]:
+        return list(dict.fromkeys(self.reads))
+
+
 class Year:
-    """One fiscal period, with the prior period for averages."""
+    """One fiscal period, with the prior period for averages. On quarterly data
+    the caller passes trailing-twelve-month flows and the year-earlier quarter
+    as ``prior``, so every ratio reads the same way."""
 
     def __init__(
         self,
@@ -70,16 +92,25 @@ class Year:
         *,
         is_latest: bool,
         price: float | None = None,
+        earlier: Year | None = None,
+        trace: Trace | None = None,
     ) -> None:
         self.current = current
         self.prior = prior
         self.labels = labels
         self.is_latest = is_latest
         self._price = price
+        self._earlier = earlier
+        self._trace = trace
+
+    def _read(self, values: PeriodValues, item_id: str) -> float:
+        if self._trace is not None:
+            self._trace.reads.append((values.period_id, item_id))
+        return values.get(item_id, self.label(item_id))
 
     def __call__(self, item_id: str) -> float:
         """The period's reported value (``MissingData`` names the item if absent)."""
-        return self.current.get(item_id, self.label(item_id))
+        return self._read(self.current, item_id)
 
     def label(self, item_id: str) -> str:
         return self.labels.get(item_id, item_id)
@@ -91,7 +122,24 @@ class Year:
                 f"Needs the prior year's {self.label(item_id)} for the average balance, "
                 f"and {self.current.label} is the earliest year in the data."
             )
-        return (self.prior.get(item_id, self.label(item_id)) + self(item_id)) / 2
+        return (self._read(self.prior, item_id) + self(item_id)) / 2
+
+    def opening(self, item_id: str) -> float:
+        """The prior year end's balance (the opening balance of this period)."""
+        if self.prior is None:
+            raise MissingData(
+                f"Needs the prior year's {self.label(item_id)} for the opening balance, "
+                f"and {self.current.label} is the earliest year in the data."
+            )
+        return self._read(self.prior, item_id)
+
+    def last_year(self) -> Year:
+        """The prior fiscal period, for year-over-year changes."""
+        if self._earlier is None:
+            raise MissingData(
+                f"Needs the prior year to compare with, and {self.current.label} is the earliest year in the data."
+            )
+        return self._earlier
 
     def total_debt(self) -> float:
         return self("current_debt") + self("long_term_debt")
@@ -273,4 +321,4 @@ RATIOS: tuple[Ratio, ...] = (
     Ratio("dividend_yield", "valuation", "decimal", _dividend_yield),
 )
 
-ALTMAN_Z = Ratio("altman_z", "distress", "score", altman_z)
+ALTMAN_Z = Ratio("altman_z", "scores", "score", altman_z)

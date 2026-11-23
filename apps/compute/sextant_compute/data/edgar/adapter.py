@@ -12,9 +12,12 @@ from sextant_compute.data.adapters import Scope
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.edgar.client import DATA_URL, SOURCE_ID, WWW_URL, EdgarClient, NotFound
+from sextant_compute.data.dividends import DividendHistory
+from sextant_compute.data.edgar.dividends import dividend_history
 from sextant_compute.data.edgar.feeds import getcurrent_path, parse_getcurrent, parse_submissions
 from sextant_compute.data.edgar.frames import FrameKey, frame_keys, frame_path, parse_frame, specs_needed, unify
 from sextant_compute.data.edgar.mapping import LineItemSpec, Tag, line_items
+from sextant_compute.data.edgar.quarterly import standardize_quarterly
 from sextant_compute.data.edgar.standardize import standardize
 from sextant_compute.data.errors import NoSuchData, SourceUnavailable
 from sextant_compute.data.filings import FilingList
@@ -34,7 +37,8 @@ def normalize_ticker(ticker: str) -> str:
 
 class EdgarAdapter:
     """Public SEC data: shared cache. Datasets: ``financial_statements``,
-    ``cross_sections`` (frames), ``latest_filings``, ``company_filings``.
+    ``quarterly_statements``, ``cross_sections`` (frames), ``latest_filings``,
+    ``company_filings``, ``dividends``.
 
     The ticker map (``company_tickers.json``, about 10k rows, changes daily) is
     kept in process for ``TICKER_MAP_TTL``; statements are cached by DataService.
@@ -46,12 +50,14 @@ class EdgarAdapter:
     # Frames change as filings arrive, slowly; feeds are "latest", so minutes.
     ttl = {
         "financial_statements": 24 * 3600,
+        "quarterly_statements": 24 * 3600,
         "cross_sections": 24 * 3600,
         "latest_filings": 5 * 60,
         "company_filings": 10 * 60,
+        "dividends": 24 * 3600,
     }
     # Bump when the mapping file, the standardizer or the output shape changes.
-    version = "2"
+    version = "5"
 
     def __init__(
         self,
@@ -168,19 +174,40 @@ class EdgarAdapter:
             )
         return Company(ticker=symbol, cik=hit[0], name=hit[1])
 
-    def financial_statements(self, ctx: RequestContext, ticker: str) -> FinancialStatements:
-        """Every annual fiscal period in the company's XBRL data, oldest first."""
-        company = self.resolve(ctx, ticker)
+    def _companyfacts(self, company: Company) -> dict[str, Any] | None:
+        """The company's XBRL facts, or None if SEC has none for it."""
         try:
             body: Any = self._client.get_json(DATA_URL, f"/api/xbrl/companyfacts/CIK{company.cik:010d}.json")
         except NotFound:
-            body = None
-        if not isinstance(body, dict) or "facts" not in body:
-            body = None
-        statements = (
-            standardize(body, self._mapping, ticker=company.ticker, source=self.source) if body else None
-        )
+            return None
+        return body if isinstance(body, dict) and "facts" in body else None
+
+    def dividends(self, ctx: RequestContext, ticker: str) -> DividendHistory:
+        """Per-share dividends by fiscal quarter and year from the XBRL filings,
+        newest first; empty (``basis`` None) for a company that reports none."""
+        company = self.resolve(ctx, ticker)
+        body = self._companyfacts(company)
+        if body is None:
+            message = f"SEC EDGAR has no XBRL financial data for {company.ticker}."
+            raise NoSuchData(self.source.id, message, {ticker: message})
+        return dividend_history(body, company)
+
+    def financial_statements(self, ctx: RequestContext, ticker: str) -> FinancialStatements:
+        """Every annual fiscal period in the company's XBRL data, oldest first."""
+        return self._statements(ctx, ticker, standardize, "annual")
+
+    def quarterly_statements(self, ctx: RequestContext, ticker: str) -> FinancialStatements:
+        """Every fiscal quarter in the company's XBRL data, oldest first (see
+        ``data/edgar/quarterly.py``: Q4 flows are the year minus three quarters)."""
+        return self._statements(ctx, ticker, standardize_quarterly, "quarterly")
+
+    def _statements(
+        self, ctx: RequestContext, ticker: str, build: Callable[..., FinancialStatements], kind: str
+    ) -> FinancialStatements:
+        company = self.resolve(ctx, ticker)
+        body = self._companyfacts(company)
+        statements = build(body, self._mapping, ticker=company.ticker, source=self.source) if body else None
         if statements is None or not statements.periods:
-            message = f"SEC EDGAR has no annual US-GAAP financial statements for {company.ticker}."
+            message = f"SEC EDGAR has no {kind} US-GAAP financial statements for {company.ticker}."
             raise NoSuchData(self.source.id, message, {ticker: message})
         return statements

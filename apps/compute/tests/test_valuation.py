@@ -169,6 +169,40 @@ def test_a_share_price_sets_the_market_value_of_equity_for_the_weights() -> None
     assert res.json()["metrics"]["debt_weight"]["value"] == pytest.approx(50 / 350)
 
 
+def test_a_typed_in_price_compares_market_value_with_intrinsic_value() -> None:
+    # Intrinsic value is $120 (the hand-computed case); at $90 the market cap is
+    # 90 x 10M shares = 900M and the margin of safety is (120 - 90) / 120 = 25%.
+    res = post_tiny(
+        {"growth_rate": 0.10, "terminal_growth": 0.0, "discount_rate": 0.10, "forecast_years": 2, "share_price": 90}
+    )
+
+    body = res.json()
+    assert values(body, "share_price", "market_cap") == [90, 900 * M]
+    assert body["metrics"]["share_price"]["details"] == {"basis": "entered"}
+    assert body["metrics"]["margin_of_safety"]["value"] == pytest.approx(0.25)
+    assert body["metrics"]["margin_of_safety"]["unit"] == "decimal"
+    assert body["price_source"] is None
+
+
+def test_a_price_above_intrinsic_value_is_a_negative_margin_of_safety() -> None:
+    res = post_tiny(
+        {"growth_rate": 0.10, "terminal_growth": 0.0, "discount_rate": 0.10, "forecast_years": 2, "share_price": 150}
+    )
+
+    assert res.json()["metrics"]["margin_of_safety"]["value"] == pytest.approx(-0.25)
+
+
+def test_without_a_price_the_market_comparison_says_a_price_is_needed() -> None:
+    res = post_tiny({})
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    for metric_id in ("share_price", "market_cap", "margin_of_safety"):
+        assert body["metrics"][metric_id]["status"] == "missing_data"
+        assert "share price" in body["metrics"][metric_id]["reason"]
+    assert body["metrics"]["intrinsic_value_per_share"]["status"] == "ok"
+
+
 def test_the_sensitivity_center_cell_equals_the_base_case() -> None:
     res = post_tiny({"growth_rate": 0.10, "terminal_growth": 0.0, "discount_rate": 0.10, "forecast_years": 2})
 

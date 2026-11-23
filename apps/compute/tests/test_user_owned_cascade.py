@@ -43,11 +43,67 @@ def _portfolio_holding_row(conn: psycopg.Connection, user_id) -> None:
     )
 
 
+def _portfolio_transaction_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO portfolio_transactions"
+        " (portfolio_id, import_id, line, trade_date, ticker, side, quantity, price, fees, currency)"
+        " SELECT id, gen_random_uuid(), 2, '2024-01-05', 'DEMO-A', 'buy', 10, 100, 1, 'USD'"
+        " FROM portfolios WHERE user_id = %s LIMIT 1",
+        (user_id,),
+    )
+
+
+def _ai_usage_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO ai_usage (user_id, tool, input_tokens, output_tokens) VALUES (%s, 'options', 1000, 200)",
+        (user_id,),
+    )
+
+
+def _provider_key_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO provider_keys (user_id, provider, nonce, ciphertext, hint)"
+        " VALUES (%s, 'tiingo', %s, %s, 'abcd')",
+        (user_id, os.urandom(12), os.urandom(56)),
+    )
+
+
+def _valuation_assumptions_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO valuation_assumptions (user_id, ticker, name, assumptions)"
+        " VALUES (%s, 'MSFT', 'Cascade test', '{}'::jsonb)",
+        (user_id,),
+    )
+
+
+def _user_data_cache_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO user_data_cache (cache_key, user_id, source, value, expires_at)"
+        " VALUES (%s, %s, 'tiingo', '{}'::jsonb, now() + interval '1 hour')",
+        (f"v1:user:{user_id}:tiingo@1:daily_prices:cascade", user_id),
+    )
+
+
+def _user_factor_file_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO user_factor_files (user_id, kind, filename, frequency, factors)"
+        " VALUES (%s, 'three_factor', 'F-F_Research_Data_Factors.CSV', 'monthly',"
+        " '{\"dates\": [], \"order\": [], \"columns\": {}}'::jsonb)",
+        (user_id,),
+    )
+
+
 # table name -> inserts one row owned by user_id. Order matters: parents first.
 USER_OWNED_ROWS: dict[str, RowFactory] = {
     "sessions": _session_row,
     "portfolios": _portfolio_row,
     "portfolio_holdings": _portfolio_holding_row,
+    "portfolio_transactions": _portfolio_transaction_row,
+    "ai_usage": _ai_usage_row,
+    "provider_keys": _provider_key_row,
+    "user_data_cache": _user_data_cache_row,
+    "valuation_assumptions": _valuation_assumptions_row,
+    "user_factor_files": _user_factor_file_row,
 }
 
 

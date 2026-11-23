@@ -1,0 +1,35 @@
+[
+ {
+  "symbol": "SPY",
+  "date": "2024-03-15",
+  "recordDate": "2024-03-18",
+  "paymentDate": "2024-04-30",
+  "declarationDate": "2024-03-14",
+  "adjDividend": 1.6,
+  "dividend": 1.6,
+  "yield": 1.31,
+  "frequency": "Quarterly"
+ },
+ {
+  "symbol": "SPY",
+  "date": "2024-01-09",
+  "recordDate": "2024-01-10",
+  "paymentDate": "2024-01-31",
+  "declarationDate": "2024-01-08",
+  "adjDividend": 1.5,
+  "dividend": 1.5,
+  "yield": 1.27,
+  "frequency": "Quarterly"
+ },
+ {
+  "symbol": "SPY",
+  "date": "2023-12-15",
+  "recordDate": "2023-12-18",
+  "paymentDate": "2024-01-31",
+  "declarationDate": "2023-12-14",
+  "adjDividend": 1.9,
+  "dividend": 1.9,
+  "yield": 1.62,
+  "frequency": "Quarterly"
+ }
+]

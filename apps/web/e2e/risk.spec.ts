@@ -2,9 +2,31 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Defaults: DEMO-A, DEMO-B, DEMO-D vs DEMO-MKT, 2021-01-01 to 2025-12-31 (synthetic demo data).
 const DEFAULT_TICKERS = ["DEMO-A", "DEMO-B", "DEMO-D", "DEMO-MKT"];
-const PERCENT_METRICS = ["annualized_return", "annualized_volatility", "max_drawdown", "var", "cvar"];
+const VAR_METRICS = [
+  "var",
+  "cvar",
+  "parametric_var",
+  "parametric_cvar",
+  "cornish_fisher_var",
+  "cornish_fisher_cvar",
+];
+const PERCENT_METRICS = [
+  "annualized_return",
+  "annualized_volatility",
+  "max_drawdown",
+  ...VAR_METRICS,
+  "treynor",
+  "alpha",
+  "upside_capture",
+  "downside_capture",
+];
 const RATIO_METRICS = ["sharpe", "sortino", "beta"];
-const METRICS = [...PERCENT_METRICS, ...RATIO_METRICS];
+// The benchmark has no active return, so its information ratio is missing_data by design.
+const ACTIVE_METRICS = ["information_ratio"];
+const FF3 = ["ff3_alpha", "ff3_market", "ff3_smb", "ff3_hml", "ff3_r_squared"];
+const CARHART = ["carhart_alpha", "carhart_market", "carhart_smb", "carhart_hml", "carhart_mom", "carhart_r_squared"];
+const FACTOR_METRICS = [...FF3, ...CARHART];
+const METRICS = [...PERCENT_METRICS, ...RATIO_METRICS, ...ACTIVE_METRICS, ...FACTOR_METRICS];
 
 async function openRisk(page: Page) {
   await page.goto("/risk");
@@ -32,6 +54,10 @@ test("smoke: open the page, submit the defaults, see the results and the Demo ba
       await expect(metric(results, `${id}:${ticker}`)).toContainText(/\d\.\d{2}/);
     }
   }
+  for (const ticker of DEFAULT_TICKERS.filter((t) => t !== "DEMO-MKT")) {
+    await expect(metric(results, `information_ratio:${ticker}`)).toHaveAttribute("data-status", "ok");
+  }
+  await expect(metric(results, "information_ratio:DEMO-MKT")).toHaveAttribute("data-status", "missing_data");
   await expect(main.getByTestId("demo-badge")).toBeVisible();
   await expect(main.getByTestId("demo-badge")).toContainText("Demo data");
   await expect(main.getByTestId("calculation-id")).toContainText("calc_");
@@ -45,13 +71,55 @@ test("the underwater chart marks the start and end of the max drawdown", async (
   const chart = main.getByRole("img", { name: /underwater/i });
   await expect(chart).toBeVisible();
   // DEMO-D's injected crash bottoms on 2022-04-11, the deepest point in the default range.
-  await expect(chart.getByTestId("chart-marker")).toHaveCount(2);
+  // The third marker is its recovery (see risk-timescale.spec.ts).
+  await expect(chart.getByTestId("chart-marker")).toHaveCount(3);
   await expect(chart.getByText("Max drawdown start")).toBeAttached();
   await expect(chart.getByText("Max drawdown end")).toBeAttached();
   await expect(main.getByTestId("drawdown-window")).toContainText("2022-04-11");
 
   await chart.hover();
   await expect(main.getByTestId("chart-tooltip")).toContainText("DEMO-D");
+});
+
+test("factor regressions show coefficients, t-stats and R² for both models on demo factors", async ({ page }) => {
+  const main = await openRisk(page);
+  await expect(metric(main, "annualized_return:DEMO-A")).toHaveAttribute("data-status", "ok");
+
+  await main.getByLabel("Tickers").fill("DEMO-H, DEMO-I");
+
+  const results = main.getByTestId("results");
+  await expect(metric(results, "carhart_mom:DEMO-I")).toHaveAttribute("data-status", "ok");
+  await expect(results.getByRole("heading", { name: "Factor exposures: Fama-French 3-factor" })).toBeVisible();
+  await expect(results.getByRole("heading", { name: "Factor exposures: Carhart 4-factor" })).toBeVisible();
+  await expect(results.getByTestId("factor-source")).toContainText("synthetic demo factors");
+  const coefficients = FACTOR_METRICS.filter((m) => !m.endsWith("r_squared"));
+  for (const ticker of ["DEMO-H", "DEMO-I", "DEMO-MKT"]) {
+    for (const id of coefficients) {
+      await expect(metric(results, `${id}:${ticker}`)).toHaveAttribute("data-status", "ok");
+      // The market factor is DEMO-MKT's own excess return: an exact fit with no t-statistic.
+      await expect(metric(results, `${id}:${ticker}`)).toContainText(
+        ticker === "DEMO-MKT" ? "t: undefined (exact fit)" : /t = -?[\d,]+\.\d{2}/,
+      );
+    }
+    for (const id of ["ff3_r_squared", "carhart_r_squared"]) {
+      await expect(metric(results, `${id}:${ticker}`)).toContainText(/\d\.\d{2}/);
+      // 2021-01-01 to 2025-12-31 is 1,304 trading days, so 1,303 daily returns.
+      await expect(metric(results, `${id}:${ticker}`)).toContainText("1,303 days");
+    }
+  }
+  // DEMO-H is built with a size loading of 0.9: the regression recovers it.
+  await expect(metric(results, "ff3_smb:DEMO-H")).toContainText(/0\.(8\d|9\d)/);
+});
+
+test("a range too short for the factor regressions leaves only those metrics missing", async ({ page }) => {
+  const main = await openRisk(page);
+  await expect(metric(main, "annualized_return:DEMO-A")).toHaveAttribute("data-status", "ok");
+
+  await main.getByLabel("Start date").fill("2025-12-01");
+
+  await expect(metric(main, "ff3_smb:DEMO-A")).toHaveAttribute("data-status", "missing_data");
+  await expect(metric(main, "ff3_smb:DEMO-A")).toContainText("needs at least 24 daily returns");
+  await expect(metric(main, "annualized_volatility:DEMO-A")).toHaveAttribute("data-status", "ok");
 });
 
 test("the footer credits the demo data", async ({ page }) => {
@@ -96,6 +164,22 @@ test("VaR and CVaR update when the confidence level changes", async ({ page }) =
   expect(percent(await varB.textContent())).toBeGreaterThan(percent(at95));
 });
 
+test("changing the confidence level recomputes every VaR and CVaR variant", async ({ page }) => {
+  const main = await openRisk(page);
+  const percent = (text: string | null) => parseFloat(/(-?[\d.]+)%/.exec(text ?? "")?.[1] ?? "NaN");
+  await expect(metric(main, "cornish_fisher_cvar:DEMO-B")).toHaveAttribute("data-status", "ok");
+  const at95: Record<string, number> = {};
+  for (const id of VAR_METRICS) at95[id] = percent(await metric(main, `${id}:DEMO-B`).textContent());
+
+  await main.getByLabel("VaR confidence level (%)").fill("99");
+
+  for (const id of VAR_METRICS) {
+    await expect
+      .poll(async () => percent(await metric(main, `${id}:DEMO-B`).textContent()), { message: id })
+      .toBeGreaterThan(at95[id]);
+  }
+});
+
 test("an out-of-range confidence level is shown inline", async ({ page }) => {
   const main = await openRisk(page);
   await expect(metric(main, "var:DEMO-A")).toHaveAttribute("data-status", "ok");
@@ -125,9 +209,12 @@ test("every metric has an explainer", async ({ page }) => {
   const main = await openRisk(page);
   await expect(metric(main, "max_drawdown:DEMO-A")).toHaveAttribute("data-status", "ok");
 
+  for (const id of METRICS) await expect(main.locator(`[data-metric="${id}"]`)).toHaveCount(1);
+  // Every card on the page (including the distribution's skewness and kurtosis) has one explainer.
   const cards = main.locator("[data-metric]");
-  await expect(cards).toHaveCount(METRICS.length);
-  for (let i = 0; i < METRICS.length; i++) {
+  const count = await cards.count();
+  expect(count).toBeGreaterThanOrEqual(METRICS.length);
+  for (let i = 0; i < count; i++) {
     await expect(cards.nth(i).getByTestId("explainer")).toHaveCount(1);
   }
   await expect(main.locator("[data-metric-value]")).toHaveCount(

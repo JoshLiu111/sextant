@@ -20,7 +20,10 @@ export default function Page() {
         <h2 id="demo-portfolio" className="text-xl font-semibold">
           {t.portfolio.demoHeading}
         </h2>
-        <PortfolioTool />
+        {/* Reads the demo inputs from the query string (shareable links). */}
+        <Suspense>
+          <PortfolioTool />
+        </Suspense>
       </section>
     </main>
   );

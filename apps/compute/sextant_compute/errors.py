@@ -16,6 +16,8 @@ Codes in use:
   input was wrong re-raise it as ``ApiError(..., fields=...)`` so it shows inline.
 - 503 ``source_unavailable``: an adapter raised ``SourceUnavailable``. The UI shows
   "data source temporarily unavailable, please retry".
+- 403 ``key_required``: a source that runs on the visitor's own key (Tiingo, FMP) was
+  asked for without a working key (``KeyRequired``). The message points to Settings.
 
 Validation messages are written for people: attach them to request-model
 fields with ``check(...)`` so pydantic reports them verbatim.
@@ -23,7 +25,7 @@ fields with ``check(...)`` so pydantic reports them verbatim.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -32,7 +34,7 @@ from fastapi.responses import JSONResponse
 from pydantic import AfterValidator
 from pydantic_core import PydanticCustomError
 
-from sextant_compute.data.errors import NoSuchData, SourceUnavailable
+from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
 
 INPUT_ERROR = "invalid_input"
 
@@ -83,9 +85,10 @@ def error_response(status: int, code: str, message: str, fields: dict[str, str] 
     return JSONResponse(status_code=status, content=error_body(code, message, fields))
 
 
-def _field_errors(exc: RequestValidationError) -> dict[str, str]:
+def field_errors(errors: Sequence[Any]) -> dict[str, str]:
+    """Field -> message for pydantic/FastAPI validation errors, as the UI shows them."""
     fields: dict[str, str] = {}
-    for err in exc.errors():
+    for err in errors:
         loc = [str(part) for part in err.get("loc", ())]
         if loc and loc[0] in {"body", "query", "path"}:
             loc = loc[1:]
@@ -99,7 +102,7 @@ def _field_errors(exc: RequestValidationError) -> dict[str, str]:
 
 
 async def _validation_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
-    return error_response(422, "validation_error", "Some inputs are invalid. Fix the highlighted fields.", _field_errors(exc))
+    return error_response(422, "validation_error", "Some inputs are invalid. Fix the highlighted fields.", field_errors(exc.errors()))
 
 
 async def _api_error_handler(_request: Request, exc: ApiError) -> JSONResponse:
@@ -108,6 +111,10 @@ async def _api_error_handler(_request: Request, exc: ApiError) -> JSONResponse:
 
 async def _no_such_data_handler(_request: Request, exc: NoSuchData) -> JSONResponse:
     return error_response(422, "no_such_data", exc.message)
+
+
+async def _key_required_handler(_request: Request, exc: KeyRequired) -> JSONResponse:
+    return error_response(403, "key_required", exc.message)
 
 
 async def _source_unavailable_handler(_request: Request, exc: SourceUnavailable) -> JSONResponse:
@@ -119,3 +126,4 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ApiError, _api_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(NoSuchData, _no_such_data_handler)  # type: ignore[arg-type]
     app.add_exception_handler(SourceUnavailable, _source_unavailable_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(KeyRequired, _key_required_handler)  # type: ignore[arg-type]

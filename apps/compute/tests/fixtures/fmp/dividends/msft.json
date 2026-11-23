@@ -1,0 +1,24 @@
+[
+ {
+  "symbol": "MSFT",
+  "date": "2024-02-14",
+  "recordDate": "2024-02-15",
+  "paymentDate": "2024-03-14",
+  "declarationDate": "2023-11-28",
+  "adjDividend": 0.75,
+  "dividend": 0.75,
+  "yield": 0.74,
+  "frequency": "Quarterly"
+ },
+ {
+  "symbol": "MSFT",
+  "date": "2023-11-15",
+  "recordDate": "2023-11-16",
+  "paymentDate": "2023-12-14",
+  "declarationDate": "2023-09-26",
+  "adjDividend": 0.75,
+  "dividend": 0.75,
+  "yield": 0.81,
+  "frequency": "Quarterly"
+ }
+]

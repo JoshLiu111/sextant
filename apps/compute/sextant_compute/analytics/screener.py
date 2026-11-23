@@ -1,7 +1,8 @@
-"""Fundamental screening metrics (P7): price-free ratios on unified line items.
+"""Screening metrics (P7): fundamental ratios on unified line items, plus the
+price metrics My data users can add (``PRICE_METRICS``).
 
-Each metric names the line items it needs (``inputs``: item id and a year
-offset, -1 = the prior year) and computes from a ``get(item_id, offset)``
+Each fundamental metric names the line items it needs (``inputs``: item id and
+a year offset, -1 = the prior year) and computes from a ``get(item_id, offset)``
 callback that raises ``MissingData`` when the company didn't report the item.
 A metric raises ``MetricError`` when a denominator is zero or negative, because
 the ratio means nothing then (e.g. ROE on negative equity); see ``guards.positive``.
@@ -11,8 +12,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import Literal, NamedTuple
 
+import pandas as pd
+
+from sextant_compute.analytics.errors import MissingData
 from sextant_compute.analytics.guards import positive
 
 Get = Callable[[str, int], float]
@@ -106,3 +111,49 @@ def items_for(metric_ids: list[str]) -> dict[int, list[str]]:
             if item_id not in bucket:
                 bucket.append(item_id)
     return out
+
+
+# --- Price metrics (My data only) ---------------------------------------------
+
+PRICE_WINDOW_DAYS = 364
+"""52 weeks: the window starts 364 days before the as-of day."""
+
+
+@dataclass(frozen=True)
+class PriceMetric:
+    """A screen metric on one company's daily closes (split-adjusted, not
+    dividend-adjusted: a price change, not a total return). ``compute`` takes
+    the closes up to the as-of day and the window's first day, and raises
+    ``MissingData`` when the history doesn't reach back to it."""
+
+    id: str
+    label: str
+    unit: Unit
+    compute: Callable[[pd.Series, date], float]
+
+
+def _window(closes: pd.Series, start: date) -> tuple[float, pd.Series]:
+    """The close on (or last before) ``start``, and the closes from that day on."""
+    before = closes.loc[: pd.Timestamp(start)]
+    if before.empty:
+        raise MissingData(f"Prices start after {start.isoformat()}, so they don't cover 52 weeks.")
+    return float(before.iloc[-1]), closes.loc[before.index[-1] :]
+
+
+def _change(closes: pd.Series, start: date) -> float:
+    base, window = _window(closes, start)
+    return float(window.iloc[-1]) / positive(base, "The close 52 weeks ago", "the change") - 1
+
+
+def _from_high(closes: pd.Series, start: date) -> float:
+    _, window = _window(closes, start)
+    return float(window.iloc[-1]) / positive(float(window.max()), "The 52-week high", "the distance") - 1
+
+
+PRICE_METRICS: dict[str, PriceMetric] = {
+    m.id: m
+    for m in [
+        PriceMetric("change_52w", "52-week change", "decimal", _change),
+        PriceMetric("from_52w_high", "From 52-week high", "decimal", _from_high),
+    ]
+}

@@ -8,7 +8,12 @@ import { defineConfig, devices } from "@playwright/test";
 // Accounts: sign-in goes to a fake OIDC provider (e2e/fake-oidc.mjs) on
 // OIDC_PORT (default COMPUTE_PORT + 1). FRED requests go to a fake FRED API
 // (e2e/fake-fred.mjs) on FRED_PORT (default COMPUTE_PORT + 2), Treasury yield curve
-// requests to a fake (e2e/fake-treasury.mjs) on TREASURY_PORT (default COMPUTE_PORT + 4).
+// requests to a fake (e2e/fake-treasury.mjs) on TREASURY_PORT (default COMPUTE_PORT + 4),
+// Tiingo key checks to a fake (e2e/fake-tiingo.mjs) on TIINGO_PORT (default COMPUTE_PORT + 6),
+// World Bank requests to e2e/fake-world-bank.mjs on WORLD_BANK_PORT (default COMPUTE_PORT + 7),
+// ECB requests to e2e/fake-ecb.mjs on ECB_PORT (default COMPUTE_PORT + 8),
+// Frankfurter requests to e2e/fake-frankfurter.mjs on FRANKFURTER_PORT (default COMPUTE_PORT + 9)
+// and FMP requests to a fake (e2e/fake-fmp.mjs) on FMP_PORT (default COMPUTE_PORT + 10).
 // The compute service uses
 // E2E_DATABASE_URL if set (CI: the postgres service container); otherwise it
 // starts a throwaway local Postgres (needs initdb/pg_ctl, e.g. Homebrew).
@@ -26,8 +31,28 @@ const edgar = {
   SEC_USER_AGENT: "Sextant e2e admin@example.com",
   // The screener's default year follows the calendar; pin it to the recorded frames.
   SCREENER_DEFAULT_YEAR: "2025",
+  // The earnings calendar's "today": the recorded submissions end 2026-11-19.
+  SCREENER_TODAY: "2026-11-22",
 };
 const TREASURY_PORT = Number(process.env.TREASURY_PORT || COMPUTE_PORT + 4);
+// Tiingo: users' key checks go to a fake (e2e/fake-tiingo.mjs). PROVIDER_KEY_SECRET
+// encrypts saved keys; test-only value.
+const TIINGO_PORT = Number(process.env.TIINGO_PORT || COMPUTE_PORT + 6);
+const tiingo = {
+  TIINGO_BASE_URL: `http://127.0.0.1:${TIINGO_PORT}`,
+  PROVIDER_KEY_SECRET: "e2e-provider-key-secret-not-for-production-0123456789",
+  // The screener's 52-week price window ends today; pin it to the recorded prices.
+  SCREENER_PRICES_AS_OF: "2026-11-20",
+};
+// Frankfurter: exchange rates come from a fake (e2e/fake-frankfurter.mjs) serving
+// the recorded responses, on FRANKFURTER_PORT (default COMPUTE_PORT + 9; +7/+8 are
+// the World Bank and ECB fakes).
+const FRANKFURTER_PORT = Number(process.env.FRANKFURTER_PORT || COMPUTE_PORT + 9);
+const frankfurter = { FRANKFURTER_BASE_URL: `http://127.0.0.1:${FRANKFURTER_PORT}` };
+// FMP: users' key checks and prices go to a fake (e2e/fake-fmp.mjs) on FMP_PORT
+// (default COMPUTE_PORT + 10; +9 is Frankfurter).
+const FMP_PORT = Number(process.env.FMP_PORT || COMPUTE_PORT + 10);
+const fmp = { FMP_BASE_URL: `http://127.0.0.1:${FMP_PORT}` };
 const isCI = !!process.env.CI;
 const reuse = !isCI && process.env.PW_REUSE_SERVERS === "1";
 const computeUrl = `http://127.0.0.1:${COMPUTE_PORT}`;
@@ -48,6 +73,24 @@ const fred = {
 };
 // Treasury: compute fetches the yield curve CSVs from a fake (e2e/fake-treasury.mjs).
 const treasury = { TREASURY_BASE_URL: `http://127.0.0.1:${TREASURY_PORT}` };
+// World Bank and ECB: compute fetches from fakes serving the recorded responses.
+const WORLD_BANK_PORT = Number(process.env.WORLD_BANK_PORT || COMPUTE_PORT + 7);
+const ECB_PORT = Number(process.env.ECB_PORT || COMPUTE_PORT + 8);
+const worldBankAndEcb = {
+  WORLD_BANK_BASE_URL: `http://127.0.0.1:${WORLD_BANK_PORT}`,
+  ECB_BASE_URL: `http://127.0.0.1:${ECB_PORT}`,
+};
+// AI Explain: compute talks to a fake Claude Messages API (e2e/fake-anthropic.mjs)
+// on ANTHROPIC_PORT (default COMPUTE_PORT + 5). The key is a dummy; the quota is small
+// so the over-quota path is quick to reach.
+const ANTHROPIC_PORT = Number(process.env.ANTHROPIC_PORT || COMPUTE_PORT + 5);
+const ai = {
+  ANTHROPIC_API_KEY: "e2e-fake-anthropic-key-not-real",
+  ANTHROPIC_BASE_URL: `http://127.0.0.1:${ANTHROPIC_PORT}`,
+  AI_DAILY_QUOTA: "3",
+  // The only account allowed into the operator view (/operator).
+  OPERATOR_EMAILS: "operator@example.test",
+};
 const uvicorn = `uv run uvicorn main:app --host 127.0.0.1 --port ${COMPUTE_PORT}`;
 const e2eDatabaseUrl = process.env.E2E_DATABASE_URL;
 
@@ -88,6 +131,42 @@ export default defineConfig({
       env: { TREASURY_PORT: String(TREASURY_PORT) },
     },
     {
+      command: "node e2e/fake-world-bank.mjs",
+      url: `${worldBankAndEcb.WORLD_BANK_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { WORLD_BANK_PORT: String(WORLD_BANK_PORT) },
+    },
+    {
+      command: "node e2e/fake-ecb.mjs",
+      url: `${worldBankAndEcb.ECB_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { ECB_PORT: String(ECB_PORT) },
+    },
+    {
+      command: "node e2e/fake-anthropic.mjs",
+      url: `${ai.ANTHROPIC_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { ANTHROPIC_PORT: String(ANTHROPIC_PORT) },
+    },
+    {
+      command: "node e2e/fake-tiingo.mjs",
+      url: `${tiingo.TIINGO_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { TIINGO_PORT: String(TIINGO_PORT) },
+    },
+    {
+      command: "node e2e/fake-frankfurter.mjs",
+      url: `${frankfurter.FRANKFURTER_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { FRANKFURTER_PORT: String(FRANKFURTER_PORT) },
+    },
+    {
+      command: "node e2e/fake-fmp.mjs",
+      url: `${fmp.FMP_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { FMP_PORT: String(FMP_PORT) },
+    },
+    {
       command: e2eDatabaseUrl
         ? uvicorn
         : `uv run python scripts/ephemeral_postgres.py -- ${uvicorn}`,
@@ -101,6 +180,11 @@ export default defineConfig({
         ...edgar,
         ...fred,
         ...treasury,
+        ...worldBankAndEcb,
+        ...ai,
+        ...tiingo,
+        ...frankfurter,
+        ...fmp,
         ...(e2eDatabaseUrl ? { DATABASE_URL: e2eDatabaseUrl } : {}),
       },
     },

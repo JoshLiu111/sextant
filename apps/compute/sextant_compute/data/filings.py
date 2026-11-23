@@ -17,6 +17,7 @@ class FilingEntry:
     filed: date
     accession: str
     url: str  # the filing index page on sec.gov
+    items: tuple[str, ...] = ()  # 8-K item codes, e.g. ("2.02", "9.01"); 2.02 = results of operations
 
 
 @dataclass(frozen=True)
@@ -36,5 +37,8 @@ class FilingList:
     def from_json(cls, raw: Mapping[str, Any]) -> FilingList:
         return cls(
             company=raw["company"],
-            filings=tuple(FilingEntry(**{**f, "filed": date.fromisoformat(f["filed"])}) for f in raw["filings"]),
+            filings=tuple(
+                FilingEntry(**{**f, "filed": date.fromisoformat(f["filed"]), "items": tuple(f.get("items", ()))})
+                for f in raw["filings"]
+            ),
         )

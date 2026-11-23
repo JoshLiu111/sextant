@@ -97,7 +97,7 @@ def test_underwater_chart_is_zero_at_highs_and_bottoms_at_the_max_drawdown():
     assert all(p["y"] <= 0 for p in points)
     lowest = min(points, key=lambda p: p["y"])
     assert lowest["x"] == CRASH_BOTTOM.isoformat()
-    assert lowest["y"] == pytest.approx(-value(body, "max_drawdown:DEMO-D"))
+    assert lowest["y"] == pytest.approx(-value(body, "max_drawdown:DEMO-D"), abs=1e-5)  # chart y is rounded
 
 
 # Hand-built prices: 253 closes = 252 daily returns = exactly one trading year.
@@ -163,9 +163,9 @@ def test_the_demo_data_is_cached_in_the_shared_cache():
 
     with serving(SyntheticAdapter()) as service:
         metrics(tickers=["DEMO-A"], start="2024-01-01", end="2024-12-31")
-        assert len(service.shared_cache) == 1
+        assert len(service.shared_cache) == 2  # the prices and the synthetic factors
         metrics(tickers=["DEMO-A"], start="2024-01-01", end="2024-12-31")
-        assert len(service.shared_cache) == 1
+        assert len(service.shared_cache) == 2
 
 
 def test_unknown_ticker_is_reported_on_the_field_that_named_it():
@@ -367,3 +367,164 @@ def test_a_flat_price_has_no_sharpe_or_beta_but_other_metrics_still_return():
     assert "benchmark" in body["metrics"]["beta:OK"]["reason"]
     assert value(body, "sharpe:OK") == pytest.approx(251**0.5)
     assert value(body, "var:FLAT") == 0.0
+
+
+# --- Parametric and Cornish-Fisher VaR/CVaR (#23) ---
+
+Z95 = 1.6448536269514722  # standard normal 95% quantile
+PHI_Z95 = 0.10313564037537128  # standard normal density at Z95
+
+
+def zig_metrics(**body):
+    """252 daily returns alternating +1%, -1%: mean 0, no skew, excess kurtosis -2."""
+    returns = [0.01 if i % 2 == 0 else -0.01 for i in range(YEAR)]
+    frames = {"ZIG": price_frame("2024-01-01", closes_from(returns))}
+    with serving(FixtureAdapter(frames)):
+        return metrics(tickers=["ZIG"], benchmark="ZIG", start="2024-01-01", end="2025-12-31", **body)
+
+
+ZIG_STD = 0.01 * (YEAR / (YEAR - 1)) ** 0.5  # sample std (n - 1) of the +-1% returns
+
+
+def test_parametric_var_and_cvar_use_the_normal_quantile_and_tail_mean():
+    body = zig_metrics()
+
+    assert value(body, "parametric_var:ZIG") == pytest.approx(Z95 * ZIG_STD)
+    assert value(body, "parametric_cvar:ZIG") == pytest.approx(PHI_Z95 / 0.05 * ZIG_STD)
+    assert body["metrics"]["parametric_var:ZIG"]["unit"] == "decimal"
+
+
+@pytest.mark.parametrize("ticker", ["DEMO-MKT", "DEMO-A", "DEMO-C", "DEMO-E"])
+def test_parametric_var_matches_the_analytic_value_from_the_configured_parameters(ticker):
+    body = metrics(tickers=[ticker])
+
+    p = PERSONALITIES[ticker]
+    daily_mean = (p.drift + p.annual_vol**2 / 2) / YEAR  # mean simple return of a lognormal step
+    analytic = Z95 * p.annual_vol / YEAR**0.5 - daily_mean
+    assert value(body, f"parametric_var:{ticker}") == pytest.approx(analytic, rel=0.06)
+
+
+def test_cornish_fisher_adjusts_the_normal_quantile_for_thin_tails():
+    # Skew 0, excess kurtosis -2: z_cf = z - (z^3 - 3z) / 12 = -1.685208 (worked by hand),
+    # and the tail mean of z_cf over Z < z is -1.769544.
+    body = zig_metrics()
+
+    assert value(body, "cornish_fisher_var:ZIG") == pytest.approx(1.685208 * ZIG_STD, rel=1e-5)
+    assert value(body, "cornish_fisher_cvar:ZIG") == pytest.approx(1.769544 * ZIG_STD, rel=1e-5)
+    assert body["metrics"]["cornish_fisher_cvar:ZIG"]["unit"] == "decimal"
+
+
+def test_cornish_fisher_differs_from_parametric_for_the_fat_tailed_demo_ticker():
+    # DEMO-F has frequent large jumps (excess kurtosis about 7); DEMO-MKT is close to normal.
+    for confidence in (0.95, 0.99):
+        body = metrics(tickers=["DEMO-F"], confidence=confidence)
+        fat_cf = value(body, "cornish_fisher_var:DEMO-F")
+        fat_normal = value(body, "parametric_var:DEMO-F")
+        assert abs(fat_cf - fat_normal) / fat_normal > 0.10
+        assert value(body, "cornish_fisher_var:DEMO-MKT") == pytest.approx(
+            value(body, "parametric_var:DEMO-MKT"), rel=0.05
+        )
+    # At 99% the fat tail makes the modified VaR the larger one.
+    body = metrics(tickers=["DEMO-F"], confidence=0.99)
+    assert value(body, "cornish_fisher_var:DEMO-F") > value(body, "parametric_var:DEMO-F")
+
+
+VAR_VARIANTS = ["var", "cvar", "parametric_var", "parametric_cvar", "cornish_fisher_var", "cornish_fisher_cvar"]
+
+
+@pytest.mark.parametrize("ticker", ["DEMO-A", "DEMO-B", "DEMO-E"])
+def test_a_higher_confidence_level_raises_every_var_and_cvar_variant(ticker):
+    at95 = metrics(tickers=[ticker], confidence=0.95)
+    at99 = metrics(tickers=[ticker], confidence=0.99)
+
+    for name in VAR_VARIANTS:
+        assert value(at99, f"{name}:{ticker}") > value(at95, f"{name}:{ticker}") > 0, name
+    for kind in ("", "parametric_", "cornish_fisher_"):
+        assert value(at95, f"{kind}cvar:{ticker}") >= value(at95, f"{kind}var:{ticker}")
+
+
+def test_cornish_fisher_needs_varying_returns_while_parametric_still_returns():
+    frames = {"FLAT": price_frame("2024-01-01", [100.0] * 30)}
+    with serving(FixtureAdapter(frames)):
+        body = metrics(tickers=["FLAT"], benchmark="FLAT", start="2024-01-01", end="2025-12-31")
+
+    assert body["metrics"]["cornish_fisher_var:FLAT"]["status"] == "missing_data"
+    assert "do not vary" in body["metrics"]["cornish_fisher_var:FLAT"]["reason"]
+    assert value(body, "parametric_var:FLAT") == 0.0
+
+
+# --- Treynor, Information Ratio, CAPM alpha, capture ratios (#23) ---
+
+C = 0.0001  # LEV's constant daily edge over twice the benchmark's return
+BENCH_RETURNS = [0.01 if i % 2 == 0 else -0.01 for i in range(YEAR)]
+LEV_RETURNS = [2 * b + C for b in BENCH_RETURNS]
+
+
+def leveraged_metrics(**body):
+    """LEV returns exactly 2 x BENCH + 1 basis point every day: beta 2, a known alpha."""
+    frames = {
+        "BENCH": price_frame("2024-01-01", closes_from(BENCH_RETURNS)),
+        "LEV": price_frame("2024-01-01", closes_from(LEV_RETURNS)),
+    }
+    with serving(FixtureAdapter(frames)):
+        return metrics(tickers=["LEV"], benchmark="BENCH", start="2024-01-01", end="2025-12-31", **body)
+
+
+def test_treynor_divides_the_annualized_mean_excess_return_by_beta():
+    body = leveraged_metrics()
+
+    # rf = 0: mean daily return C, beta 2.
+    assert value(body, "treynor:LEV") == pytest.approx(C * YEAR / 2)
+    assert body["metrics"]["treynor:LEV"]["unit"] == "decimal"
+
+
+def test_information_ratio_is_the_annualized_mean_active_return_over_tracking_error():
+    body = leveraged_metrics()
+
+    # Active return LEV - BENCH = BENCH + C: mean C, sample std that of the +-1% moves.
+    assert value(body, "information_ratio:LEV") == pytest.approx(C / ZIG_STD * YEAR**0.5)
+    assert body["metrics"]["information_ratio:LEV"]["unit"] == "ratio"
+    # The benchmark has no active return at all.
+    assert body["metrics"]["information_ratio:BENCH"]["status"] == "missing_data"
+    assert "tracking error" in body["metrics"]["information_ratio:BENCH"]["reason"]
+
+
+def test_capm_alpha_is_the_annualized_return_beta_does_not_explain():
+    assert value(leveraged_metrics(), "alpha:LEV") == pytest.approx(C * YEAR)
+    # With a daily risk-free rate d: alpha = (C - d) - 2 * (0 - d) = C + d a day.
+    body = leveraged_metrics(risk_free_rate=annual_rate_for_daily(U))
+    assert value(body, "alpha:LEV") == pytest.approx((C + U) * YEAR)
+    assert value(body, "alpha:BENCH") == pytest.approx(0.0, abs=1e-12)
+    assert body["metrics"]["alpha:LEV"]["unit"] == "decimal"
+
+
+def test_capture_ratios_compare_mean_returns_on_the_benchmarks_up_and_down_days():
+    body = leveraged_metrics()
+
+    assert value(body, "upside_capture:LEV") == pytest.approx((0.02 + C) / 0.01)
+    assert value(body, "downside_capture:LEV") == pytest.approx((-0.02 + C) / -0.01)
+    assert value(body, "upside_capture:BENCH") == pytest.approx(1.0)
+    assert body["metrics"]["upside_capture:LEV"]["unit"] == "decimal"
+
+
+def test_a_benchmark_that_never_moves_leaves_the_benchmark_metrics_missing_only():
+    frames = {"FLAT": price_frame("2024-01-01", [100.0] * 30), "OK": price_frame("2024-01-01", closes_from(ZIGZAG))}
+    with serving(FixtureAdapter(frames)):
+        body = metrics(tickers=["OK"], benchmark="FLAT", start="2024-01-01", end="2025-12-31")
+
+    for name in ("treynor", "alpha", "upside_capture", "downside_capture"):
+        assert body["metrics"][f"{name}:OK"]["status"] == "missing_data", name
+        assert "benchmark" in body["metrics"][f"{name}:OK"]["reason"]
+    assert value(body, "information_ratio:OK") > 0
+    assert value(body, "sharpe:OK") == pytest.approx(251**0.5)
+
+
+def test_the_alpha_demo_ticker_recovers_its_configured_beta_and_alpha():
+    # DEMO-G is built with a large alpha and little idiosyncratic noise, so ten years pin both down.
+    body = metrics(tickers=["DEMO-G"])
+
+    configured = PERSONALITIES["DEMO-G"]
+    assert configured.alpha > 0.03
+    assert value(body, "beta:DEMO-G") == pytest.approx(configured.beta, abs=0.03)
+    assert value(body, "alpha:DEMO-G") == pytest.approx(configured.alpha, abs=0.02)
+    assert value(body, "alpha:DEMO-MKT") == pytest.approx(0.0, abs=1e-12)

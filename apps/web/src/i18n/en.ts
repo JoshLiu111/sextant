@@ -1,6 +1,8 @@
 // All user-facing English strings. Keep UI copy here (not inline in components)
 // so a second locale can be added later by providing another object of the
 // same `Messages` shape.
+import { riskTechnical } from "./en-technical";
+
 export const en = {
   site: {
     name: "Sextant",
@@ -12,6 +14,42 @@ export const en = {
     signIn: "Sign in with Google",
     signOut: "Sign out",
     account: "Account",
+    settings: "Settings",
+  },
+  settings: {
+    heading: "Settings",
+    intro:
+      "Add your own data provider key to run market data tools on real prices. Your key is checked with the provider, stored encrypted, and used only for your own requests.",
+    signInPrompt: "Sign in to add your own key. Without one, every tool works on demo data.",
+    providers: {
+      tiingo: {
+        heading: "Your Tiingo key",
+        body: "Get a free key from your Tiingo account page (tiingo.com). Prices fetched with it are shown only to you.",
+        label: "Tiingo API key",
+        hint: "Paste the key exactly as Tiingo shows it.",
+        saving: "Checking with Tiingo…",
+      },
+      fmp: {
+        heading: "Your FMP key",
+        body: "Get a free key from your Financial Modeling Prep dashboard (financialmodelingprep.com). Prices fetched with it are shown only to you.",
+        label: "FMP API key",
+        hint: "Paste the key exactly as FMP shows it.",
+        saving: "Checking with FMP…",
+      },
+    },
+    key: {
+      none: "No key saved. Market data tools use demo data.",
+      saved: (hint: string) => `A key ending in ${hint} is saved.`,
+      save: "Save key",
+      replace: "Replace key",
+      savedStatus: "Key saved.",
+      delete: "Delete key",
+      confirmDelete: "Yes, delete my key",
+      cancel: "Cancel",
+      deleteWarning: "My data will stop using this key. Without another key, market data tools use demo data.",
+      deletedStatus: "Key deleted.",
+      errorTitle: "The key was not saved",
+    },
   },
   account: {
     heading: "Account",
@@ -40,7 +78,7 @@ export const en = {
   tools: {
     options: {
       name: "Options Calculator",
-      description: "Price European options with Black-Scholes, see the Greeks, implied volatility and payoff.",
+      description: "Price options with Black-Scholes and binomial trees, see the Greeks, implied volatility and multi-leg payoffs.",
     },
     risk: {
       name: "Risk & Performance",
@@ -60,7 +98,7 @@ export const en = {
     },
     macro: {
       name: "Macro Dashboard",
-      description: "Key US economic indicators, the Treasury yield curve and the 10Y-2Y spread.",
+      description: "US indicators, the Treasury yield curve, cross-country comparisons and the euro area.",
     },
     screener: {
       name: "Screener & Calendar",
@@ -83,6 +121,8 @@ export const en = {
       missing_data: "Missing data",
       error: "Can't compute",
     },
+    /** An ok metric with no bound (`details.bound === "unlimited"`), e.g. a straddle's max profit. */
+    unlimited: "Unlimited",
     units: {
       currency: "",
       decimal: "",
@@ -107,6 +147,22 @@ export const en = {
       badge: "Demo data",
       body: "These results use synthetic prices for fictional tickers, not real market data.",
     },
+    csv: {
+      export: "Export CSV",
+      exportLabel: (table: string) => `Export CSV: ${table}`,
+      ticker: "Ticker",
+      metric: "Metric",
+      value: "Value",
+      currency: "Currency",
+    },
+    dataMode: {
+      legend: "Data",
+      demo: "Demo data",
+      myData: "My data",
+      myDataFrom: (provider: string) => `My data (${provider})`,
+      note: (provider: string) =>
+        `Real prices from ${provider}, fetched with your own key and shown only to you. Enter real tickers.`,
+    },
     calculation: {
       id: "Calculation",
       source: "Source",
@@ -115,7 +171,7 @@ export const en = {
   },
   options: {
     intro:
-      "European options priced with Black-Scholes(-Merton). Change any input and the results update.",
+      "Price European options with Black-Scholes(-Merton), build multi-leg strategies, and price American options on a binomial tree. Change any input and the results update.",
     inputsHeading: "Inputs",
     submit: "Calculate",
     inputs: {
@@ -193,26 +249,217 @@ export const en = {
         read: "Compare it with the volatility you expect: if implied volatility is above your view, the option looks expensive; below it, cheap.",
       },
     },
+    tabs: {
+      label: "Options Calculator views",
+      single: "Single option",
+      strategy: "Strategy builder",
+      american: "American (binomial)",
+    },
+    strategy: {
+      intro:
+        "Combine calls, puts and the underlying into one strategy. All legs share the market inputs and expiry; quantities are in units of the underlying.",
+      marketHeading: "Market",
+      presets: {
+        heading: "Presets",
+        hint: "Strikes are set around the current spot price.",
+        items: {
+          bullCallSpread: { name: "Bull call spread", description: "Long a lower-strike call, short a higher-strike call." },
+          straddle: { name: "Straddle", description: "Long a call and a put at the same strike." },
+          strangle: { name: "Strangle", description: "Long an out-of-the-money put and an out-of-the-money call." },
+          ironCondor: {
+            name: "Iron condor",
+            description: "Short a put spread and a call spread around the spot: a capped gain if the price stays in range.",
+          },
+        },
+      },
+      legs: {
+        heading: "Legs",
+        instrument: "Instrument",
+        position: "Position",
+        quantity: "Quantity",
+        strike: "Strike",
+        add: "Add leg",
+        remove: "Remove leg",
+        instruments: { call: "Call", put: "Put", underlying: "Underlying" },
+        positions: { long: "Long", short: "Short" },
+      },
+      sections: {
+        summary: "Cost and payoff",
+        greeks: "Strategy Greeks",
+        payoff: "Profit at expiry and today",
+        curves: "Greek curves",
+      },
+      chart: {
+        label: "Chart of the strategy's profit at expiry and today across underlying prices",
+        x: "Underlying price",
+        atExpiry: "Profit at expiry",
+        today: "Profit today",
+        spot: "Spot",
+      },
+      curves: {
+        label: "Chart of the selected Greek of the strategy",
+        greek: "Greek",
+        against: "Plot against",
+        spot: "Underlying price",
+        time: "Time to expiry (years)",
+        now: "Now",
+      },
+      metrics: {
+        net_cost: {
+          name: "Net cost",
+          what: "What it costs to open the strategy today at Black-Scholes prices. Negative means you collect a net credit.",
+          how: "The sum over legs of quantity × price, with long legs added and short legs subtracted. The underlying is priced at the spot.",
+          read: "A debit of 5.33 means you pay $5.33 per unit to open; a credit of −4.42 means you receive $4.42.",
+        },
+        max_profit: {
+          name: "Max profit at expiry",
+          what: "The most the strategy can make at expiry, after its opening cost, over every underlying price.",
+          how: "The payoff at expiry is a straight line between strikes, so its highest value sits at zero, at a strike, or rises without limit above the highest strike.",
+          read: "Unlimited means the profit keeps growing as the underlying rises (for example a long call or straddle).",
+        },
+        max_loss: {
+          name: "Max loss at expiry",
+          what: "The most the strategy can lose at expiry, including its opening cost, shown as a positive amount.",
+          how: "The lowest profit at expiry, at zero, at a strike, or unlimited if the payoff falls without limit above the highest strike.",
+          read: "For a debit spread the max loss is the debit; for an iron condor it is the wing width less the credit.",
+        },
+        delta: {
+          name: "Delta",
+          what: "How much the strategy's value changes for a $1 move in the underlying.",
+          how: "Sum of each leg's Black-Scholes delta × signed quantity. The underlying has delta 1. Unit: per $1 move in spot.",
+          read: "Near zero means the strategy barely cares about small moves; positive means it gains as the price rises.",
+        },
+        gamma: {
+          name: "Gamma",
+          what: "How fast the strategy's delta changes for a $1 move in the underlying.",
+          how: "Sum of each option leg's gamma × signed quantity (the underlying has none).",
+          read: "Positive gamma (long options) benefits from big moves; negative gamma (short options) prefers a quiet market.",
+        },
+        vega: {
+          name: "Vega",
+          what: "How much the strategy's value changes when volatility moves 1 volatility point.",
+          how: "Sum of each option leg's vega × signed quantity, per 1 volatility point.",
+          read: "Negative vega means the strategy gains if volatility falls, as for an iron condor.",
+        },
+        theta: {
+          name: "Theta",
+          what: "How much the strategy's value changes as one calendar day passes, all else equal.",
+          how: "Sum of each option leg's theta × signed quantity, per calendar day.",
+          read: "Positive theta means time decay works for you, as for strategies that sell options.",
+        },
+        rho: {
+          name: "Rho",
+          what: "How much the strategy's value changes when the risk-free rate moves 1 percentage point.",
+          how: "Sum of each option leg's rho × signed quantity, per 1 percentage point.",
+          read: "Usually small unless the strategy is long-dated or holds many calls or puts on one side.",
+        },
+      },
+    },
+    american: {
+      intro:
+        "American options can be exercised at any time before expiry. They are priced on a Cox-Ross-Rubinstein binomial tree, next to the Black-Scholes price of the European option.",
+      inputs: {
+        steps: { label: "Steps", hint: "Tree steps, 1 to 5,000. More steps are more accurate." },
+      },
+      sections: { prices: "Prices", chart: "Convergence by number of steps" },
+      chart: {
+        select: "Option type",
+        label: "Chart of the tree price by number of steps, against the Black-Scholes price",
+        x: "Steps",
+        american: "American (tree)",
+        europeanTree: "European (tree)",
+        bs: "European (Black-Scholes)",
+      },
+      metrics: {
+        american: {
+          name: "American price",
+          what: "The value of an option that can be exercised at any time up to expiry.",
+          how: "Cox-Ross-Rubinstein tree: u = e^(σ√Δt), d = 1/u, risk-neutral p = (e^((r−q)Δt) − d)/(u − d). Working back from expiry, each node takes the larger of the discounted expected value and exercising now.",
+          read: "Always at least the European price. For a call on a stock without dividends the two are equal: early exercise never pays.",
+        },
+        european: {
+          name: "European price (Black-Scholes)",
+          what: "The Black-Scholes value of the same option if it could only be exercised at expiry.",
+          how: "The Black-Scholes-Merton formula, as on the Single option tab.",
+          read: "The benchmark for the American price: the gap between them is the value of being able to exercise early.",
+        },
+        european_tree: {
+          name: "European price (tree)",
+          what: "The European option priced on the same binomial tree, without early exercise.",
+          how: "The same tree as the American price, holding at every node. It converges to Black-Scholes as the steps increase.",
+          read: "Its distance from the Black-Scholes price shows the tree's discretisation error at this number of steps.",
+        },
+        early_exercise_premium: {
+          name: "Early-exercise premium",
+          what: "How much the right to exercise early is worth.",
+          how: "American tree price − European tree price, both on the same tree so the discretisation error largely cancels.",
+          read: "Puts carry a premium when they are deep in the money and rates are positive; calls only when there is a dividend yield.",
+        },
+      },
+    },
   },
   risk: {
     intro:
-      "Compare the return, volatility, worst fall, tail risk and risk-adjusted return of a few tickers against a benchmark over a date range. Change any input and the results update.",
+      "Compare the return, volatility, worst fall, tail risk, risk-adjusted return and factor exposures of a few tickers against a benchmark over a date range. Change any input and the results update.",
     inputsHeading: "Inputs",
     submit: "Calculate",
     inputs: {
-      tickers: { label: "Tickers", hint: "Comma-separated. Demo tickers: DEMO-A to DEMO-F." },
+      tickers: { label: "Tickers", hint: "Comma-separated. Demo tickers: DEMO-A to DEMO-I." },
       benchmark: { label: "Benchmark", hint: "Demo benchmark: DEMO-MKT." },
       start: { label: "Start date", hint: "Demo data covers 2016-01-04 to 2025-12-31." },
       end: { label: "End date", hint: "Must be after the start date." },
-      confidence: { label: "VaR confidence level (%)", hint: "For VaR and CVaR. 50 to 99.9; 95 is common." },
+      confidence: {
+        label: "VaR confidence level (%)",
+        hint: "For every VaR and CVaR (historical, parametric, Cornish-Fisher). 50 to 99.9; 95 is common.",
+      },
       risk_free_rate: {
         label: "Risk-free rate (%)",
-        hint: "Annual, effective. For Sharpe and Sortino. 0 compares returns with cash earning nothing.",
+        hint: "Annual, effective. For Sharpe, Sortino, Treynor and CAPM alpha. 0 compares returns with cash earning nothing.",
       },
     },
+    /** Hints that replace `inputs` hints in My data mode (real tickers from the user's provider). */
+    myDataInputs: {
+      tickers: { hint: "Comma-separated real tickers, e.g. AAPL, MSFT." },
+      benchmark: { hint: "A real ticker, e.g. SPY." },
+      start: { hint: "Any range your provider has prices for." },
+    },
     benchmarkSuffix: "(benchmark)",
+    csvLabel: "All risk metrics",
+    factors: {
+      source: {
+        synthetic:
+          "Factors: synthetic demo factors (Mkt-RF, SMB, HML, MOM, RF) generated with the demo prices. DEMO-H and DEMO-I are built with known size, value and momentum loadings. Sextant shows no real factor data.",
+        user_upload:
+          "Factors: user-supplied, from the factor file you uploaded. Only you see these results; Sextant ships no real factor data.",
+      },
+      tStat: "t =",
+      exactFit: "t: undefined (exact fit)",
+      /** Under R²: how many returns of the chosen period the regression used, e.g. "1,303 days". */
+      observations: (count: string, noun: string, n: number) => `${count} ${noun}${n === 1 ? "" : "s"}`,
+    },
+    /** My data only: the signed-in user's own factor files (ADR 0003). */
+    factorFiles: {
+      heading: "Your factor files",
+      body: "Factor regressions on My data use a factor file you download yourself from the Kenneth R. French Data Library. Sextant ships no real factor data. Your files are used only for you and are deleted with your account.",
+      none: "No factor file yet.",
+      upload: "Upload a factor file",
+      hint: "The library's CSV (unzipped): F-F_Research_Data_Factors.CSV (monthly) or its _daily version, plus F-F_Momentum_Factor.CSV for Carhart, at the same frequency. A monthly file gives monthly regressions (month-end to month-end returns) whatever the return period; a daily file follows the return period.",
+      kinds: { three_factor: "3-factor", momentum: "Momentum" },
+      frequency: { daily: "daily", monthly: "monthly" },
+      to: "to",
+      removeShort: "Remove",
+      remove: (kind: string) => `Remove ${kind} file`,
+      uploaded: (name: string) => `Uploaded ${name}.`,
+      removed: (name: string) => `Removed ${name}.`,
+      errorTitle: "Could not use this file",
+    },
     sections: {
       metrics: "Return and risk",
+      tail: "Tail risk: VaR and CVaR",
+      riskAdjusted: "Risk-adjusted return",
+      benchmark: "Relationship with the benchmark",
+      ff3: "Factor exposures: Fama-French 3-factor",
+      carhart: "Factor exposures: Carhart 4-factor",
       chart: "Underwater chart",
     },
     chart: {
@@ -226,6 +473,73 @@ export const en = {
       to: "to",
       recovered: "recovered",
       notRecovered: "not recovered by the end of the range",
+      recovery: "Recovered",
+      band: "Max drawdown",
+    },
+    // Time-scale views (#24): return period, rolling curves, return distribution.
+    timescale: {
+      inputs: {
+        period: {
+          label: "Return period",
+          hint: "Volatility, the ratios, every VaR and CVaR, the benchmark statistics, the factor regressions and the distribution use returns of this length.",
+        },
+        rolling_window: {
+          label: "Rolling window (trading days)",
+          hint: "For the rolling curves, on daily returns. 20 to 756; 63 is about three months.",
+        },
+      },
+      periods: {
+        daily: { label: "Daily", noun: "day", perYear: 252 },
+        weekly: { label: "Weekly", noun: "week", perYear: 52 },
+        monthly: { label: "Monthly", noun: "month", perYear: 12 },
+        quarterly: { label: "Quarterly", noun: "quarter", perYear: 4 },
+        yearly: { label: "Yearly", noun: "year", perYear: 1 },
+      },
+      periodNote: (adjective: string, perYear: number, noun: string) =>
+        `Statistics use ${adjective} returns, annualized with ${perYear} period${perYear === 1 ? "" : "s"} a year. VaR and CVaR are one-${noun} losses; the factor regressions use ${adjective} returns and factors. Annualized return and max drawdown use the daily prices whatever the period.`,
+      rolling: {
+        heading: "Rolling metrics",
+        windowNote: (days: number) =>
+          `Each point covers the previous ${days} trading days of daily returns, up to that date.`,
+        x: "Date",
+        charts: {
+          rolling_volatility: {
+            name: "Rolling volatility",
+            label: "Rolling volatility chart: annualized volatility over the rolling window, per ticker",
+          },
+          rolling_sharpe: {
+            name: "Rolling Sharpe ratio",
+            label: "Rolling Sharpe ratio chart: annualized Sharpe ratio over the rolling window, per ticker",
+          },
+          rolling_beta: {
+            name: "Rolling Beta",
+            label: "Rolling Beta chart: Beta against the benchmark over the rolling window, per ticker",
+          },
+        },
+      },
+      distribution: {
+        heading: "Return distribution",
+        select: "Distribution for",
+        label: "Histogram of returns for the selected ticker",
+        x: "Return",
+        count: (n: number, adjective: string) => `${n} ${adjective} returns`,
+        summary: (n: number, adjective: string, width: string) =>
+          `${n} ${adjective} returns in bins ${width} wide.`,
+        metrics: {
+          skewness: {
+            name: "Skewness",
+            what: "How lopsided the distribution of returns is around its average.",
+            how: "Adjusted Fisher-Pearson sample skewness G1 of the period returns (the same as Excel's SKEW): the average cubed deviation from the mean, divided by the cubed standard deviation, with a small-sample correction.",
+            read: "0 means symmetric. Negative means a longer left tail: losses are rarer but bigger than gains, the common case for stocks. Positive means occasional large gains.",
+          },
+          excess_kurtosis: {
+            name: "Excess kurtosis",
+            what: "How fat the tails of the distribution are compared with a normal distribution.",
+            how: "Bias-corrected sample excess kurtosis G2 of the period returns (the same as Excel's KURT): the average fourth-power deviation over the squared variance, minus 3, with a small-sample correction.",
+            read: "0 matches a normal distribution. Positive means fat tails: extreme days happen more often than a bell curve predicts, so volatility-based risk measures understate the tail. Daily stock returns are usually well above 0.",
+          },
+        },
+      },
     },
     metrics: {
       annualized_return: {
@@ -258,6 +572,30 @@ export const en = {
         how: "The mean of the k worst daily total returns (the same k as VaR), with the sign flipped so a loss is positive.",
         read: "A 95% CVaR of 4.5% means that on the worst 5% of days the investment lost 4.5% on average. CVaR is always at least as large as VaR; a big gap means a fat tail with rare, severe losses.",
       },
+      parametric_var: {
+        name: "Parametric VaR (1 day)",
+        what: "Value at Risk assuming daily returns follow a normal distribution with the observed mean and volatility.",
+        how: "VaR = −(mean + z × standard deviation) of the daily total returns, where z is the standard normal quantile at 1 − confidence (z = −1.645 at 95%) and the standard deviation uses n − 1.",
+        read: "Compare it with the historical VaR. If the historical VaR is larger, the real losses were worse than a normal distribution predicts. The normal assumption is convenient but understates fat tails, especially at 99%.",
+      },
+      parametric_cvar: {
+        name: "Parametric CVaR (1 day)",
+        what: "Expected shortfall under the same normal assumption: the average loss on days beyond the parametric VaR.",
+        how: "CVaR = −(mean − standard deviation × φ(z) / (1 − confidence)), where φ is the standard normal density and z the quantile used by parametric VaR.",
+        read: "Always at least the parametric VaR. Because a normal tail is thin, this is often below the historical CVaR for stocks that have crashes or jumps.",
+      },
+      cornish_fisher_var: {
+        name: "Cornish-Fisher VaR (1 day)",
+        what: "Modified VaR: the parametric VaR corrected for the skewness and fat tails actually seen in the daily returns.",
+        how: "Skewness S and excess kurtosis K of the daily returns (population moments) adjust the normal quantile: z_cf = z + (z² − 1)S/6 + (z³ − 3z)K/24 − (2z³ − 5z)S²/36. VaR = −(mean + z_cf × standard deviation). With S = K = 0 it equals the parametric VaR.",
+        read: "A gap from the parametric VaR shows the returns are not normal. Fat tails (high K) push it above the parametric VaR at high confidence levels such as 99%, and can pull it below at 95%. The correction is an approximation and can misbehave for extreme skew or kurtosis.",
+      },
+      cornish_fisher_cvar: {
+        name: "Cornish-Fisher CVaR (1 day)",
+        what: "Modified expected shortfall: the average loss beyond the Cornish-Fisher VaR, using the same skewness and kurtosis correction.",
+        how: "The average of the Cornish-Fisher adjusted quantile z_cf over the normal tail below z (using the moments of a truncated normal), then CVaR = −(mean + that average × standard deviation). With S = K = 0 it equals the parametric CVaR.",
+        read: "Read it like CVaR: the typical loss on a bad day beyond the VaR. A large gap above the parametric CVaR means the tail is fatter than normal.",
+      },
       sharpe: {
         name: "Sharpe ratio",
         what: "Return in excess of the risk-free rate per unit of total volatility, annualized.",
@@ -276,8 +614,154 @@ export const en = {
         how: "Covariance of the ticker's and the benchmark's daily total returns divided by the variance of the benchmark's returns, on the days both have data (raw returns, not excess). Unit: a ratio, no unit. The benchmark's beta to itself is 1.",
         read: "1 means it moves with the benchmark; 1.4 means it tends to move 1.4% when the benchmark moves 1%; 0.2 means it barely follows it. Beta only captures the part of the risk that comes from the benchmark.",
       },
+      treynor: {
+        name: "Treynor ratio",
+        what: "Return in excess of the risk-free rate per unit of beta: the reward for taking market risk.",
+        how: "Same daily excess return e as Sharpe. Treynor = mean(e) × 252 / beta vs the benchmark. Shown as an annual percentage per unit of beta.",
+        read: "Higher is better. Unlike Sharpe it ignores stock-specific risk, so use it for positions that sit inside a diversified portfolio. It is meaningless when beta is near zero or negative.",
+      },
+      information_ratio: {
+        name: "Information ratio",
+        what: "Return in excess of the benchmark per unit of tracking error, annualized.",
+        how: "Active return a = r − r_benchmark each day. Information ratio = mean(a) / standard deviation of a (n − 1) × √252. The benchmark itself has no active return, so it has no information ratio.",
+        read: "Positive means it beat the benchmark; around 0.5 is good and above 1 is rare over long periods. It rewards beating the benchmark consistently, not by a few lucky days.",
+      },
+      alpha: {
+        name: "CAPM alpha (annual)",
+        what: "Jensen's alpha: the yearly return the ticker earned beyond what its beta to the benchmark explains.",
+        how: "alpha = (mean(r − rf_daily) − beta × mean(r_benchmark − rf_daily)) × 252, the intercept of the regression of the ticker's excess returns on the benchmark's, annualized.",
+        read: "Positive means it beat the risk-adjusted benchmark; 2% means about 2% a year more than its market exposure alone would deliver. Alpha estimates are noisy: over a few years a value of a few percent can be luck.",
+      },
+      upside_capture: {
+        name: "Upside capture",
+        what: "How much of the benchmark's gains the ticker captured on the days the benchmark rose.",
+        how: "Mean daily return of the ticker on the benchmark's up days ÷ the benchmark's mean daily return on those days (arithmetic means).",
+        read: "100% means it rose as much as the benchmark on up days; 120% means 1.2× as much. Read it with downside capture: upside above downside is the pattern you want.",
+      },
+      downside_capture: {
+        name: "Downside capture",
+        what: "How much of the benchmark's losses the ticker took on the days the benchmark fell.",
+        how: "Mean daily return of the ticker on the benchmark's down days ÷ the benchmark's mean daily return on those days (arithmetic means).",
+        read: "Lower is better: 70% means it fell only 70% as much as the benchmark on down days. Below 0% means it tended to rise when the benchmark fell.",
+      },
+      ff3_alpha: {
+        name: "FF3: alpha (annual)",
+        what: "The yearly return left over after the factors in the model are accounted for.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. Alpha is the regression constant × 252.",
+        read: "Positive means the ticker beat what its factor exposures explain. Check the t-statistic: below about 2 in absolute value, the alpha cannot be told apart from zero.",
+      },
+      ff3_market: {
+        name: "FF3: market (Mkt-RF)",
+        what: "Exposure to the market factor: the market's return above the risk-free rate.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on Mkt-RF. In demo data Mkt-RF is DEMO-MKT's daily total return minus RF, whatever benchmark you picked.",
+        read: "Read it like beta: 1 moves with the market, 1.3 moves 1.3× as much. t (the coefficient over its standard error) above about 2 in absolute value means the exposure is statistically real.",
+      },
+      ff3_smb: {
+        name: "FF3: size (SMB)",
+        what: "Exposure to the size factor: small companies' return minus big companies' (Small Minus Big).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on SMB.",
+        read: "Positive is a small-cap tilt, negative a large-cap tilt, near 0 no size bias. |t| above about 2 means the tilt is statistically real.",
+      },
+      ff3_hml: {
+        name: "FF3: value (HML)",
+        what: "Exposure to the value factor: cheap (high book-to-market) companies' return minus expensive ones' (High Minus Low).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on HML.",
+        read: "Positive is a value tilt, negative a growth tilt, near 0 neither. |t| above about 2 means the tilt is statistically real.",
+      },
+      ff3_r_squared: {
+        name: "FF3: R²",
+        what: "The share of the ticker's daily excess-return variance that the model's factors explain.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. R² = 1 − (sum of squared residuals ÷ total sum of squares of y). The number of daily returns used is shown under it.",
+        read: "0.9 means the factors explain 90% of the day-to-day moves; the rest is stock-specific. Compare the two models: if adding momentum raises R² a lot, momentum matters for this ticker.",
+      },
+      carhart_alpha: {
+        name: "Carhart: alpha (annual)",
+        what: "The yearly return left over after the factors in the model are accounted for.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. Alpha is the regression constant × 252.",
+        read: "Positive means the ticker beat what its factor exposures explain. Check the t-statistic: below about 2 in absolute value, the alpha cannot be told apart from zero.",
+      },
+      carhart_market: {
+        name: "Carhart: market (Mkt-RF)",
+        what: "Exposure to the market factor: the market's return above the risk-free rate.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on Mkt-RF. In demo data Mkt-RF is DEMO-MKT's daily total return minus RF, whatever benchmark you picked.",
+        read: "Read it like beta: 1 moves with the market, 1.3 moves 1.3× as much. t (the coefficient over its standard error) above about 2 in absolute value means the exposure is statistically real.",
+      },
+      carhart_smb: {
+        name: "Carhart: size (SMB)",
+        what: "Exposure to the size factor: small companies' return minus big companies' (Small Minus Big).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on SMB.",
+        read: "Positive is a small-cap tilt, negative a large-cap tilt, near 0 no size bias. |t| above about 2 means the tilt is statistically real.",
+      },
+      carhart_hml: {
+        name: "Carhart: value (HML)",
+        what: "Exposure to the value factor: cheap (high book-to-market) companies' return minus expensive ones' (High Minus Low).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on HML.",
+        read: "Positive is a value tilt, negative a growth tilt, near 0 neither. |t| above about 2 means the tilt is statistically real.",
+      },
+      carhart_mom: {
+        name: "Carhart: momentum (MOM)",
+        what: "Exposure to the momentum factor: recent winners' return minus recent losers'.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on MOM, the factor Carhart added to the Fama-French three.",
+        read: "Positive means the ticker behaves like a trend follower, negative like a contrarian. |t| above about 2 means the exposure is statistically real.",
+      },
+      carhart_r_squared: {
+        name: "Carhart: R²",
+        what: "The share of the ticker's daily excess-return variance that the model's factors explain.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. R² = 1 − (sum of squared residuals ÷ total sum of squares of y). The number of daily returns used is shown under it.",
+        read: "0.9 means the factors explain 90% of the day-to-day moves; the rest is stock-specific. Compare the two models: if adding momentum raises R² a lot, momentum matters for this ticker.",
+      },
     },
   },
+  // Risk & Performance model checks (VaR backtest, GARCH); see src/app/risk/ModelChecks.tsx.
+  riskChecks: {
+    heading: "Model checks: VaR backtest and GARCH volatility",
+    select: "Model checks for",
+    backtest: {
+      caption: "VaR backtest",
+      columns: {
+        method: "VaR method",
+        breaches: "Breaches",
+        expected: "Expected",
+        statistic: "Kupiec LR",
+        pValue: "p-value",
+        reading: "Reading",
+      },
+      methods: {
+        backtest_var: "Historical",
+        backtest_parametric_var: "Parametric (normal)",
+        backtest_cornish_fisher_var: "Cornish-Fisher",
+      },
+      accept: "Accept",
+      reject: "Reject",
+      at: "at",
+      explainer: {
+        name: "the VaR backtest",
+        what: "A check of whether each one-day VaR method would have held up: how often the actual loss exceeded the VaR forecast for that day, compared with how often it should have.",
+        how: "Each day after the first 250 returns gets a VaR forecast from the 250 returns before it (no look-ahead), with the same historical, parametric and Cornish-Fisher formulas as the tail-risk cards. A breach is a day whose loss exceeded its forecast. Expected breaches = tested days × (1 − confidence). Kupiec's proportion-of-failures test: LR = −2 ln[(1 − p)^(n − x) p^x / (1 − x/n)^(n − x) (x/n)^x], with n tested days, x breaches and p = 1 − confidence; the p-value comes from a chi-squared distribution with 1 degree of freedom.",
+        read: "Accept means the breach count is consistent with the confidence level; Reject means the p-value is below 1 − confidence (below 5% at 95%), so the method breached too often (it understates risk) or too rarely (it is too conservative). Kupiec only checks the count, not whether breaches cluster together.",
+      },
+    },
+    garch: {
+      heading: "GARCH(1,1) conditional volatility",
+      chartLabel: "GARCH(1,1) conditional volatility over time, annualized, for the selected ticker",
+      x: "Date",
+      params: {
+        omega: "ω (daily)",
+        alpha: "α",
+        beta: "β",
+        persistence: "α + β",
+        longRun: "Long-run volatility",
+        nextDay: "Next-day volatility",
+      },
+      explainer: {
+        name: "GARCH(1,1)",
+        what: "A model of volatility that changes over time: a big move today raises the expected size of tomorrow's move, and calm periods let it decay. It shows volatility clustering.",
+        how: "Daily variance h_t = ω + α × e²(t−1) + β × h(t−1), where e is the daily total return minus its mean. ω, α and β are fitted by maximum likelihood (normal shocks) with α + β < 1. The chart shows √(252 × h_t); long-run volatility is √(252 × ω / (1 − α − β)); next-day volatility is the forecast for the day after the range. It needs at least 250 daily returns.",
+        read: "α is how strongly volatility reacts to a shock; β is how long it remembers. α + β close to 1 means shocks fade slowly (a half-life of ln 0.5 / ln(α + β) days). The chart peaks in turbulent periods and sinks toward the long-run level in calm ones.",
+      },
+    },
+  },
+  riskTechnical,
   portfolio: {
     intro:
       "Build a demo portfolio from tickers and weights, or load a classic allocation, and compare its cumulative return and risk with a benchmark. Change any input and the results update.",
@@ -300,7 +784,7 @@ export const en = {
     },
     holdings: {
       heading: "Holdings",
-      hint: "Demo tickers: DEMO-A to DEMO-F. Weights are a share of the portfolio and must add up to 100%. The portfolio is rebalanced to these weights every day.",
+      hint: "Demo tickers: DEMO-A to DEMO-I. Weights are a share of the portfolio and must add up to 100%. The portfolio is rebalanced to these weights every day.",
       ticker: "Ticker",
       weight: "Weight",
       weightUnit: "(%)",
@@ -318,6 +802,13 @@ export const en = {
         hint: "Annual, effective. For Sharpe and Sortino.",
       },
     },
+    myDataInputs: {
+      holdings: {
+        hint: "Real tickers, e.g. AAPL, MSFT. Weights are a share of the portfolio and must add up to 100%. The portfolio is rebalanced to these weights every day.",
+      },
+      benchmark: { hint: "A real ticker, e.g. SPY." },
+      start: { hint: "Any range your provider has prices for." },
+    },
     portfolioLabel: "Portfolio",
     benchmarkSuffix: "(benchmark)",
     demoHeading: "Demo portfolio",
@@ -327,7 +818,7 @@ export const en = {
     saved: {
       heading: "Your portfolios",
       intro:
-        "Enter your holdings and save them as a named portfolio. Each portfolio is held at its quantities (bought and held, dividends reinvested) and compared with a benchmark. Prices come from demo data until you can connect your own data source.",
+        "Enter your holdings and save them as a named portfolio. Each portfolio is held at its quantities (bought and held, dividends reinvested) and compared with a benchmark. Prices come from demo data, or with My data from your own provider once you save its key in Settings; a portfolio of real tickers then opens on My data.",
       empty: "You have no saved portfolios yet.",
       switcher: "Saved portfolio",
       newPortfolio: "New portfolio",
@@ -335,7 +826,7 @@ export const en = {
       name: { label: "Portfolio name", placeholder: "For example: Retirement account" },
       holdings: {
         heading: "Holdings",
-        hint: "Demo tickers: DEMO-A to DEMO-F. Cost price is the average price you paid per unit. Use one currency per portfolio for now.",
+        hint: "Demo tickers (DEMO-A to DEMO-I) price on Demo data; real tickers (like AAPL) on My data. Cost price is the average price you paid per unit, in the holding's currency. Holdings can be in different currencies; results are converted into the reporting currency.",
         ticker: "Ticker",
         quantity: "Quantity",
         cost_price: "Cost price",
@@ -355,9 +846,27 @@ export const en = {
       },
       loading: "Loading portfolio…",
       analysisHeading: "Analysis settings",
+      reportingCurrency: {
+        label: "Reporting currency",
+        hint: "3-letter code, like USD or EUR. Other currencies convert at each date's rate from Frankfurter.",
+      },
       sections: {
         value: "Value and profit",
-        valueNote: "Today's value uses each holding's latest close in the date range, in the portfolio's currency.",
+        valueNote:
+          "Today's value uses each holding's latest close in the date range. Amounts are in the reporting currency, each converted at the exchange rate of its own date: values at the closing date, costs at the date the shares were bought (or entered by hand), realized P&L at the date of the sell.",
+        positions: "Positions",
+        positionsNote:
+          "One row per holding, plus tickers your imports sold out. Realized P&L is booked first in, first out when a sell is imported and covers every sale to date.",
+        total: "Total",
+        columns: {
+          ticker: "Ticker",
+          quantity: "Quantity",
+          cost_basis: "Cost basis",
+          market_value: "Market value",
+          weight: "Weight",
+          unrealized_pnl: "Unrealized P&L",
+          realized_pnl: "Realized P&L",
+        },
         metricsNote:
           "The portfolio holds its quantities from the first day of the range, with dividends reinvested, and is never rebalanced. These metrics are computed on its daily value with the same formulas as Risk & Performance.",
       },
@@ -366,25 +875,93 @@ export const en = {
           name: "Market value",
           what: "What the holdings are worth at the end of the date range.",
           how: "Sum over holdings of quantity × latest close in the range. Dividends are not added here.",
-          read: "Shown in the portfolio's currency.",
+          read: "Shown in the reporting currency.",
         },
         cost_basis: {
           name: "Cost basis",
           what: "What you paid for the holdings.",
           how: "Sum over holdings of quantity × cost price.",
-          read: "Shown in the portfolio's currency.",
+          read: "Shown in the reporting currency.",
         },
         unrealized_pnl: {
           name: "Unrealized profit or loss",
           what: "How much the holdings have gained or lost versus what you paid, if sold now.",
           how: "Market value − cost basis.",
-          read: "Positive is a gain, negative a loss, in the portfolio's currency. Taxes, fees and dividends received are not included.",
+          read: "Positive is a gain, negative a loss, in the reporting currency. Taxes, fees and dividends received are not included.",
         },
         unrealized_return: {
           name: "Unrealized return",
           what: "The unrealized profit or loss as a share of what you paid.",
           how: "(Market value − cost basis) ÷ cost basis.",
           read: "Shown in percent. 10% means the holdings are worth 10% more than they cost.",
+        },
+        realized_pnl: {
+          name: "Realized profit or loss",
+          what: "What your imported sells gained or lost versus what those shares cost.",
+          how: "For each sell: quantity × price − fees − the cost of the shares it sold, taking the oldest shares first (FIFO). Shares entered by hand count as the oldest. Summed over every sell to date.",
+          read: "Positive is a gain, negative a loss, in the reporting currency. It is booked when the sell is imported, so editing a holding later does not change it.",
+        },
+      },
+      import: {
+        heading: "Import transactions",
+        intro:
+          "Upload a CSV of your trades (date, ticker, buy or sell, quantity, price, and optionally fees and currency). You will see a preview and can match your file's columns before anything is imported. Buys add to a holding at their cost including fees; sells take the oldest shares first (FIFO) and book a realized profit or loss.",
+        file: "CSV file",
+        reading: "Reading file…",
+        mappingHeading: "Match your columns",
+        mappingHint: "Columns from common broker exports are matched for you. Check them before importing.",
+        columnFor: "Column for",
+        notInFile: "(not in the file)",
+        required: "required",
+        optional: "optional",
+        fields: {
+          date: "Date",
+          ticker: "Ticker",
+          side: "Buy/sell",
+          quantity: "Quantity",
+          price: "Price",
+          fees: "Fees",
+          currency: "Currency",
+        },
+        defaults: { fees: "0 if not mapped", currency: "USD if not mapped" },
+        missing: "Choose a column for every required field to see which rows will import.",
+        previewHeading: "First rows of the file",
+        line: "Line",
+        summary: (ok: number, bad: number) =>
+          `${ok} ${ok === 1 ? "row" : "rows"} will be imported${bad ? `, ${bad} will be skipped` : ""}.`,
+        errorsHeading: "Rows that will not be imported",
+        errorLine: (line: number) => `Line ${line}`,
+        holdingsAfter: "Holdings after the import",
+        confirm: (n: number) => `Import ${n} ${n === 1 ? "transaction" : "transactions"}`,
+        importing: "Importing…",
+        cancel: "Cancel",
+        done: (n: number) => `Imported ${n} ${n === 1 ? "transaction" : "transactions"}.`,
+      },
+      returns: {
+        heading: "Your return",
+        note: "Rebuilt day by day over the date range from today's holdings and your imported transactions. Buys put money in (price × quantity + fees), sells and dividends take it out, and trades count at the close of their day. Values and trades in other currencies convert into the reporting currency at each day's rate.",
+        whichHeading: "Which one to use",
+        which:
+          "Use the time-weighted return to judge the holdings themselves, or to compare with a benchmark or a fund: it ignores when you added or took out money. Use the money-weighted return (IRR) to see how your own money did, including the timing of your deposits and withdrawals. They differ most when large amounts go in or out before a big move.",
+        metrics: {
+          twr: {
+            name: "Time-weighted return",
+            what: "How much the holdings grew over the date range, with the effect of money going in and out removed.",
+            how: "Daily returns chained together: each day's (value + money out − money in) ÷ the previous day's value. Over the whole range.",
+            read: "Shown in percent over the whole range. This is the return to compare with a benchmark or a fund.",
+          },
+          twr_annualized: {
+            name: "Time-weighted return per year",
+            what: "The time-weighted return as a yearly rate.",
+            how: "(1 + time-weighted return)^(365 ÷ days) − 1, from the first day with money in to the end of the range.",
+            read: "Shown in percent a year. Over less than a year this extrapolates, so read it with care.",
+          },
+          irr: {
+            name: "Money-weighted return (IRR)",
+            what: "The yearly rate your own money earned, given when you put it in and took it out.",
+            how: "The rate r at which the starting value, every buy, sell and dividend, and the ending value net to zero: Σ cash flow ÷ (1 + r)^(years since the start) = 0.",
+            read: "Shown in percent a year. Higher than the time-weighted return when you added money before gains; lower when you added it before losses. Not shown when no single rate solves the equation.",
+          },
         },
       },
     },
@@ -401,11 +978,95 @@ export const en = {
   },
   macro: {
     intro:
-      "The latest reading and history of four headline US indicators, from public-domain series on FRED, and the US Treasury yield curve and 10Y–2Y spread, from the Treasury's daily par yield curve. Hover a chart to see exact values.",
+      "The latest reading and history of four headline US indicators, from public-domain series on FRED; the US Treasury yield curve and 10Y–2Y spread, from the Treasury's daily par yield curve; a cross-country comparison from the World Bank; and euro area policy rates and inflation from the ECB. Hover a chart to see exact values.",
     sections: {
       indicators: "US headline indicators",
       rates: "US Treasury yields",
+      countries: "Compare countries",
+      euroArea: "Euro area",
     },
+    countries: {
+      intro:
+        "Annual GDP growth, inflation and unemployment for up to six economies, from the World Bank's World Development Indicators. Each value is the latest year the World Bank has published for that country.",
+      picker: "Countries",
+      pickerHint: "Choose up to 6.",
+      chartSuffix: "by country",
+      x: "Year",
+      dataset: "World Bank, World Development Indicators",
+      originalSource: "Original source",
+      indicator: "Indicator",
+      names: {
+        ARG: "Argentina",
+        AUS: "Australia",
+        BRA: "Brazil",
+        CAN: "Canada",
+        CHN: "China",
+        DEU: "Germany",
+        EMU: "Euro area",
+        ESP: "Spain",
+        FRA: "France",
+        GBR: "United Kingdom",
+        IND: "India",
+        ITA: "Italy",
+        JPN: "Japan",
+        KOR: "South Korea",
+        MEX: "Mexico",
+        USA: "United States",
+        ZAF: "South Africa",
+      },
+      indicators: {
+        gdp_growth: {
+          name: "GDP growth",
+          what: "How fast each economy's output of goods and services grew over the year, after removing inflation.",
+          how: "Annual percent change of real GDP at market prices in constant local currency; World Bank indicator NY.GDP.MKTP.KD.ZG, from national accounts data compiled by the World Bank and the OECD.",
+          read: "Shown in percent. Calendar-year growth, so it moves less than the US quarterly annualized rate above. A negative value means the economy shrank that year.",
+        },
+        inflation: {
+          name: "Inflation",
+          what: "How much consumer prices rose over the year in each economy.",
+          how: "Annual percent change of the consumer price index (yearly average); World Bank indicator FP.CPI.TOTL.ZG, from the IMF's International Financial Statistics.",
+          read: "Shown in percent. Many central banks target about 2%. Very high values (e.g. Argentina) stretch the chart's scale.",
+        },
+        unemployment_rate: {
+          name: "Unemployment rate",
+          what: "The share of each economy's labor force that is out of work and looking for a job.",
+          how: "Unemployed people as a percentage of the total labor force, from the ILO's modelled estimates, which harmonize national surveys so countries can be compared; World Bank indicator SL.UEM.TOTL.ZS.",
+          read: "Shown in percent. Modelled estimates can differ from the headline rate each country's statistics office publishes.",
+        },
+      },
+    },
+    euroArea: {
+      intro:
+        "The three key interest rates the ECB's Governing Council sets, and euro area consumer price inflation (HICP), from the ECB Data Portal.",
+      since: "Since",
+      ratesChart: "Key ECB interest rates history",
+      hicpChart: "Euro area HICP inflation history",
+      rateLabels: {
+        deposit_facility_rate: "Deposit facility",
+        main_refinancing_rate: "Main refinancing operations",
+        marginal_lending_rate: "Marginal lending facility",
+      },
+      ecb_rates: {
+        name: "Key ECB interest rates",
+        what: "The rates at which euro area banks can deposit money with the Eurosystem overnight (deposit facility), borrow for a week against collateral (main refinancing operations) and borrow overnight (marginal lending facility).",
+        how: "The rates the ECB's Governing Council decided, each in force from the date shown until the next change; ECB series FM/B.U2.EUR.4F.KR.{DFR, MRR_FR, MLFR}.LEV. The chart holds each rate flat between decisions.",
+        read: "Shown in percent per year. With ample excess liquidity, the deposit facility rate is the one that steers short-term market rates; the ECB raises rates to cool inflation and cuts them to support growth.",
+      },
+      hicp_inflation: {
+        name: "Euro area HICP inflation",
+        what: "How much consumer prices in the euro area rose over the past year, measured by the Harmonised Index of Consumer Prices.",
+        how: "Annual rate of change of the overall HICP for the euro area (changing composition), not seasonally adjusted, compiled by Eurostat; ECB series HICP/M.U2.N.000000.4D0.ANR.",
+        read: "Shown in percent. The ECB aims for 2% inflation over the medium term.",
+      },
+    },
+    inputsHeading: "Chart range",
+    inputs: {
+      start: {
+        label: "History from",
+        hint: "Leave blank for the defaults: indicators from 2015, Treasury yields from 2018. Treasury data starts 1990-01-02.",
+      },
+    },
+    submit: "Update charts",
     meta: {
       source: "Source",
       via: "via FRED, series",
@@ -419,6 +1080,7 @@ export const en = {
       history: "history",
       x: "Date",
       maturity: "Maturity",
+      maturityYears: "Maturity (years)",
     },
     rates: {
       curveLabels: {
@@ -442,6 +1104,26 @@ export const en = {
         how: "10-year par yield minus 2-year par yield on each business day, computed by Sextant from Treasury's daily par yield curve. Shaded periods are runs of days when the spread was below zero.",
         read: "Shown in percentage points (pp). Below zero means the curve is inverted; inversions have preceded most US recessions, though with long and variable lags.",
       },
+    },
+    custom: {
+      heading: "Your series",
+      intro:
+        "Search FRED by name, keyword or series id and add more series to the board. Only public-domain series are offered: copyrighted series are excluded. The series you add are kept in the page address, so you can share the board.",
+      search: { label: "Search FRED", hint: "For example payroll, housing starts or PAYEMS." },
+      submit: "Search",
+      results: "Search results",
+      empty: (query: string) => `No public-domain FRED series match “${query}”.`,
+      add: (id: string) => `Add ${id}`,
+      addText: "Add",
+      added: "Added",
+      remove: (id: string) => `Remove ${id}`,
+      removeText: "Remove",
+      full: (max: number) => `The board holds up to ${max} added series. Remove one to add another.`,
+      explainer: (title: string, source: string, units: string) => ({
+        what: `${title}, a FRED series you added to the board.`,
+        how: `As published by ${source}${units ? ` (${units})` : ""}, retrieved from FRED, Federal Reserve Bank of St. Louis. The value is the latest observation.`,
+        read: "Read it in the units shown below the value; the chart shows its history and the latest period tells you how recent it is.",
+      }),
     },
     indicators: {
       gdp_growth: {
@@ -472,7 +1154,12 @@ export const en = {
   },
   company: {
     intro:
-      "Standardized income statement, balance sheet and cash flow statement for a US-listed company, from its annual reports (10-K) filed with the SEC. Every number links to the filing it came from.",
+      "Standardized income statement, balance sheet and cash flow statement for a US-listed company, from its annual (10-K) and quarterly (10-Q) reports filed with the SEC. Every number links to the filing it came from.",
+    frequency: {
+      legend: "Periods",
+      annual: "Annual",
+      quarterly: "Quarterly",
+    },
     inputsHeading: "Company",
     submit: "Show statements",
     inputs: {
@@ -485,6 +1172,9 @@ export const en = {
     },
     lineItem: "Line item",
     yearEnded: "Year ended",
+    quarterEnded: "Quarter ended",
+    quarterlyNote:
+      "Quarters are the company's fiscal quarters. Companies file no fourth-quarter report, so Q4 income and cash flows are the year (10-K) minus the first three quarters; Q4 weighted-average shares are the year weighted by days minus the nine months, and Q4 EPS is the year's EPS x shares minus the nine months', over Q4's shares (approximations; hover a value to see how). Cash flows in 10-Qs are year to date, so each quarter shows only its own three months.",
     filed: "filed",
     sourceFiling: "Source",
     derived: "derived",
@@ -500,7 +1190,7 @@ export const en = {
   },
   screener: {
     intro:
-      "Screen US companies that file with the SEC on fundamentals from their annual reports, then open any of them in the Company Health Check or the Valuation Calculator. Below the screen: the latest SEC filings, market-wide or for one company.",
+      "Screen US companies that file with the SEC on fundamentals from their annual reports, then open any of them in the Company Health Check or the Valuation Calculator. Below the screen: an earnings calendar, a company's dividend history, and the latest SEC filings, market-wide or for one company.",
     screenHeading: "Fundamental screen",
     criteriaLegend: "Criteria",
     year: {
@@ -526,8 +1216,24 @@ export const en = {
       roe: "Return on equity",
       debt_ratio: "Debt ratio",
       current_ratio: "Current ratio",
+      change_52w: "52-week change",
+      from_52w_high: "From 52-week high",
     } as Record<string, string>,
-    noPriceCriteria: "Market cap and other price-based criteria are not offered: Sextant's public pages use no price data.",
+    priceCriteria: {
+      signIn:
+        "Price criteria (52-week change, distance from the 52-week high) use your own price data: sign in and add a price data key in Settings. Market cap is not offered.",
+      myData: (provider: string, max: number) =>
+        `Price criteria use real prices from ${provider}, fetched with your own key and shown only to you. They are checked on at most ${max} companies passing the other criteria.`,
+      /** Shown when the user has keys for several price providers. */
+      provider: "Price provider",
+    },
+    pricesInfo: (provider: string, asOf: string) => `Prices: ${provider}, as of ${asOf}. Shown only to you.`,
+    priceExplainer: {
+      name: "the price criteria",
+      what: "52-week change is the price change over the last 52 weeks. From 52-week high is how far the latest close is below the highest close of those 52 weeks (0% = at the high).",
+      how: "From your provider's daily closes, adjusted for splits but not for dividends: 52-week change = latest close ÷ the close 52 weeks earlier (or the last one before) − 1; from 52-week high = latest close ÷ the highest close since then − 1. Only companies passing the fundamental criteria are priced.",
+      read: "The price window ends today, while the fundamentals are for the chosen year. A company your provider has no prices for, or with less than 52 weeks of history, is excluded and counted in the summary.",
+    },
     resultsLabel: "Screen results",
     ticker: "Ticker",
     company: "Company",
@@ -568,6 +1274,46 @@ export const en = {
       none: "No filings of this type in the list.",
       loading: "Loading filings…",
     },
+    earnings: {
+      heading: "Earnings calendar",
+      intro:
+        "Earnings releases are 8-K filings with Item 2.02 (Results of Operations and Financial Condition). Upcoming dates are estimates: 52 weeks after the company's release a year earlier.",
+      tickers: { label: "Companies", hint: "Up to 20 tickers, separated by commas" },
+      start: { label: "From", hint: "Default: 30 days ago" },
+      end: { label: "To", hint: "Default: 60 days ahead" },
+      submit: "Show calendar",
+      range: (start: string, end: string) => `Earnings releases from ${start} to ${end}`,
+      tableLabel: "Earnings calendar",
+      date: "Date",
+      company: "Company",
+      status: "Status",
+      filing: "Filing",
+      reported: "Reported",
+      expected: "Expected (estimate)",
+      reportedLink: (form: string, filed: string) => `${form} filed ${filed}`,
+      expectedLink: (form: string, filed: string) => `Based on ${form} filed ${filed}`,
+      none: "No earnings releases in this range.",
+      csvForm: "Form",
+      csvAccession: "Accession number",
+      csvBasedOn: "Based on 8-K filed",
+      loading: "Loading the earnings calendar…",
+    },
+    dividends: {
+      heading: "Dividend history",
+      intro: "Declared dividends per share by fiscal quarter and year, from the company's 10-Q and 10-K filings (XBRL).",
+      ticker: { label: "Dividend ticker", hint: "e.g. AAPL" },
+      submit: "Show dividends",
+      companyHeading: (name: string, ticker: string) => `${name} (${ticker})`,
+      basis: { declared: "Dividends declared per share, USD", paid: "Dividends paid per share, USD" },
+      tableLabel: "Dividend history",
+      fiscalYear: "Fiscal year",
+      quarters: ["Q1", "Q2", "Q3", "Q4"],
+      year: "Full year",
+      derivedNote: "* Fourth quarter derived: the full year less the first nine months.",
+      csvColumns: ["Period", "Start", "End", "Dividend per share (USD)", "Derived", "Form", "Filed"],
+      cellTitle: (label: string, form: string, filed: string) => `${label} · Source: ${form} filed ${filed}`,
+      loading: "Loading dividends…",
+    },
   },
   valuation: {
     intro:
@@ -578,6 +1324,7 @@ export const en = {
       dcf: "DCF assumptions",
       wacc: "WACC inputs",
       valuation: "Valuation",
+      market: "Market value vs intrinsic value",
       statementInputs: "From the 10-K",
       wacc_breakdown: "WACC breakdown",
       sensitivity: "Sensitivity: value per share",
@@ -590,7 +1337,28 @@ export const en = {
       override: "Your override",
       derived: "Derived",
       not_reported: "Not reported: counted as $0",
+      entered: "Your price",
     } as Record<string, string>,
+    latestClose: (provider: string, date: string) => `Latest close from ${provider}, ${date}`,
+    sharePriceMyDataHint: (provider: string) => `Optional. Leave blank to use the latest close from ${provider}.`,
+    saved: {
+      heading: "Saved assumptions",
+      intro: (ticker: string) => `Save these assumptions for ${ticker} under a name, and load them later to compare.`,
+      signInPrompt: "Sign in to save your assumptions and load them later to compare.",
+      nameLabel: "Name",
+      nameHint: "e.g. Base case. Saving under an existing name replaces it.",
+      save: "Save assumptions",
+      load: "Load",
+      delete: "Delete",
+      loadNamed: (name: string) => `Load ${name}`,
+      deleteNamed: (name: string) => `Delete ${name}`,
+      listLabel: (ticker: string) => `Saved assumptions for ${ticker}`,
+      none: (ticker: string) => `No saved assumptions for ${ticker} yet.`,
+      savedAs: (name: string) => `Saved as ${name}.`,
+      loaded: (name: string) => `Loaded ${name}.`,
+      deleted: (name: string) => `Deleted ${name}.`,
+      invalid: "Fix the highlighted fields to save.",
+    },
     baseYear: "Base year",
     filed: "10-K filed",
     sensitivityCaption:
@@ -730,16 +1498,34 @@ export const en = {
       },
       share_price: {
         label: "Share price ($)",
-        hint: "Optional. Sets the market value of equity; blank uses book equity.",
+        hint: "Optional. Needed for the margin of safety; blank uses book equity for the weights.",
         explainer: {
           name: "share price",
-          what: "The stock's current price, in US dollars. Sextant has no public price source, so you enter it.",
-          how: "Market value of equity = share price × common shares outstanding, used for the capital structure weights. Without it, Sextant uses book shareholders' equity from the 10-K, which usually understates equity and overweights debt.",
-          read: "It only changes the WACC weights; the DCF value per share does not depend on today's price.",
+          what: "The stock's current price, in US dollars. Sextant has no public price source, so you enter it, or switch to My data to use the latest close from your own provider.",
+          how: "Market value of equity = share price × common shares outstanding. It sets the market cap, the margin of safety and the capital structure weights. Without it, Sextant uses book shareholders' equity from the 10-K for the weights, which usually understates equity and overweights debt.",
+          read: "The DCF value per share depends on the price only through the WACC weights.",
         },
       },
     },
     metrics: {
+      share_price: {
+        name: "Share price",
+        what: "The market price of one share, in US dollars: the one you entered, or the latest close from your own provider on My data.",
+        how: "Your entry wins. On My data with the field blank, Sextant fetches the latest daily close with your key.",
+        read: "A daily close, not a live quote. Enter a price to compare at a different one.",
+      },
+      market_cap: {
+        name: "Market cap",
+        what: "What the market values all of the company's shares at, in US dollars.",
+        how: "Share price × common shares outstanding (from the 10-K balance sheet).",
+        read: "Compare it with the equity value below: that is the DCF's view of the same thing.",
+      },
+      margin_of_safety: {
+        name: "Margin of safety",
+        what: "How far the share price sits below the intrinsic value, as a share of the intrinsic value.",
+        how: "(Intrinsic value per share − share price) / intrinsic value per share.",
+        read: "Positive: the stock trades below the DCF value (a cushion for wrong assumptions). Negative: the price is above it. Benjamin Graham looked for a wide margin, often a third or more.",
+      },
       intrinsic_value_per_share: {
         name: "Intrinsic value per share",
         what: "What the DCF says one share is worth, in US dollars.",
@@ -853,7 +1639,7 @@ export const en = {
   companyRatios: {
     heading: "Financial health ratios",
     intro:
-      "Core ratios in five categories and the Altman Z-Score, computed from the same 10-K statements. Add up to five companies to compare them side by side.",
+      "Core ratios in five categories, the Altman Z, Piotroski F and Beneish M scores, and a DuPont breakdown of ROE, computed from the same 10-K statements. Add up to five companies to compare them side by side.",
     inputsHeading: "Companies to compare",
     inputsHint:
       "A ticker per row. The share price is optional: Sextant has no market price source, so valuation multiples use the price you enter, for the latest fiscal year only.",
@@ -871,17 +1657,60 @@ export const en = {
       "Multiples (P/E, P/B, P/S, P/FCF, EV/EBITDA, dividend yield) need a share price: enter one above to value the latest fiscal year.",
     days: "days",
     currencyMillions: "M",
-    zones: { safe: "Safe zone", grey: "Grey zone", distress: "Distress zone" } as Record<string, string>,
+    pass: "Pass",
+    fail: "Fail",
+    zones: {
+      safe: "Safe zone",
+      grey: "Grey zone",
+      distress: "Distress zone",
+      strong: "Strong",
+      neutral: "Neutral",
+      weak: "Weak",
+      likely: "Likely manipulator",
+      unlikely: "Unlikely manipulator",
+    } as Record<string, string>,
     categories: {
       efficiency: "Efficiency",
       liquidity: "Liquidity",
       profitability: "Profitability",
       solvency: "Solvency",
       valuation: "Valuation",
-      distress: "Altman Z-Score",
+      scores: "Quality and distress scores",
+      piotroski: "Piotroski F-Score signals",
+      dupont3: "DuPont analysis (three-step)",
+      dupont5: "DuPont analysis (five-step)",
+    } as Record<string, string>,
+    scoresNote:
+      "Altman Z flags distress risk, Piotroski F financial strength (0 to 9 signals passed), Beneish M the risk of earnings manipulation. Each needs the prior year; Piotroski and Beneish compare with it.",
+    piotroskiNote: "Each signal passes (1) or fails (0); the F-Score is the number passed.",
+    dupontNotes: {
+      dupont3: "ROE = net margin × asset turnover × equity multiplier.",
+      dupont5: "ROE = tax burden × interest burden × operating margin × asset turnover × equity multiplier.",
     } as Record<string, string>,
     averageNote:
-      "Balance-sheet amounts in ratios with revenue, costs or income are averaged over the opening and closing balance (the prior and current fiscal year end). Hover n/a for the reason.",
+      "Balance-sheet amounts in ratios with revenue, costs or income are averaged over the opening and closing balance (the prior and current fiscal year end). Hover n/a for the reason; select any value to see its formula and inputs.",
+    quarterlyNote:
+      "Quarterly ratios marked TTM use trailing twelve months: income and cash flows are the sum of the four quarters to each quarter end, and balances are averaged over that quarter end and the one a year before. Unmarked ratios use the quarter-end balance sheet. A TTM ratio at Q4 equals the fiscal-year ratio, except P/E: its TTM EPS is the sum of the four quarterly EPS.",
+    ttm: "TTM",
+    ttmTitle: "Trailing twelve months: the four quarters to each quarter end",
+    drill: {
+      open: (name: string, period: string) => `Show the inputs of ${name} for ${period}`,
+      title: (name: string, ticker: string, period: string) => `${name} · ${ticker} · ${period}`,
+      close: "Close",
+      loading: "Loading inputs…",
+      value: "Value",
+      formula: "Formula",
+      inputs: "Inputs",
+      input: "Input",
+      period: "Period",
+      amount: "Value",
+      source: "Source",
+      ttm: "Trailing twelve months: the sum of these quarters",
+      filed: "filed",
+      derived: "derived",
+      unitsNote: "USD millions, except per-share amounts (USD) and share counts (millions).",
+      noInputs: "This value reads no statement items.",
+    },
     ratios: {
       asset_turnover: {
         name: "Asset turnover",
@@ -1117,12 +1946,186 @@ export const en = {
         how: "Altman's revised Z' model (1983), which uses book equity because Sextant has no market price: Z' = 0.717·(working capital / total assets) + 0.847·(retained earnings / total assets) + 3.107·(operating income / total assets) + 0.420·(total equity / total liabilities) + 0.998·(revenue / total assets).",
         read: "Above 2.90 is the safe zone, 1.23 to 2.90 the grey zone, below 1.23 the distress zone. It was built for industrial companies and isn't meaningful for banks or insurers, which don't report current assets.",
       },
+      piotroski_f: {
+        name: "Piotroski F-Score",
+        what: "A 0 to 9 score of financial strength: one point for each of nine accounting signals of profitability, funding and efficiency.",
+        how: "Piotroski (2000). The sum of the nine signals below, each 1 if it passes and 0 if it fails. Missing if any signal is.",
+        read: "8 or 9 is strong, 0 to 2 weak, 3 to 7 neutral. Piotroski built it to separate strong from weak value stocks; it is less meaningful for banks.",
+      },
+      beneish_m: {
+        name: "Beneish M-Score",
+        what: "A probability-style score of whether a company may be inflating its earnings.",
+        how: "Beneish (1999), eight variables comparing this year with the prior one: M = −4.84 + 0.920·DSRI + 0.528·GMI + 0.404·AQI + 0.892·SGI + 0.115·DEPI − 0.172·SGAI + 4.679·TATA − 0.327·LVGI. DSRI = receivables-to-sales index, GMI = gross margin index (prior / current), AQI = asset quality index (assets other than current assets and PP&E, as a share of total assets), SGI = sales growth, DEPI = depreciation index (prior rate / current rate, rate = D&A / (D&A + PP&E)), SGAI = SG&A-to-sales index, TATA = (net income − operating cash flow) / total assets, LVGI = leverage index ((current liabilities + long-term debt) / total assets).",
+        read: "Above −1.78 flags a likely manipulator; below it, manipulation is unlikely. It is a screen for a closer look, not proof, and not meant for banks.",
+      },
+      piotroski_roa: {
+        name: "Positive ROA",
+        what: "Is the company profitable?",
+        how: "Net income divided by total assets at the start of the year (the prior year end). Passes if above 0.",
+        read: "Pass means the company earned a profit on its assets this year.",
+      },
+      piotroski_cfo: {
+        name: "Positive operating cash flow",
+        what: "Does the business generate cash?",
+        how: "Passes if operating cash flow is above 0. The measure is operating cash flow over opening total assets.",
+        read: "Pass means operations brought in cash this year.",
+      },
+      piotroski_delta_roa: {
+        name: "Rising ROA",
+        what: "Is profitability improving?",
+        how: "Passes if ROA (net income / opening total assets) is higher than the prior year's.",
+        read: "Pass means the company earned more on its assets than last year.",
+      },
+      piotroski_accrual: {
+        name: "Cash flow above net income",
+        what: "Are earnings backed by cash?",
+        how: "Passes if operating cash flow over opening total assets exceeds ROA, i.e. operating cash flow exceeds net income.",
+        read: "Fail means earnings rely on accruals rather than cash, a warning sign of lower earnings quality.",
+      },
+      piotroski_delta_leverage: {
+        name: "Leverage not rising",
+        what: "Is the company taking on more long-term debt relative to its size?",
+        how: "Long-term debt divided by average total assets. Passes if it is no higher than the prior year's.",
+        read: "Pass means long-term leverage held steady or fell.",
+      },
+      piotroski_delta_current_ratio: {
+        name: "Rising current ratio",
+        what: "Is short-term liquidity improving?",
+        how: "Current assets divided by current liabilities. Passes if higher than the prior year's.",
+        read: "Pass means more short-term assets per dollar of short-term obligations than last year.",
+      },
+      piotroski_no_dilution: {
+        name: "No new shares",
+        what: "Did the company avoid issuing new shares?",
+        how: "Weighted-average basic shares. Passes if no higher than the prior year's.",
+        read: "Pass means existing shareholders weren't diluted; a company that needs outside equity may be short of funds.",
+      },
+      piotroski_delta_gross_margin: {
+        name: "Rising gross margin",
+        what: "Is pricing power or cost control improving?",
+        how: "Gross profit divided by revenue. Passes if higher than the prior year's.",
+        read: "Pass means each dollar of sales kept more after the cost of revenue.",
+      },
+      piotroski_delta_asset_turnover: {
+        name: "Rising asset turnover",
+        what: "Are the assets being used more efficiently?",
+        how: "Revenue divided by opening total assets. Passes if higher than the prior year's.",
+        read: "Pass means more sales per dollar of assets than last year.",
+      },
+      dupont_tax_burden: {
+        name: "Tax burden",
+        what: "The share of pretax income kept after income tax.",
+        how: "Net income divided by pretax income. Shown as a multiple.",
+        read: "0.80 means the company keeps 80 cents of each pretax dollar. Lower means a heavier tax bill.",
+      },
+      dupont_interest_burden: {
+        name: "Interest burden",
+        what: "The share of operating income (EBIT) left after interest and other non-operating items.",
+        how: "Pretax income divided by operating income. Shown as a multiple.",
+        read: "Below 1 means interest costs eat into operating profit; above 1 means non-operating income (such as interest earned) adds to it.",
+      },
     } as Record<string, { name: string; what: string; how: string; read: string }>,
+  },
+  portfolioConstruction: {
+    rebalancing: {
+      heading: "Rebalancing backtest",
+      intro:
+        "Start at the target weights above and compare resetting them by a rule with buying and holding (weights drift with prices). Rebalancing is frictionless: no trading costs or taxes.",
+      rule: {
+        label: "Rebalancing rule",
+        hint: "Calendar rules rebalance at the last trading day of each period.",
+        options: {
+          monthly: "Monthly",
+          quarterly: "Quarterly",
+          yearly: "Yearly",
+          drift: "Drift threshold",
+        },
+      },
+      threshold: {
+        label: "Drift threshold (%)",
+        hint: "Rebalance when any weight is this many percentage points away from its target.",
+      },
+      labels: { rebalanced: "Rebalanced", buy_and_hold: "Buy and hold" },
+      chart: { label: "Growth of the portfolio: rebalanced vs buy and hold", x: "Date" },
+      sections: { chart: "Cumulative return", metrics: "Risk and return, side by side", trading: "Trading" },
+      metrics: {
+        rebalance_count: {
+          name: "Rebalances",
+          what: "How many times the rule reset the weights to target.",
+          how: "Calendar rules: one per period end inside the range (the final day never rebalances). Drift rule: every close where some weight strayed further than the threshold from its target.",
+          read: "More rebalances keep the risk profile closer to the target but trade more often.",
+        },
+        turnover: {
+          name: "Total turnover",
+          what: "How much of the portfolio was traded across all rebalances.",
+          how: "At each rebalance, half the sum of the absolute differences between the drifted and target weights (one-way turnover), summed over the backtest.",
+          read: "100% means trading the equivalent of the whole portfolio once. Real trading costs grow with it.",
+        },
+      },
+    },
+    frontier: {
+      heading: "Efficient frontier",
+      intro:
+        "The long-only mean-variance frontier of the holdings above: for each level of expected return, the mix with the lowest volatility. A reference from historical estimates, not a recommendation.",
+      chart: {
+        label: "Efficient frontier: expected return against volatility",
+        x: "Volatility (annualized)",
+        y: "Expected return",
+      },
+      who: { max_sharpe: "Maximum Sharpe", min_variance: "Minimum variance", current: "Current portfolio" },
+      frontierLine: "Frontier",
+      weightsHeading: "Suggested weights",
+      weightsCaption: "Weights by portfolio; every column is long-only and adds up to 100%.",
+      tickerColumn: "Holding",
+      rows: { expected_return: "Expected return", volatility: "Volatility", sharpe: "Sharpe ratio" },
+      method:
+        "Expected return is the annualized mean daily return (×252); volatility comes from the annualized covariance of daily returns. The Sharpe ratio uses the risk-free rate above. Past returns are noisy estimates of future ones, so treat the optimiser's weights with care.",
+    },
   },
   comingSoon: {
     badge: "Coming soon",
     body: "This tool is not built yet. Check back soon.",
     back: "Back to all tools",
+  },
+  ai: {
+    heading: "AI Explain",
+    intro: "A plain-English reading of the result above, written by Claude from this calculation.",
+    button: "AI Explain",
+    pending: "Explaining…",
+    signInPrompt: "Sign in to use AI Explain.",
+    quota: (remaining: number, limit: number) => `${remaining} of ${limit} AI calls left today`,
+    usedUp: "You have used all of today's AI calls. Your quota resets at 00:00 UTC.",
+    generatedBy: "AI-generated from calculation",
+    errorHeading: "AI Explain failed",
+    unavailable: "AI Explain is temporarily unavailable. Please retry in a moment.",
+  },
+  analyst: {
+    intro:
+      "Ask a question in plain English. Claude picks Sextant's tools and their inputs, Sextant runs them, and every number in the answer links to the calculation it came from.",
+    signInPrompt: "Sign in to use AI Analyst.",
+    questionLabel: "Your question",
+    questionPlaceholder: "Compare the financial health of MSFT and GOOGL",
+    ask: "Ask",
+    pending: "Working…",
+    answerHeading: "Answer",
+    errorHeading: "AI Analyst failed",
+    unavailable: "AI Analyst is temporarily unavailable. Please retry in a moment.",
+    citationOk: (calculationId: string) => `From calculation ${calculationId}. Open its raw result.`,
+    citationMismatch: (actual: string, calculationId: string) =>
+      `Does not match: calculation ${calculationId} gives ${actual}.`,
+    citationMissing: (reason: string) => `Can't be checked: ${reason}`,
+    mismatchNotice: (n: number) =>
+      n === 1
+        ? "1 number in this answer does not match the calculation it cites. It is highlighted in red."
+        : `${n} numbers in this answer do not match the calculations they cite. They are highlighted in red.`,
+    callsHeading: "Tools called",
+    noCalls: "No tools were called for this answer.",
+    parameters: "Parameters",
+    calculation: "Calculation",
+    callFailed: "Failed",
+    rawResult: "Raw result",
+    usage: (input: number, output: number) =>
+      `${input.toLocaleString("en-US")} input and ${output.toLocaleString("en-US")} output tokens`,
   },
   compute: {
     label: "Compute service",
@@ -1134,6 +2137,27 @@ export const en = {
     disclaimer:
       "Not investment advice. Sextant is for education and research only; results may be wrong or out of date.",
     sourcesLabel: "Data sources",
+  },
+  operator: {
+    heading: "AI usage",
+    intro: (since: string, until: string) =>
+      `AI calls, tokens and estimated cost per user, ${since} to ${until} (UTC days). Operator only.`,
+    pricing: (input: string, output: string) =>
+      `Estimated cost at ${input} per million input tokens and ${output} per million output tokens.`,
+    totals: "Total",
+    perUser: "AI usage per user",
+    perDay: "AI usage per user per day",
+    empty: "No AI calls in this period.",
+    columns: {
+      day: "Day (UTC)",
+      user: "User",
+      calls: "Calls",
+      inputTokens: "Input tokens",
+      outputTokens: "Output tokens",
+      cost: "Estimated cost",
+    },
+    errorHeading: "AI usage could not be loaded",
+    unavailable: "The usage log is unavailable right now. Please retry in a moment.",
   },
   notFound: {
     heading: "Page not found",

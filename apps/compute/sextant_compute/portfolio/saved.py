@@ -7,10 +7,12 @@ same as an id that does not exist.
 
 from __future__ import annotations
 
-from datetime import datetime
+from collections.abc import Mapping
+from datetime import UTC, date, datetime
 from typing import Annotated
 from uuid import UUID
 
+import pandas as pd
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel, BeforeValidator
 
@@ -20,11 +22,13 @@ from sextant_compute.auth import CurrentUser
 from sextant_compute.auth.deps import get_db
 from sextant_compute.data.service import Ctx, Data
 from sextant_compute.db import Database
-from sextant_compute.envelope import Detailed, MetricResult, ResultEnvelope, metric
+from sextant_compute.envelope import MetricResult, MetricStatus, ResultEnvelope, SeriesResult
 from sextant_compute.errors import ApiError, check
 from sextant_compute.portfolio import store
+from sextant_compute.portfolio.fx import Converter
 from sextant_compute.portfolio.api import MAX_HOLDINGS, AnalysisSettings, load_prices, score
-from sextant_compute.risk.api import Ticker
+from sextant_compute.portfolio.positions import position_metrics
+from sextant_compute.request_models import Ticker
 
 router = APIRouter(tags=["portfolios"])
 
@@ -40,16 +44,25 @@ def _upper(value: object) -> object:
     return value.strip().upper() if isinstance(value, str) else value
 
 
+Currency = Annotated[
+    str,
+    BeforeValidator(_upper),
+    check(lambda v: len(v) == 3 and v.isascii() and v.isalpha(), "Enter a 3-letter currency code, like USD."),
+]
+"""An ISO 4217-style code, upper-cased (``usd`` -> ``USD``)."""
+
+
+def today() -> date:
+    """The day a holding entered by hand is dated (its lot's open date). Tests pin it."""
+    return datetime.now(UTC).date()
+
+
 class SavedHolding(BaseModel):
     ticker: Ticker
     quantity: Annotated[float, check(lambda v: v > 0, "Enter a quantity greater than 0.")]
     cost_price: Annotated[float, check(lambda v: v >= 0, "Enter a cost price of 0 or more.")]
     """Average price paid per unit, in ``currency``."""
-    currency: Annotated[
-        str,
-        BeforeValidator(_upper),
-        check(lambda v: len(v) == 3 and v.isascii() and v.isalpha(), "Enter a 3-letter currency code, like USD."),
-    ] = "USD"
+    currency: Currency = "USD"
 
 
 class PortfolioIn(BaseModel):
@@ -101,7 +114,7 @@ def list_portfolios(user: CurrentUser, db: Db) -> list[PortfolioSummary]:
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_portfolio(body: PortfolioIn, user: CurrentUser, db: Db) -> PortfolioOut:
     with db.connection() as conn:
-        portfolio_id = store.create(conn, user.id, body.name, [h.model_dump() for h in body.holdings])
+        portfolio_id = store.create(conn, user.id, body.name, [h.model_dump() for h in body.holdings], today())
     return load(db, user.id, portfolio_id)
 
 
@@ -114,7 +127,9 @@ def get_portfolio(portfolio_id: UUID, user: CurrentUser, db: Db) -> PortfolioOut
 def update_portfolio(portfolio_id: UUID, body: PortfolioIn, user: CurrentUser, db: Db) -> PortfolioOut:
     """Rename the portfolio and replace its holdings with ``body.holdings``."""
     with db.connection() as conn:
-        found = store.replace(conn, user.id, portfolio_id, body.name, [h.model_dump() for h in body.holdings])
+        found = store.replace(
+            conn, user.id, portfolio_id, body.name, [h.model_dump() for h in body.holdings], today()
+        )
     if not found:
         raise _not_found()
     return load(db, user.id, portfolio_id)
@@ -129,55 +144,97 @@ def delete_portfolio(portfolio_id: UUID, user: CurrentUser, db: Db) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-class ScoredPortfolio(AnalysisSettings):
+class SavedAnalysisSettings(AnalysisSettings):
+    reporting_currency: Currency | None = None
+    """Currency every amount is shown in; None: the first holding's currency."""
+
+
+class ScoredPortfolio(SavedAnalysisSettings):
     """What a saved-portfolio result was computed from; echoed as the envelope's ``meta.parameters``."""
 
+    reporting_currency: str
     portfolio_id: UUID
     name: str
     holdings: list[SavedHolding]
 
 
-def _value_metrics(holdings: list[SavedHolding], last_close: dict[str, float], currency: str) -> dict[str, MetricResult]:
-    """Today's value and unrealized P&L versus cost, in the holdings' currency (unit ``money``)."""
-    details: dict[str, str | float | None] = {"currency": currency}
-    market_value = sum(h.quantity * last_close[h.ticker] for h in holdings)
-    cost_basis = sum(h.quantity * h.cost_price for h in holdings)
+def _span(start: date, end: date, *dates: date) -> tuple[date, date]:
+    return min(start, *dates), max(end, *dates)
 
-    def unrealized_return() -> float:
-        if cost_basis == 0:
-            raise MissingData("needs a cost basis above 0")
-        return (market_value - cost_basis) / cost_basis
 
-    return {
-        "market_value:portfolio": metric(lambda: Detailed(market_value, details), unit="money"),
-        "cost_basis:portfolio": metric(lambda: Detailed(cost_basis, details), unit="money"),
-        "unrealized_pnl:portfolio": metric(lambda: Detailed(market_value - cost_basis, details), unit="money"),
-        "unrealized_return:portfolio": metric(unrealized_return, unit="decimal"),
-    }
+def _without_portfolio_risk(env: ResultEnvelope, own: Mapping[str, MetricResult], reason: str) -> ResultEnvelope:
+    """The envelope with the portfolio's risk metrics and chart ``missing_data`` (``own`` metrics kept)."""
+    for key, result in env.metrics.items():
+        if key.endswith(":portfolio") and key not in own:
+            env.metrics[key] = MetricResult(value=None, status=MetricStatus.MISSING_DATA, reason=reason, unit=result.unit)
+    for key, chart in env.series.items():
+        if key.endswith(":portfolio"):
+            env.series[key] = SeriesResult(
+                status=MetricStatus.MISSING_DATA, reason=reason, x_unit=chart.x_unit, y_unit=chart.y_unit
+            )
+    return env
 
 
 @router.post("/{portfolio_id}/metrics")
 def saved_portfolio_metrics(
-    portfolio_id: UUID, settings: AnalysisSettings, user: CurrentUser, db: Db, data: Data, ctx: Ctx
+    portfolio_id: UUID, settings: SavedAnalysisSettings, user: CurrentUser, db: Db, data: Data, ctx: Ctx
 ) -> ResultEnvelope:
-    """Performance and risk of the user's saved portfolio, held at its quantities (buy and hold).
+    """Performance and risk of the user's saved portfolio, held at its quantities (buy and hold),
+    plus each position's value, weight and P&L (``portfolio.positions``), all in the reporting
+    currency at each date's exchange rate (``portfolio.fx``).
 
-    Prices come from ``settings.source`` (demo data until bring-your-own-key lands).
+    Prices come from ``settings.source``: Demo data or the user's own provider (My data).
+    On My data a holding without prices marks only its own value, weight and P&L
+    ``missing_data``, plus the portfolio-level metrics that need it (with the reason).
     """
     saved = load(db, user.id, portfolio_id)
-    currencies = sorted({h.currency for h in saved.holdings})
-    if len(currencies) > 1:
-        raise ApiError(
-            422,
-            "mixed_currencies",
-            f"This portfolio holds more than one currency ({', '.join(currencies)}). "
-            "Converting between currencies is not available yet, so use one currency per portfolio for now.",
-        )
+    with db.connection() as conn:
+        lots = store.holding_lots(conn, saved.id)
+        trades = store.trade_history(conn, saved.id)
+    reporting = settings.reporting_currency or saved.holdings[0].currency
     quantities = {h.ticker: h.quantity for h in saved.holdings}
-    prices, frames = load_prices(data, ctx, list(quantities), settings)
-    value = portfolio_analytics.buy_and_hold_value(frames, quantities)
-    last_close = {t: float(frames[t]["close"].iloc[-1]) for t in quantities}
-    req = ScoredPortfolio(**settings.model_dump(), portfolio_id=saved.id, name=saved.name, holdings=saved.holdings)
-    return score(
-        req, settings, prices, frames, value / value.iloc[0], _value_metrics(saved.holdings, last_close, currencies[0])
+    # On My data an unknown ticker marks only its own position missing, like Risk & Performance.
+    prices, frames = load_prices(data, ctx, list(quantities), settings, allow_missing=True)
+    undated_on = saved.created_at.date()
+    lot_dates = [
+        date.fromisoformat(lot["date"]) for held in lots.values() for lot in held or [] if lot.get("date")
+    ]
+    first, last = _span(
+        frames[settings.benchmark].index[0].date(),
+        frames[settings.benchmark].index[-1].date(),
+        undated_on,
+        *lot_dates,
+        *(t["date"] for t in trades),
     )
+    fx = Converter(data, ctx, reporting, [*(h.currency for h in saved.holdings), *(t["currency"] for t in trades)], first, last)
+
+    converted: dict[str, pd.DataFrame] = {}
+    problem: MissingData | None = None
+    if prices.missing:
+        problem = MissingData(f"needs prices for every holding. {' '.join(prices.missing.values())}")
+    for h in saved.holdings:
+        if h.ticker in prices.missing:
+            continue
+        try:
+            converted[h.ticker] = fx.prices(frames[h.ticker], h.currency)
+        except MissingData as exc:
+            problem = problem or exc
+    valued_on = frames[settings.benchmark].index[-1].date()
+    last_close: dict[str, float | MissingData] = {
+        t: MissingData(prices.missing[t]) if t in prices.missing else float(frames[t]["close"].iloc[-1])
+        for t in quantities
+    }
+    extra = position_metrics(saved.holdings, lots, last_close, valued_on, trades, fx, undated_on)
+    req = ScoredPortfolio(
+        **settings.model_dump(exclude={"reporting_currency"}),
+        reporting_currency=reporting,
+        portfolio_id=saved.id,
+        name=saved.name,
+        holdings=saved.holdings,
+    )
+    if problem is not None:
+        # The portfolio's value cannot be built; score the benchmark alone and mark the portfolio's risk missing.
+        placeholder = frames[settings.benchmark]["close"] / frames[settings.benchmark]["close"].iloc[0]
+        return _without_portfolio_risk(score(req, settings, prices, frames, placeholder, extra), extra, str(problem))
+    value = portfolio_analytics.buy_and_hold_value({**frames, **converted}, quantities)
+    return score(req, settings, prices, frames, value / value.iloc[0], extra)
