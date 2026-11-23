@@ -96,7 +96,7 @@ export const en = {
     },
     macro: {
       name: "Macro Dashboard",
-      description: "Key US economic indicators, the Treasury yield curve and the 10Y-2Y spread.",
+      description: "US indicators, the Treasury yield curve, cross-country comparisons and the euro area.",
     },
     screener: {
       name: "Screener & Calendar",
@@ -396,11 +396,11 @@ export const en = {
   },
   risk: {
     intro:
-      "Compare the return, volatility, worst fall, tail risk and risk-adjusted return of a few tickers against a benchmark over a date range. Change any input and the results update.",
+      "Compare the return, volatility, worst fall, tail risk, risk-adjusted return and factor exposures of a few tickers against a benchmark over a date range. Change any input and the results update.",
     inputsHeading: "Inputs",
     submit: "Calculate",
     inputs: {
-      tickers: { label: "Tickers", hint: "Comma-separated. Demo tickers: DEMO-A to DEMO-G." },
+      tickers: { label: "Tickers", hint: "Comma-separated. Demo tickers: DEMO-A to DEMO-I." },
       benchmark: { label: "Benchmark", hint: "Demo benchmark: DEMO-MKT." },
       start: { label: "Start date", hint: "Demo data covers 2016-01-04 to 2025-12-31." },
       end: { label: "End date", hint: "Must be after the start date." },
@@ -421,11 +421,22 @@ export const en = {
     },
     benchmarkSuffix: "(benchmark)",
     csvLabel: "All risk metrics",
+    factors: {
+      source: {
+        synthetic:
+          "Factors: synthetic demo factors (Mkt-RF, SMB, HML, MOM, RF) generated with the demo prices. DEMO-H and DEMO-I are built with known size, value and momentum loadings. Sextant shows no real factor data.",
+      },
+      tStat: "t =",
+      exactFit: "t: undefined (exact fit)",
+      observations: "days",
+    },
     sections: {
       metrics: "Return and risk",
       tail: "Tail risk: VaR and CVaR",
       riskAdjusted: "Risk-adjusted return",
       benchmark: "Relationship with the benchmark",
+      ff3: "Factor exposures: Fama-French 3-factor",
+      carhart: "Factor exposures: Carhart 4-factor",
       chart: "Underwater chart",
     },
     chart: {
@@ -543,6 +554,72 @@ export const en = {
         how: "Mean daily return of the ticker on the benchmark's down days ÷ the benchmark's mean daily return on those days (arithmetic means).",
         read: "Lower is better: 70% means it fell only 70% as much as the benchmark on down days. Below 0% means it tended to rise when the benchmark fell.",
       },
+      ff3_alpha: {
+        name: "FF3: alpha (annual)",
+        what: "The yearly return left over after the factors in the model are accounted for.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. Alpha is the regression constant × 252.",
+        read: "Positive means the ticker beat what its factor exposures explain. Check the t-statistic: below about 2 in absolute value, the alpha cannot be told apart from zero.",
+      },
+      ff3_market: {
+        name: "FF3: market (Mkt-RF)",
+        what: "Exposure to the market factor: the market's return above the risk-free rate.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on Mkt-RF. In demo data Mkt-RF is DEMO-MKT's daily total return minus RF, whatever benchmark you picked.",
+        read: "Read it like beta: 1 moves with the market, 1.3 moves 1.3× as much. t (the coefficient over its standard error) above about 2 in absolute value means the exposure is statistically real.",
+      },
+      ff3_smb: {
+        name: "FF3: size (SMB)",
+        what: "Exposure to the size factor: small companies' return minus big companies' (Small Minus Big).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on SMB.",
+        read: "Positive is a small-cap tilt, negative a large-cap tilt, near 0 no size bias. |t| above about 2 means the tilt is statistically real.",
+      },
+      ff3_hml: {
+        name: "FF3: value (HML)",
+        what: "Exposure to the value factor: cheap (high book-to-market) companies' return minus expensive ones' (High Minus Low).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on HML.",
+        read: "Positive is a value tilt, negative a growth tilt, near 0 neither. |t| above about 2 means the tilt is statistically real.",
+      },
+      ff3_r_squared: {
+        name: "FF3: R²",
+        what: "The share of the ticker's daily excess-return variance that the model's factors explain.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB and HML plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. R² = 1 − (sum of squared residuals ÷ total sum of squares of y). The number of daily returns used is shown under it.",
+        read: "0.9 means the factors explain 90% of the day-to-day moves; the rest is stock-specific. Compare the two models: if adding momentum raises R² a lot, momentum matters for this ticker.",
+      },
+      carhart_alpha: {
+        name: "Carhart: alpha (annual)",
+        what: "The yearly return left over after the factors in the model are accounted for.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. Alpha is the regression constant × 252.",
+        read: "Positive means the ticker beat what its factor exposures explain. Check the t-statistic: below about 2 in absolute value, the alpha cannot be told apart from zero.",
+      },
+      carhart_market: {
+        name: "Carhart: market (Mkt-RF)",
+        what: "Exposure to the market factor: the market's return above the risk-free rate.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on Mkt-RF. In demo data Mkt-RF is DEMO-MKT's daily total return minus RF, whatever benchmark you picked.",
+        read: "Read it like beta: 1 moves with the market, 1.3 moves 1.3× as much. t (the coefficient over its standard error) above about 2 in absolute value means the exposure is statistically real.",
+      },
+      carhart_smb: {
+        name: "Carhart: size (SMB)",
+        what: "Exposure to the size factor: small companies' return minus big companies' (Small Minus Big).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on SMB.",
+        read: "Positive is a small-cap tilt, negative a large-cap tilt, near 0 no size bias. |t| above about 2 means the tilt is statistically real.",
+      },
+      carhart_hml: {
+        name: "Carhart: value (HML)",
+        what: "Exposure to the value factor: cheap (high book-to-market) companies' return minus expensive ones' (High Minus Low).",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on HML.",
+        read: "Positive is a value tilt, negative a growth tilt, near 0 neither. |t| above about 2 means the tilt is statistically real.",
+      },
+      carhart_mom: {
+        name: "Carhart: momentum (MOM)",
+        what: "Exposure to the momentum factor: recent winners' return minus recent losers'.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. This is the coefficient on MOM, the factor Carhart added to the Fama-French three.",
+        read: "Positive means the ticker behaves like a trend follower, negative like a contrarian. |t| above about 2 means the exposure is statistically real.",
+      },
+      carhart_r_squared: {
+        name: "Carhart: R²",
+        what: "The share of the ticker's daily excess-return variance that the model's factors explain.",
+        how: "Daily excess return y = r − RF, regressed by ordinary least squares on Mkt-RF, SMB, HML and MOM plus a constant, over the days that have both returns and factors. t-statistics use classical (homoskedastic) standard errors. R² = 1 − (sum of squared residuals ÷ total sum of squares of y). The number of daily returns used is shown under it.",
+        read: "0.9 means the factors explain 90% of the day-to-day moves; the rest is stock-specific. Compare the two models: if adding momentum raises R² a lot, momentum matters for this ticker.",
+      },
     },
   },
   portfolio: {
@@ -567,7 +644,7 @@ export const en = {
     },
     holdings: {
       heading: "Holdings",
-      hint: "Demo tickers: DEMO-A to DEMO-G. Weights are a share of the portfolio and must add up to 100%. The portfolio is rebalanced to these weights every day.",
+      hint: "Demo tickers: DEMO-A to DEMO-I. Weights are a share of the portfolio and must add up to 100%. The portfolio is rebalanced to these weights every day.",
       ticker: "Ticker",
       weight: "Weight",
       weightUnit: "(%)",
@@ -602,7 +679,7 @@ export const en = {
       name: { label: "Portfolio name", placeholder: "For example: Retirement account" },
       holdings: {
         heading: "Holdings",
-        hint: "Demo tickers: DEMO-A to DEMO-G. Cost price is the average price you paid per unit. Use one currency per portfolio for now.",
+        hint: "Demo tickers: DEMO-A to DEMO-I. Cost price is the average price you paid per unit. Use one currency per portfolio for now.",
         ticker: "Ticker",
         quantity: "Quantity",
         cost_price: "Cost price",
@@ -749,10 +826,86 @@ export const en = {
   },
   macro: {
     intro:
-      "The latest reading and history of four headline US indicators, from public-domain series on FRED, and the US Treasury yield curve and 10Y–2Y spread, from the Treasury's daily par yield curve. Hover a chart to see exact values.",
+      "The latest reading and history of four headline US indicators, from public-domain series on FRED; the US Treasury yield curve and 10Y–2Y spread, from the Treasury's daily par yield curve; a cross-country comparison from the World Bank; and euro area policy rates and inflation from the ECB. Hover a chart to see exact values.",
     sections: {
       indicators: "US headline indicators",
       rates: "US Treasury yields",
+      countries: "Compare countries",
+      euroArea: "Euro area",
+    },
+    countries: {
+      intro:
+        "Annual GDP growth, inflation and unemployment for up to six economies, from the World Bank's World Development Indicators. Each value is the latest year the World Bank has published for that country.",
+      picker: "Countries",
+      pickerHint: "Choose up to 6.",
+      chartSuffix: "by country",
+      x: "Year",
+      dataset: "World Bank, World Development Indicators",
+      originalSource: "Original source",
+      indicator: "Indicator",
+      names: {
+        ARG: "Argentina",
+        AUS: "Australia",
+        BRA: "Brazil",
+        CAN: "Canada",
+        CHN: "China",
+        DEU: "Germany",
+        EMU: "Euro area",
+        ESP: "Spain",
+        FRA: "France",
+        GBR: "United Kingdom",
+        IND: "India",
+        ITA: "Italy",
+        JPN: "Japan",
+        KOR: "South Korea",
+        MEX: "Mexico",
+        USA: "United States",
+        ZAF: "South Africa",
+      },
+      indicators: {
+        gdp_growth: {
+          name: "GDP growth",
+          what: "How fast each economy's output of goods and services grew over the year, after removing inflation.",
+          how: "Annual percent change of real GDP at market prices in constant local currency; World Bank indicator NY.GDP.MKTP.KD.ZG, from national accounts data compiled by the World Bank and the OECD.",
+          read: "Shown in percent. Calendar-year growth, so it moves less than the US quarterly annualized rate above. A negative value means the economy shrank that year.",
+        },
+        inflation: {
+          name: "Inflation",
+          what: "How much consumer prices rose over the year in each economy.",
+          how: "Annual percent change of the consumer price index (yearly average); World Bank indicator FP.CPI.TOTL.ZG, from the IMF's International Financial Statistics.",
+          read: "Shown in percent. Many central banks target about 2%. Very high values (e.g. Argentina) stretch the chart's scale.",
+        },
+        unemployment_rate: {
+          name: "Unemployment rate",
+          what: "The share of each economy's labor force that is out of work and looking for a job.",
+          how: "Unemployed people as a percentage of the total labor force, from the ILO's modelled estimates, which harmonize national surveys so countries can be compared; World Bank indicator SL.UEM.TOTL.ZS.",
+          read: "Shown in percent. Modelled estimates can differ from the headline rate each country's statistics office publishes.",
+        },
+      },
+    },
+    euroArea: {
+      intro:
+        "The three key interest rates the ECB's Governing Council sets, and euro area consumer price inflation (HICP), from the ECB Data Portal.",
+      since: "Since",
+      ratesChart: "Key ECB interest rates history",
+      hicpChart: "Euro area HICP inflation history",
+      rateLabels: {
+        deposit_facility_rate: "Deposit facility",
+        main_refinancing_rate: "Main refinancing operations",
+        marginal_lending_rate: "Marginal lending facility",
+      },
+      ecb_rates: {
+        name: "Key ECB interest rates",
+        what: "The rates at which euro area banks can deposit money with the Eurosystem overnight (deposit facility), borrow for a week against collateral (main refinancing operations) and borrow overnight (marginal lending facility).",
+        how: "The rates the ECB's Governing Council decided, each in force from the date shown until the next change; ECB series FM/B.U2.EUR.4F.KR.{DFR, MRR_FR, MLFR}.LEV. The chart holds each rate flat between decisions.",
+        read: "Shown in percent per year. With ample excess liquidity, the deposit facility rate is the one that steers short-term market rates; the ECB raises rates to cool inflation and cuts them to support growth.",
+      },
+      hicp_inflation: {
+        name: "Euro area HICP inflation",
+        what: "How much consumer prices in the euro area rose over the past year, measured by the Harmonised Index of Consumer Prices.",
+        how: "Annual rate of change of the overall HICP for the euro area (changing composition), not seasonally adjusted, compiled by Eurostat; ECB series HICP/M.U2.N.000000.4D0.ANR.",
+        read: "Shown in percent. The ECB aims for 2% inflation over the medium term.",
+      },
     },
     inputsHeading: "Chart range",
     inputs: {
@@ -799,6 +952,26 @@ export const en = {
         how: "10-year par yield minus 2-year par yield on each business day, computed by Sextant from Treasury's daily par yield curve. Shaded periods are runs of days when the spread was below zero.",
         read: "Shown in percentage points (pp). Below zero means the curve is inverted; inversions have preceded most US recessions, though with long and variable lags.",
       },
+    },
+    custom: {
+      heading: "Your series",
+      intro:
+        "Search FRED by name, keyword or series id and add more series to the board. Only public-domain series are offered: copyrighted series are excluded. The series you add are kept in the page address, so you can share the board.",
+      search: { label: "Search FRED", hint: "For example payroll, housing starts or PAYEMS." },
+      submit: "Search",
+      results: "Search results",
+      empty: (query: string) => `No public-domain FRED series match “${query}”.`,
+      add: (id: string) => `Add ${id}`,
+      addText: "Add",
+      added: "Added",
+      remove: (id: string) => `Remove ${id}`,
+      removeText: "Remove",
+      full: (max: number) => `The board holds up to ${max} added series. Remove one to add another.`,
+      explainer: (title: string, source: string, units: string) => ({
+        what: `${title}, a FRED series you added to the board.`,
+        how: `As published by ${source}${units ? ` (${units})` : ""}, retrieved from FRED, Federal Reserve Bank of St. Louis. The value is the latest observation.`,
+        read: "Read it in the units shown below the value; the chart shows its history and the latest period tells you how recent it is.",
+      }),
     },
     indicators: {
       gdp_growth: {
@@ -1602,6 +1775,27 @@ export const en = {
     disclaimer:
       "Not investment advice. Sextant is for education and research only; results may be wrong or out of date.",
     sourcesLabel: "Data sources",
+  },
+  operator: {
+    heading: "AI usage",
+    intro: (since: string, until: string) =>
+      `AI calls, tokens and estimated cost per user, ${since} to ${until} (UTC days). Operator only.`,
+    pricing: (input: string, output: string) =>
+      `Estimated cost at ${input} per million input tokens and ${output} per million output tokens.`,
+    totals: "Total",
+    perUser: "AI usage per user",
+    perDay: "AI usage per user per day",
+    empty: "No AI calls in this period.",
+    columns: {
+      day: "Day (UTC)",
+      user: "User",
+      calls: "Calls",
+      inputTokens: "Input tokens",
+      outputTokens: "Output tokens",
+      cost: "Estimated cost",
+    },
+    errorHeading: "AI usage could not be loaded",
+    unavailable: "The usage log is unavailable right now. Please retry in a moment.",
   },
   notFound: {
     heading: "Page not found",

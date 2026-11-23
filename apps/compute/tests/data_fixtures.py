@@ -50,6 +50,18 @@ class FixtureAdapter:
         return {t: self.frames[t].loc[pd.Timestamp(start) : pd.Timestamp(end)] for t in tickers}
 
 
+class FactorFixtureAdapter(FixtureAdapter):
+    """A ``FixtureAdapter`` that also serves a fixed factor frame. A plain
+    ``FixtureAdapter`` has no factor data, like every real price provider."""
+
+    def __init__(self, frames: dict[str, pd.DataFrame], factors: pd.DataFrame) -> None:
+        super().__init__(frames)
+        self.factors = factors
+
+    def daily_factors(self, ctx, start: date, end: date) -> pd.DataFrame:
+        return self.factors.loc[pd.Timestamp(start) : pd.Timestamp(end)]
+
+
 class DownAdapter:
     """A provider that is always down."""
 

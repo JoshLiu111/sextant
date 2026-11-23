@@ -1,0 +1,29 @@
+{
+ "realtime_start": "2026-11-22",
+ "realtime_end": "2026-11-22",
+ "order_by": "search_rank",
+ "sort_order": "desc",
+ "count": 1,
+ "offset": 0,
+ "limit": 25,
+ "seriess": [
+  {
+   "id": "BAMLH0A0HYM2",
+   "realtime_start": "2026-11-22",
+   "realtime_end": "2026-11-22",
+   "title": "ICE BofA US High Yield Index Option-Adjusted Spread",
+   "observation_start": "1996-12-31",
+   "observation_end": "2026-11-20",
+   "frequency": "Daily, Close",
+   "frequency_short": "D",
+   "units": "Percent",
+   "units_short": "%",
+   "seasonal_adjustment": "Not Seasonally Adjusted",
+   "seasonal_adjustment_short": "NSA",
+   "last_updated": "2026-11-21 09:13:20-06",
+   "popularity": 88,
+   "notes": "The ICE BofA Option-Adjusted Spreads (OASs) are the calculated spreads between a computed OAS index of all bonds in a given rating category and a spot Treasury curve. An OAS index is constructed using each constituent bond's OAS, weighted by market capitalization.\n\nCertain indices and index data included in FRED are the property of ICE Data Indices, LLC (\"ICE DATA\") and used under license. Copyright, 2023, ICE Data Indices. Reproduction of this data in any form is prohibited except with the prior written permission of ICE Data Indices.",
+   "group_popularity": 88
+  }
+ ]
+}

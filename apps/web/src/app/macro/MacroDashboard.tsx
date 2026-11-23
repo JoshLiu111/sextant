@@ -102,7 +102,7 @@ function Indicator({
   );
 }
 
-function SeriesMeta({ details }: { details: MetricResult["details"] }) {
+export function SeriesMeta({ details }: { details: MetricResult["details"] }) {
   const m = getMessages().macro.meta;
   const text = (key: string) => String(details[key] ?? "");
   const seriesId = text("series_id");

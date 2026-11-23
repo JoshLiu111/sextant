@@ -163,9 +163,9 @@ def test_the_demo_data_is_cached_in_the_shared_cache():
 
     with serving(SyntheticAdapter()) as service:
         metrics(tickers=["DEMO-A"], start="2024-01-01", end="2024-12-31")
-        assert len(service.shared_cache) == 1
+        assert len(service.shared_cache) == 2  # the prices and the synthetic factors
         metrics(tickers=["DEMO-A"], start="2024-01-01", end="2024-12-31")
-        assert len(service.shared_cache) == 1
+        assert len(service.shared_cache) == 2
 
 
 def test_unknown_ticker_is_reported_on_the_field_that_named_it():

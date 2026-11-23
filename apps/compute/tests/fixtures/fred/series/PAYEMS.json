@@ -1,0 +1,23 @@
+{
+ "realtime_start": "2026-11-22",
+ "realtime_end": "2026-11-22",
+ "seriess": [
+  {
+   "realtime_start": "2026-11-22",
+   "realtime_end": "2026-11-22",
+   "id": "PAYEMS",
+   "title": "All Employees, Total Nonfarm",
+   "observation_start": "1939-01-01",
+   "observation_end": "2026-10-01",
+   "frequency": "Monthly",
+   "frequency_short": "M",
+   "units": "Thousands of Persons",
+   "units_short": "Thous. of Persons",
+   "seasonal_adjustment": "Seasonally Adjusted",
+   "seasonal_adjustment_short": "SA",
+   "last_updated": "2026-11-06 07:48:03-06",
+   "popularity": 86,
+   "notes": "All Employees: Total Nonfarm, commonly known as Total Nonfarm Payroll, is a measure of the number of U.S. workers in the economy that excludes proprietors, private household employees, unpaid volunteers, farm employees, and the unincorporated self-employed."
+  }
+ ]
+}

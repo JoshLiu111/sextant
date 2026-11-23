@@ -29,19 +29,26 @@ from sextant_compute.auth import OptionalUser
 from sextant_compute.auth.deps import get_db
 from sextant_compute.data.adapters import (
     Adapter,
+    CountryIndicator,
+    CountryIndicatorAdapter,
+    CountrySeries,
     CrossSectionsAdapter,
+    DailyFactorsAdapter,
     DailyPricesAdapter,
     EconomicSeries,
     EconomicSeriesAdapter,
     FilingsAdapter,
     FinancialStatementsAdapter,
     SeriesMeta,
+    SeriesSearchAdapter,
+    SeriesSummary,
     YieldCurveAdapter,
     YieldCurves,
 )
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
+from sextant_compute.data.ecb import EcbAdapter
 from sextant_compute.data.edgar import EdgarAdapter
 from sextant_compute.data.errors import KeyRequired, NoSuchData
 from sextant_compute.data.filings import FilingList
@@ -52,6 +59,7 @@ from sextant_compute.data.synthetic import SyntheticAdapter
 from sextant_compute.data.tiingo import TiingoAdapter
 from sextant_compute.data.treasury import TreasuryAdapter
 from sextant_compute.data.user_cache import PostgresUserCache
+from sextant_compute.data.world_bank import WorldBankAdapter
 from sextant_compute.db import Database
 from sextant_compute.envelope import DataSource
 from sextant_compute.keys.vault import user_keys
@@ -74,6 +82,14 @@ class PriceHistory:
     def last_date(self) -> date | None:
         ends = [f.index[-1].date() for f in self.frames.values() if not f.empty]
         return max(ends) if ends else None
+
+
+@dataclass(frozen=True)
+class FactorHistory:
+    """Daily factor returns (``FACTOR_COLUMNS``, decimals) and the source they came from."""
+
+    source: DataSource
+    frame: pd.DataFrame
 
 
 class DataService:
@@ -217,6 +233,25 @@ class DataService:
             _decode_frames,
         )
 
+    def daily_factors(self, ctx: RequestContext, start: date, end: date, *, source: str) -> FactorHistory:
+        """Daily factor returns in [start, end]; see ``DailyFactorsAdapter``. Raises
+        ``NoSuchData`` when ``source`` serves no factors (every source but the
+        synthetic demo one, ADR 0003)."""
+        adapter = self._adapter(source)
+        if not hasattr(adapter, "daily_factors"):
+            raise NoSuchData(adapter.source.id, f"There is no factor data for {adapter.source.name}.")
+        factors = cast(DailyFactorsAdapter, adapter)
+        frames = self._cached(
+            ctx,
+            factors,
+            "daily_factors",
+            {"start": start.isoformat(), "end": end.isoformat()},
+            lambda: {"factors": factors.daily_factors(ctx, start, end)},
+            _encode_frames,
+            _decode_frames,
+        )
+        return FactorHistory(source=adapter.source, frame=frames["factors"])
+
     def financial_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
         """Standardized annual statements for one company; see ``FinancialStatementsAdapter``.
         Use ``.last(n)`` for the n most recent fiscal years."""
@@ -301,6 +336,21 @@ class DataService:
             _decode_series,
         )
 
+    def search_series(self, ctx: RequestContext, query: str, *, limit: int, source: str) -> list[SeriesSummary]:
+        """Series matching a name, keyword or id; see ``SeriesSearchAdapter``.
+        Cached per (query lowercased and trimmed, limit)."""
+        adapter = cast(SeriesSearchAdapter, self._adapter(source))
+        text = " ".join(query.split())
+        return self._cached(
+            ctx,
+            adapter,
+            "series_search",
+            {"query": text.lower(), "limit": limit},
+            lambda: adapter.search_series(ctx, text, limit),
+            lambda hits: [dataclasses.asdict(h) for h in hits],
+            lambda raw: [SeriesSummary(**h) for h in raw],
+        )
+
     def yield_curves(self, ctx: RequestContext, *, start: date, end: date, source: str) -> YieldCurves:
         """Daily yield curves dated within [start, end], ascending; see ``YieldCurveAdapter``.
         Fetched and cached one calendar year at a time, so a wider range reuses the
@@ -322,6 +372,31 @@ class DataService:
             source=adapter.source,
             meta=years[-1].meta,
             curves=[(when, curve) for y in years for when, curve in y.curves if start <= when <= end],
+        )
+
+    def country_indicator(
+        self,
+        ctx: RequestContext,
+        indicator_id: str,
+        countries: Sequence[str],
+        *,
+        start_year: int,
+        end_year: int,
+        source: str,
+    ) -> CountryIndicator:
+        """One indicator's annual values for several economies; see ``CountryIndicatorAdapter``.
+        Cached per (indicator, country set, years): ask for a fixed country set and
+        filter, so every selection shares one entry."""
+        adapter = cast(CountryIndicatorAdapter, self._adapter(source))
+        wanted = sorted({c.strip().upper() for c in countries})
+        return self._cached(
+            ctx,
+            adapter,
+            "country_indicator",
+            {"indicator": indicator_id, "countries": wanted, "start_year": start_year, "end_year": end_year},
+            lambda: adapter.country_indicator(ctx, indicator_id, wanted, start_year, end_year),
+            _encode_country_indicator,
+            _decode_country_indicator,
         )
 
 
@@ -383,6 +458,27 @@ def _decode_curves(raw: Mapping[str, Any]) -> YieldCurves:
     )
 
 
+def _encode_country_indicator(found: CountryIndicator) -> dict[str, Any]:
+    return {
+        "source": found.source.model_dump(),
+        "meta": dataclasses.asdict(found.meta),
+        "countries": [
+            [c.country, c.name, [[year, value] for year, value in c.observations]] for c in found.countries.values()
+        ],
+    }
+
+
+def _decode_country_indicator(raw: Mapping[str, Any]) -> CountryIndicator:
+    return CountryIndicator(
+        source=DataSource(**raw["source"]),
+        meta=SeriesMeta(**raw["meta"]),
+        countries={
+            code: CountrySeries(code, name, [(int(year), value) for year, value in observations])
+            for code, name, observations in raw["countries"]
+        },
+    )
+
+
 def default_adapters() -> dict[str, Adapter]:
     synthetic = SyntheticAdapter()
     fred = FredAdapter.from_env()
@@ -390,6 +486,8 @@ def default_adapters() -> dict[str, Adapter]:
     treasury = TreasuryAdapter.from_env()
     tiingo = TiingoAdapter.from_env()
     fmp = FmpAdapter.from_env()
+    world_bank = WorldBankAdapter.from_env()
+    ecb = EcbAdapter.from_env()
     return {
         tiingo.source.id: tiingo,
         fmp.source.id: fmp,
@@ -397,6 +495,8 @@ def default_adapters() -> dict[str, Adapter]:
         fred.source.id: fred,
         edgar.source.id: edgar,
         treasury.source.id: treasury,
+        world_bank.source.id: world_bank,
+        ecb.source.id: ecb,
     }
 
 
