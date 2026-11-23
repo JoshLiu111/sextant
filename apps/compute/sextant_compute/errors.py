@@ -16,7 +16,7 @@ Codes in use:
   input was wrong re-raise it as ``ApiError(..., fields=...)`` so it shows inline.
 - 503 ``source_unavailable``: an adapter raised ``SourceUnavailable``. The UI shows
   "data source temporarily unavailable, please retry".
-- 403 ``key_required``: a source that runs on the visitor's own key (Tiingo) was
+- 403 ``key_required``: a source that runs on the visitor's own key (Tiingo, FMP) was
   asked for without a working key (``KeyRequired``). The message points to Settings.
 
 Validation messages are written for people: attach them to request-model

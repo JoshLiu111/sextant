@@ -45,6 +45,7 @@ from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.edgar import EdgarAdapter
 from sextant_compute.data.errors import KeyRequired, NoSuchData
 from sextant_compute.data.filings import FilingList
+from sextant_compute.data.fmp import FmpAdapter
 from sextant_compute.data.fred import FredAdapter
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
@@ -388,8 +389,10 @@ def default_adapters() -> dict[str, Adapter]:
     edgar = EdgarAdapter()
     treasury = TreasuryAdapter.from_env()
     tiingo = TiingoAdapter.from_env()
+    fmp = FmpAdapter.from_env()
     return {
         tiingo.source.id: tiingo,
+        fmp.source.id: fmp,
         synthetic.source.id: synthetic,
         fred.source.id: fred,
         edgar.source.id: edgar,
