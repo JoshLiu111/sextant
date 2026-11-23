@@ -23,10 +23,19 @@ import pandas as pd
 from fastapi import Depends
 
 from sextant_compute.auth import OptionalUser
-from sextant_compute.data.adapters import Adapter, DailyPricesAdapter, EconomicSeries, EconomicSeriesAdapter, SeriesMeta
+from sextant_compute.data.adapters import (
+    Adapter,
+    DailyPricesAdapter,
+    EconomicSeries,
+    EconomicSeriesAdapter,
+    FinancialStatementsAdapter,
+    SeriesMeta,
+)
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
+from sextant_compute.data.edgar import EdgarAdapter
 from sextant_compute.data.fred import FredAdapter
+from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
 from sextant_compute.envelope import DataSource
 
@@ -123,6 +132,20 @@ class DataService:
         )
         return PriceHistory(source=adapter.source, frames={t: frames[t] for t in wanted})
 
+    def financial_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
+        """Standardized annual statements for one company; see ``FinancialStatementsAdapter``.
+        Use ``.last(n)`` for the n most recent fiscal years."""
+        adapter = cast(FinancialStatementsAdapter, self._adapter(source))
+        return self._cached(
+            ctx,
+            adapter,
+            "financial_statements",
+            {"ticker": ticker.strip().upper()},
+            lambda: adapter.financial_statements(ctx, ticker),
+            FinancialStatements.to_json,
+            FinancialStatements.from_json,
+        )
+
     def economic_series(
         self, ctx: RequestContext, series_id: str, *, start: date, units: str = "lin", source: str
     ) -> EconomicSeries:
@@ -184,7 +207,8 @@ def _decode_series(raw: Mapping[str, Any]) -> EconomicSeries:
 def default_adapters() -> dict[str, Adapter]:
     synthetic = SyntheticAdapter()
     fred = FredAdapter.from_env()
-    return {synthetic.source.id: synthetic, fred.source.id: fred}
+    edgar = EdgarAdapter()
+    return {synthetic.source.id: synthetic, fred.source.id: fred, edgar.source.id: edgar}
 
 
 _service: DataService | None = None

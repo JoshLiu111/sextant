@@ -1,0 +1,384 @@
+# Unified line items for the standardized financial statements (P1, P2, P7).
+#
+# Data, not code: the EDGAR adapter reads this file to turn a company's XBRL
+# facts (SEC companyfacts) into the same named items for every company.
+#
+# Each [[item]]:
+#   id         stable identifier used in APIs and metric ids (snake_case; never rename)
+#   label      display name, also used in "missing" reasons
+#   statement  "income" | "balance" | "cash_flow" (balance items are instants at
+#              the fiscal year end; the others are durations of about a year)
+#   unit       XBRL unit key in companyfacts: "USD", "USD/shares" or "shares"
+#   tags       candidate XBRL tags, "<taxonomy>:<tag>", in priority order. For EACH
+#              fiscal period the first tag with a value for that period wins, so a
+#              tag the company stopped using doesn't block a newer one.
+#   derive     optional fallback when no tag has a value: other item ids joined by
+#              " + " / " - " (e.g. "revenue - cost_of_revenue"). Every input must
+#              have a value for that period.
+#   display    optional, default true. false = a helper item (an input to a derive
+#              formula) that the statements page doesn't show; APIs still return it.
+#
+# Order of items here is display order. Changing this file changes the adapter
+# output: bump EdgarAdapter.version (cache entries outlive deploys).
+
+# --- Income statement -------------------------------------------------------
+
+[[item]]
+id = "revenue"
+label = "Revenue"
+statement = "income"
+unit = "USD"
+tags = [
+  "us-gaap:Revenues",
+  "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+  "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax",
+  "us-gaap:RevenuesNetOfInterestExpense",
+  "us-gaap:SalesRevenueNet",
+]
+
+[[item]]
+id = "cost_of_revenue"
+label = "Cost of Revenue"
+statement = "income"
+unit = "USD"
+tags = [
+  "us-gaap:CostOfGoodsAndServicesSold",
+  "us-gaap:CostOfRevenue",
+  "us-gaap:CostOfGoodsSold",
+  "us-gaap:CostOfGoodsAndServicesSoldExcludingDepreciationDepletionAndAmortization",
+]
+
+[[item]]
+id = "gross_profit"
+label = "Gross Profit"
+statement = "income"
+unit = "USD"
+tags = ["us-gaap:GrossProfit"]
+derive = "revenue - cost_of_revenue"
+
+[[item]]
+id = "research_and_development"
+label = "Research and Development"
+statement = "income"
+unit = "USD"
+tags = ["us-gaap:ResearchAndDevelopmentExpense"]
+
+[[item]]
+id = "selling_general_administrative"
+label = "Selling, General and Administrative"
+statement = "income"
+unit = "USD"
+tags = ["us-gaap:SellingGeneralAndAdministrativeExpense"]
+derive = "selling_and_marketing + general_and_administrative"
+
+[[item]]
+id = "selling_and_marketing"
+label = "Selling and Marketing"
+statement = "income"
+unit = "USD"
+tags = ["us-gaap:SellingAndMarketingExpense"]
+display = false
+
+[[item]]
+id = "general_and_administrative"
+label = "General and Administrative"
+statement = "income"
+unit = "USD"
+tags = ["us-gaap:GeneralAndAdministrativeExpense"]
+display = false
+
+[[item]]
+id = "operating_income"
+label = "Operating Income"
+statement = "income"
+unit = "USD"
+tags = ["us-gaap:OperatingIncomeLoss"]
+
+[[item]]
+id = "interest_expense"
+label = "Interest Expense"
+statement = "income"
+unit = "USD"
+tags = [
+  "us-gaap:InterestExpenseNonoperating",
+  "us-gaap:InterestExpense",
+  "us-gaap:InterestExpenseDebt",
+  "us-gaap:InterestExpenseOperating",
+]
+
+[[item]]
+id = "pretax_income"
+label = "Pre-tax Income"
+statement = "income"
+unit = "USD"
+tags = [
+  "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+  "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
+]
+
+[[item]]
+id = "income_tax"
+label = "Income Tax Expense"
+statement = "income"
+unit = "USD"
+tags = ["us-gaap:IncomeTaxExpenseBenefit"]
+
+[[item]]
+id = "net_income"
+label = "Net Income"
+statement = "income"
+unit = "USD"
+tags = [
+  "us-gaap:NetIncomeLoss",
+  "us-gaap:ProfitLoss",
+  "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic",
+]
+
+[[item]]
+id = "eps_basic"
+label = "EPS (Basic)"
+statement = "income"
+unit = "USD/shares"
+tags = ["us-gaap:EarningsPerShareBasic", "us-gaap:EarningsPerShareBasicAndDiluted"]
+
+[[item]]
+id = "eps_diluted"
+label = "EPS (Diluted)"
+statement = "income"
+unit = "USD/shares"
+tags = ["us-gaap:EarningsPerShareDiluted", "us-gaap:EarningsPerShareBasicAndDiluted"]
+
+[[item]]
+id = "shares_basic"
+label = "Weighted Average Shares (Basic)"
+statement = "income"
+unit = "shares"
+tags = ["us-gaap:WeightedAverageNumberOfSharesOutstandingBasic"]
+
+[[item]]
+id = "shares_diluted"
+label = "Weighted Average Shares (Diluted)"
+statement = "income"
+unit = "shares"
+tags = ["us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding"]
+
+# --- Balance sheet ----------------------------------------------------------
+
+[[item]]
+id = "cash"
+label = "Cash and Cash Equivalents"
+statement = "balance"
+unit = "USD"
+tags = [
+  "us-gaap:CashAndCashEquivalentsAtCarryingValue",
+  "us-gaap:Cash",
+  "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+]
+
+[[item]]
+id = "receivables"
+label = "Accounts Receivable"
+statement = "balance"
+unit = "USD"
+tags = ["us-gaap:AccountsReceivableNetCurrent", "us-gaap:ReceivablesNetCurrent"]
+
+[[item]]
+id = "inventory"
+label = "Inventory"
+statement = "balance"
+unit = "USD"
+tags = ["us-gaap:InventoryNet"]
+
+[[item]]
+id = "current_assets"
+label = "Total Current Assets"
+statement = "balance"
+unit = "USD"
+tags = ["us-gaap:AssetsCurrent"]
+
+[[item]]
+id = "ppe_net"
+label = "Property, Plant and Equipment (Net)"
+statement = "balance"
+unit = "USD"
+tags = [
+  "us-gaap:PropertyPlantAndEquipmentNet",
+  "us-gaap:PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization",
+]
+
+[[item]]
+id = "total_assets"
+label = "Total Assets"
+statement = "balance"
+unit = "USD"
+tags = ["us-gaap:Assets"]
+
+[[item]]
+id = "accounts_payable"
+label = "Accounts Payable"
+statement = "balance"
+unit = "USD"
+tags = ["us-gaap:AccountsPayableCurrent"]
+
+[[item]]
+id = "current_debt"
+label = "Short-term Debt"
+statement = "balance"
+unit = "USD"
+tags = [
+  "us-gaap:DebtCurrent",
+  "us-gaap:LongTermDebtCurrent",
+  "us-gaap:ShortTermBorrowings",
+  "us-gaap:CommercialPaper",
+]
+
+[[item]]
+id = "current_liabilities"
+label = "Total Current Liabilities"
+statement = "balance"
+unit = "USD"
+tags = ["us-gaap:LiabilitiesCurrent"]
+
+[[item]]
+id = "long_term_debt"
+label = "Long-term Debt (Non-current)"
+statement = "balance"
+unit = "USD"
+tags = [
+  "us-gaap:LongTermDebtNoncurrent",
+  "us-gaap:LongTermDebtAndCapitalLeaseObligations",
+]
+
+[[item]]
+id = "total_liabilities"
+label = "Total Liabilities"
+statement = "balance"
+unit = "USD"
+tags = ["us-gaap:Liabilities"]
+derive = "total_liabilities_and_equity - total_equity_including_nci"
+
+[[item]]
+id = "retained_earnings"
+label = "Retained Earnings"
+statement = "balance"
+unit = "USD"
+tags = ["us-gaap:RetainedEarningsAccumulatedDeficit"]
+
+[[item]]
+id = "total_equity"
+label = "Shareholders' Equity"
+statement = "balance"
+unit = "USD"
+tags = [
+  "us-gaap:StockholdersEquity",
+  "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+]
+
+[[item]]
+id = "total_equity_including_nci"
+label = "Total Equity incl. Noncontrolling Interests"
+statement = "balance"
+unit = "USD"
+tags = [
+  "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+  "us-gaap:StockholdersEquity",
+]
+display = false
+
+[[item]]
+id = "total_liabilities_and_equity"
+label = "Total Liabilities and Equity"
+statement = "balance"
+unit = "USD"
+tags = ["us-gaap:LiabilitiesAndStockholdersEquity"]
+
+[[item]]
+id = "shares_outstanding"
+label = "Common Shares Outstanding"
+statement = "balance"
+unit = "shares"
+tags = ["us-gaap:CommonStockSharesOutstanding"]
+
+# --- Cash flow statement ----------------------------------------------------
+
+[[item]]
+id = "operating_cash_flow"
+label = "Operating Cash Flow"
+statement = "cash_flow"
+unit = "USD"
+tags = [
+  "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+  "us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+]
+
+[[item]]
+id = "depreciation_amortization"
+label = "Depreciation and Amortization"
+statement = "cash_flow"
+unit = "USD"
+tags = [
+  "us-gaap:DepreciationDepletionAndAmortization",
+  "us-gaap:DepreciationAmortizationAndAccretionNet",
+  "us-gaap:DepreciationAndAmortization",
+]
+derive = "depreciation + amortization_of_intangibles"
+
+[[item]]
+id = "depreciation"
+label = "Depreciation"
+statement = "cash_flow"
+unit = "USD"
+tags = ["us-gaap:Depreciation"]
+display = false
+
+[[item]]
+id = "amortization_of_intangibles"
+label = "Amortization of Intangible Assets"
+statement = "cash_flow"
+unit = "USD"
+tags = ["us-gaap:AmortizationOfIntangibleAssets"]
+display = false
+
+[[item]]
+id = "capital_expenditure"
+label = "Capital Expenditure"
+statement = "cash_flow"
+unit = "USD"
+tags = [
+  "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+  "us-gaap:PaymentsToAcquireProductiveAssets",
+]
+
+[[item]]
+id = "investing_cash_flow"
+label = "Investing Cash Flow"
+statement = "cash_flow"
+unit = "USD"
+tags = [
+  "us-gaap:NetCashProvidedByUsedInInvestingActivities",
+  "us-gaap:NetCashProvidedByUsedInInvestingActivitiesContinuingOperations",
+]
+
+[[item]]
+id = "financing_cash_flow"
+label = "Financing Cash Flow"
+statement = "cash_flow"
+unit = "USD"
+tags = [
+  "us-gaap:NetCashProvidedByUsedInFinancingActivities",
+  "us-gaap:NetCashProvidedByUsedInFinancingActivitiesContinuingOperations",
+]
+
+[[item]]
+id = "dividends_paid"
+label = "Dividends Paid"
+statement = "cash_flow"
+unit = "USD"
+tags = ["us-gaap:PaymentsOfDividends", "us-gaap:PaymentsOfDividendsCommonStock"]
+
+[[item]]
+id = "share_repurchases"
+label = "Share Repurchases"
+statement = "cash_flow"
+unit = "USD"
+tags = ["us-gaap:PaymentsForRepurchaseOfCommonStock"]

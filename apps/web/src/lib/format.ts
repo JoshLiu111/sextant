@@ -19,6 +19,18 @@ export function formatValue(value: number, unit: Unit | null): string {
   return FOUR.format(value);
 }
 
+const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+/**
+ * Financial-statement cell: `currency` and `shares` in millions (no decimals),
+ * `per_share` with two decimals. Units are stated once in the table caption.
+ */
+export function formatStatementValue(value: number, unit: Unit | null): string {
+  if (unit === "per_share") return TWO.format(value);
+  if (unit === "currency" || unit === "shares") return WHOLE.format(value / 1e6);
+  return formatValue(value, unit);
+}
+
 const CHART_PERCENT = new Intl.NumberFormat("en-US", {
   style: "percent",
   minimumFractionDigits: 1,
