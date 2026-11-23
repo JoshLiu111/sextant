@@ -49,6 +49,13 @@ export function formatChartDate(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
+const UP_TO_TWO = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+
+/** A value in the series' own units (thousands of persons, an index): "157,995", "312.45". */
+export function formatSeriesNumber(value: number): string {
+  return UP_TO_TWO.format(value);
+}
+
 /** Compact two-decimal formatting for chart axes and tooltips. */
 export function formatChartNumber(value: number): string {
   return TWO.format(value);
