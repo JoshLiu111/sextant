@@ -11,7 +11,9 @@
 // /stable/dividends serve the recorded responses the compute tests use
 // (apps/compute/tests/fixtures/fmp: aapl, msft, spy; 30 trading days from
 // 2024-01-02, newest first), with the same rules as FakeFmp in
-// apps/compute/tests/fmp_fixtures.py: an unknown symbol answers 200 [].
+// apps/compute/tests/fmp_fixtures.py: an unknown symbol answers 402 with the
+// same plain-text body as a symbol outside the plan (real FMP free plan,
+// checked 2026-11-23).
 
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -30,8 +32,10 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+const PREMIUM =
+  "Premium Query Parameter: 'Special Endpoint : This value set for 'symbol' is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/developer/docs/pricing'";
+
 async function rows(dataset, symbol) {
-  if (!KNOWN.has(symbol)) return [];
   return JSON.parse(await readFile(`${FIXTURES}${dataset}/${symbol}.json`, "utf8"));
 }
 
@@ -43,6 +47,11 @@ createServer(async (req, res) => {
   if (!key.startsWith("good")) return send(res, 401, INVALID_KEY);
   const symbol = (url.searchParams.get("symbol") || "").toLowerCase();
   if (url.pathname === "/stable/quote") return send(res, 200, symbol ? [{ symbol: symbol.toUpperCase(), price: 130 }] : []);
+  const prices = url.pathname === "/stable/historical-price-eod/full" || url.pathname === "/stable/dividends";
+  if (prices && !KNOWN.has(symbol)) {
+    res.writeHead(402, { "content-type": "text/plain" });
+    return res.end(PREMIUM);
+  }
   if (url.pathname === "/stable/historical-price-eod/full") {
     const from = url.searchParams.get("from") || "0000";
     const to = url.searchParams.get("to") || "9999";

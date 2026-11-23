@@ -16,10 +16,11 @@ Recorded responses under ``tests/fixtures/fmp/``:
   pre-split dividend inside the range (0.96 paid, 0.24 adjusted); SPY has 1.50
   on 2024-01-09; MSFT has none inside the range.
 
-The numbers are made up (no real key was at hand); the field names and the
-401 body for a bad key (probed 2026-11-22) are real. Unverified: an unknown
-symbol answering 200 ``[]``, and the 402 body for a symbol the plan doesn't
-cover. The e2e fake (``apps/web/e2e/fake-fmp.mjs``) serves the same files with
+The numbers are made up; the field names, the 401 body for a bad key (probed
+2026-11-22) and the 402 plain-text body are real. Checked with a real free key
+on 2026-11-23: a symbol the plan doesn't cover *and* a symbol FMP doesn't know
+both answer 402 with the same "Premium Query Parameter" text, so this fake
+answers 402 for every symbol without a recording. The e2e fake (``apps/web/e2e/fake-fmp.mjs``) serves the same files with
 the same rules.
 """
 
@@ -27,7 +28,8 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from datetime import date
+from collections.abc import Callable
+from datetime import date, datetime
 from pathlib import Path
 
 import httpx
@@ -42,6 +44,13 @@ INVALID_KEY_BODY = {
 }
 
 
+PREMIUM_BODY = (
+    "Premium Query Parameter: 'Special Endpoint : This value set for 'symbol' is not available under your "
+    "current subscription please visit our subscription page to upgrade your plan at "
+    "https://financialmodelingprep.com/developer/docs/pricing'"
+)
+
+
 def recorded(dataset: str, ticker: str) -> list[dict]:
     return json.loads((FIXTURES / dataset / f"{ticker.lower()}.json").read_text())
 
@@ -49,7 +58,8 @@ def recorded(dataset: str, ticker: str) -> list[dict]:
 class FakeFmp:
     """Accepts the keys in ``valid`` (sent in the ``apikey`` header).
     ``status`` (e.g. 503, 429) makes every request answer that status instead.
-    ``premium``: symbols the plan doesn't cover (402). ``price_requests``
+    ``premium``: recorded symbols the plan doesn't cover (402; unrecorded symbols
+    answer 402 too, as real FMP does on a free plan). ``price_requests``
     counts ``(key, ticker)`` pairs, so tests can see whose key reached FMP."""
 
     def __init__(self, valid: set[str]) -> None:
@@ -68,13 +78,12 @@ class FakeFmp:
             return httpx.Response(401, json=INVALID_KEY_BODY)
         symbol = request.url.params.get("symbol", "").upper()
         path = request.url.path
-        if symbol in self.premium:
-            return httpx.Response(
-                402,
-                json={"Error Message": f"Premium Query Parameter: '{symbol}' is not available under your plan."},
-            )
         if path == "/stable/quote":
             return httpx.Response(200, json=[{"symbol": symbol, "price": 130.0}] if symbol else [])
+        if path in ("/stable/historical-price-eod/full", "/stable/dividends") and (
+            symbol in self.premium or not self._rows("historical-price-eod", symbol)
+        ):
+            return httpx.Response(402, text=PREMIUM_BODY)
         if path == "/stable/historical-price-eod/full":
             self.price_requests[(key, symbol)] += 1
             start = request.url.params.get("from", "0000")
@@ -89,5 +98,8 @@ class FakeFmp:
         file = FIXTURES / dataset / f"{symbol.lower()}.json"
         return json.loads(file.read_text()) if symbol and file.exists() else []
 
-    def adapter(self) -> FmpAdapter:
-        return FmpAdapter(base_url="https://fmp.test", transport=httpx.MockTransport(self.handler), sleep=lambda _s: None)
+    def adapter(self, now: Callable[[], datetime] | None = None) -> FmpAdapter:
+        extra = {"now": now} if now is not None else {}
+        return FmpAdapter(
+            base_url="https://fmp.test", transport=httpx.MockTransport(self.handler), sleep=lambda _s: None, **extra
+        )

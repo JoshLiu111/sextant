@@ -153,5 +153,5 @@ def test_a_symbol_outside_the_fmp_plan_only_marks_its_own_metrics_missing(client
     assert response.status_code == 200, response.text
     msft = response.json()["metrics"]["annualized_return:MSFT"]
     assert msft["status"] == "missing_data"
-    assert msft["reason"] == "Your FMP plan does not include MSFT."
+    assert msft["reason"] == "FMP has no MSFT, or your FMP plan does not include it."
     assert response.json()["metrics"]["annualized_return:AAPL"]["status"] == "ok"

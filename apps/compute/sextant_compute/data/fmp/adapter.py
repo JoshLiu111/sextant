@@ -29,10 +29,20 @@ in the URL, so it can't leak into a logged URL):
   its default recent range, newest first); the newest row's close. Split-adjusted
   closes are in today's share count, so the newest one is the raw close.
 
-Free plans don't cover every symbol: such a symbol answers 402 and is reported
-as missing for that ticker only. Unverified (no real key at hand): an unknown
-symbol answering 200 ``[]`` (so it reads as "no prices in the range"), the 402
-body, and the 429 on the daily request limit. A 200 carrying ``{"Error
+Checked with a real free key on 2026-11-23:
+
+- A symbol the plan doesn't cover *and* a symbol FMP doesn't know both answer
+  402 with the same plain-text "Premium Query Parameter: ... not available under
+  your current subscription" body, so a free key can't tell a typo from a
+  premium symbol. Either is reported as missing for that ticker only, with a
+  message naming both possibilities. (A paid plan may answer an unknown symbol
+  200 ``[]``; that reads as "no prices".)
+- While the US market is open, the prices URL already serves today's row with
+  the live price as its ``close``. Rows dated today (New York time) are dropped
+  until ``SETTLED_AT`` that evening, so neither a cached price series nor the
+  "latest close" holds a partial day.
+
+Unverified: the 429 on the daily request limit. A 200 carrying ``{"Error
 Message": ...}`` (FMP's older API answered limits that way) is read as a
 rejected key when it says so, else as ``SourceUnavailable``.
 
@@ -44,7 +54,8 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Callable, Sequence
-from datetime import date
+from datetime import UTC, date, datetime, time as clock_time
+from zoneinfo import ZoneInfo
 from typing import Any
 
 import httpx
@@ -60,6 +71,10 @@ from sextant_compute.data.user_key_http import UserKeyHttpAdapter
 BASE_URL = "https://financialmodelingprep.com"
 KEY_CHECK_SYMBOL = "AAPL"
 
+NEW_YORK = ZoneInfo("America/New_York")
+# US equities close at 16:00 New York time; FMP's end-of-day row is final well before 18:00.
+SETTLED_AT = clock_time(18, 0)
+
 NO_KEY_MESSAGE = "My data needs your own FMP key. Add one in Settings."
 REJECTED_KEY_MESSAGE = "FMP no longer accepts your saved key. Replace it in Settings."
 
@@ -73,7 +88,8 @@ class FmpAdapter(UserKeyHttpAdapter):
     no_key_message = NO_KEY_MESSAGE
     # Same reasoning as Tiingo: end-of-day data, and a free key has a small daily quota.
     ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600}
-    version = "1"
+    # 2: today's partial bar is dropped (cached series may hold one).
+    version = "2"
 
     def __init__(
         self,
@@ -81,8 +97,10 @@ class FmpAdapter(UserKeyHttpAdapter):
         base_url: str = BASE_URL,
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         super().__init__(base_url=base_url, transport=transport, sleep=sleep)
+        self._now = now
 
     @classmethod
     def from_env(cls) -> FmpAdapter:
@@ -119,16 +137,18 @@ class FmpAdapter(UserKeyHttpAdapter):
 
         def fetch(ticker: str) -> pd.DataFrame | str:
             try:
-                rows = self._list(
-                    "/stable/historical-price-eod/full",
-                    key,
-                    {"symbol": ticker, "from": start.isoformat(), "to": end.isoformat()},
+                rows = self._settled(
+                    self._list(
+                        "/stable/historical-price-eod/full",
+                        key,
+                        {"symbol": ticker, "from": start.isoformat(), "to": end.isoformat()},
+                    )
                 )
                 if not rows:
                     return f"No FMP prices for {ticker} between {start} and {end}."
                 dividends = self._list("/stable/dividends", key, {"symbol": ticker})
             except _NotInPlan:
-                return f"Your FMP plan does not include {ticker}."
+                return _not_in_plan(ticker)
             return _frame(rows, dividends)
 
         return self._per_ticker(tickers, fetch)
@@ -136,17 +156,24 @@ class FmpAdapter(UserKeyHttpAdapter):
     def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
         """See ``LatestCloseAdapter``. One request: the prices URL without dates."""
         try:
-            rows = self._list("/stable/historical-price-eod/full", self._key(ctx), {"symbol": ticker})
+            rows = self._settled(self._list("/stable/historical-price-eod/full", self._key(ctx), {"symbol": ticker}))
         except _NotInPlan:
-            message = f"Your FMP plan does not include {ticker}."
+            message = _not_in_plan(ticker)
         else:
             if rows:
                 newest = max(rows, key=lambda r: str(r.get("date", "")))
                 last = _frame([newest], [])
                 return last.index[-1].date(), float(last["close"].iloc[-1])
-            # FMP answers an unknown symbol the same way: an empty list.
             message = f"FMP has no recent prices for {ticker}."
         raise NoSuchData(FMP.id, message, {ticker: message})
+
+    def _settled(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """``rows`` without any day whose trading hasn't settled yet (New York time)."""
+        local = self._now().astimezone(NEW_YORK)
+        today = local.date().isoformat()
+        if local.time() >= SETTLED_AT:
+            return [r for r in rows if str(r.get("date", ""))[:10] <= today]
+        return [r for r in rows if str(r.get("date", ""))[:10] < today]
 
     def _list(self, path: str, key: str, params: dict[str, str]) -> list[dict[str, Any]]:
         response = self._fmp_get(path, key, params)
@@ -162,6 +189,11 @@ class FmpAdapter(UserKeyHttpAdapter):
         if not isinstance(body, list) or not all(isinstance(r, dict) for r in body):
             raise SourceUnavailable(FMP.id, "FMP returned data in an unexpected shape.")
         return body
+
+
+def _not_in_plan(ticker: str) -> str:
+    # A free plan answers an unknown symbol with the same 402 as a premium one.
+    return f"FMP has no {ticker}, or your FMP plan does not include it."
 
 
 def _rejects_key(body: Any) -> bool:

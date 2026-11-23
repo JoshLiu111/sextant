@@ -149,5 +149,5 @@ def test_my_data_on_fmp_fills_the_price_with_fmps_latest_close(client, fmp):
 def test_a_ticker_fmp_has_no_prices_for_only_misses_the_market_comparison(client, fmp):
     body = value(client, fmp_user(client), ticker="JPM", price_source="fmp").json()
 
-    assert body["metrics"]["margin_of_safety"]["reason"] == "FMP has no recent prices for JPM."
+    assert body["metrics"]["margin_of_safety"]["reason"] == "FMP has no JPM, or your FMP plan does not include it."
     assert body["metrics"]["intrinsic_value_per_share"]["value"] == pytest.approx(120)

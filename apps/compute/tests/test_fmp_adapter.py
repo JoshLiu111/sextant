@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -59,9 +60,11 @@ def test_unknown_tickers_and_symbols_outside_the_plan_are_no_such_data_per_ticke
     with pytest.raises(NoSuchData) as exc:
         fake.adapter().daily_prices(ALICE, ["AAPL", "ZZZZ", "TSLA"], FIRST_DAY, LAST_DAY)
 
-    assert set(exc.value.missing) == {"ZZZZ", "TSLA"}
-    assert exc.value.missing["ZZZZ"] == f"No FMP prices for ZZZZ between {FIRST_DAY} and {LAST_DAY}."
-    assert exc.value.missing["TSLA"] == "Your FMP plan does not include TSLA."
+    # A free plan answers both with the same 402, so the message can't tell them apart.
+    assert exc.value.missing == {
+        "ZZZZ": "FMP has no ZZZZ, or your FMP plan does not include it.",
+        "TSLA": "FMP has no TSLA, or your FMP plan does not include it.",
+    }
 
 
 def test_a_range_without_prices_is_no_such_data(fake):
@@ -125,8 +128,43 @@ def test_latest_close_for_an_unknown_or_premium_symbol_is_no_such_data(fake):
     with pytest.raises(NoSuchData) as premium:
         adapter.latest_close(ALICE, "TSLA")
 
-    assert unknown.value.missing == {"ZZZZ": "FMP has no recent prices for ZZZZ."}
-    assert premium.value.missing == {"TSLA": "Your FMP plan does not include TSLA."}
+    assert unknown.value.missing == {"ZZZZ": "FMP has no ZZZZ, or your FMP plan does not include it."}
+    assert premium.value.missing == {"TSLA": "FMP has no TSLA, or your FMP plan does not include it."}
+
+
+NEW_YORK = ZoneInfo("America/New_York")
+
+
+def _at(day: date, hour: int, minute: int = 0):
+    moment = datetime(day.year, day.month, day.day, hour, minute, tzinfo=NEW_YORK).astimezone(UTC)
+    return lambda: moment
+
+
+def test_while_the_market_is_open_todays_partial_bar_is_left_out(fake):
+    # LAST_DAY is a Monday; FMP already serves its row while it trades (seen live 2026-11-23).
+    adapter = fake.adapter(now=_at(LAST_DAY, 11, 0))
+
+    frame = adapter.daily_prices(ALICE, ["MSFT"], FIRST_DAY, LAST_DAY)["MSFT"]
+    when, _close = adapter.latest_close(ALICE, "MSFT")
+
+    assert frame.index[-1].date() == date(2024, 2, 9)
+    assert when == date(2024, 2, 9)
+
+
+def test_after_the_evening_settle_todays_bar_counts(fake):
+    adapter = fake.adapter(now=_at(LAST_DAY, 18, 0))
+
+    frame = adapter.daily_prices(ALICE, ["MSFT"], FIRST_DAY, LAST_DAY)["MSFT"]
+    when, close = adapter.latest_close(ALICE, "MSFT")
+
+    assert frame.index[-1].date() == LAST_DAY
+    assert (when, close) == (LAST_DAY, pytest.approx(402.0))
+
+
+def test_a_range_holding_only_todays_partial_bar_is_no_such_data(fake):
+    with pytest.raises(NoSuchData) as exc:
+        fake.adapter(now=_at(LAST_DAY, 11, 0)).daily_prices(ALICE, ["MSFT"], LAST_DAY, LAST_DAY)
+    assert "No FMP prices for MSFT" in exc.value.missing["MSFT"]
 
 
 def test_latest_close_without_a_key_sends_nothing(fake):
