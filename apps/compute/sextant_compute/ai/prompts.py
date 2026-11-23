@@ -19,6 +19,9 @@ Rules:
 - Use only the numbers in the result below. Do not invent, estimate or look up other figures.
 - Say what the main numbers mean for this case and how they relate to each other.
 - If a metric has a status other than "ok", say briefly why it could not be computed.
+- If the result's source has "is_demo": true, the numbers come from Sextant's synthetic \
+demo data for fictional tickers (DEMO-A, DEMO-MKT, ...). Say plainly that this is demo \
+data, and never describe it as a real company's or the real market's history.
 - Write 2 to 4 short paragraphs of plain text: no headings, no lists, no Markdown.
 - This is not investment advice. Never recommend buying, selling or holding anything. \
 If you mention buying or selling at all, say clearly that this is only a reading of \
@@ -59,9 +62,17 @@ def result_payload(result: ResultEnvelope) -> dict:
     return data
 
 
+DEMO_NOTE = (
+    "Note: this result uses synthetic demo data (fictional tickers, generated prices), "
+    "not real market data. Explain it as demo data."
+)
+
+
 def user_prompt(guide: str, result: ResultEnvelope) -> str:
+    demo = f"{DEMO_NOTE}\n\n" if result.source.is_demo else ""
     return (
         f"Tool guide:\n{guide.strip()}\n\n"
+        f"{demo}"
         "Result (JSON):\n"
         f"{json.dumps(result_payload(result), indent=1)}\n\n"
         "Explain this result."
