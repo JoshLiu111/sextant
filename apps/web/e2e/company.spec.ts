@@ -100,7 +100,7 @@ test("the footer shows the SEC attribution on this page", async ({ page }) => {
 test("the statements have an explainer", async ({ page }) => {
   const main = await openCompany(page);
 
-  await expect(main.getByTestId("explainer")).toHaveCount(1);
+  await expect(main.getByTestId("results").getByTestId("explainer")).toHaveCount(1);
 });
 
 test.describe("mobile width", () => {
