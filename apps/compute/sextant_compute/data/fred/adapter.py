@@ -1,12 +1,14 @@
-"""The FRED adapter: ``economic_series`` from the FRED v1 JSON API.
+"""The FRED adapter: ``economic_series`` and ``search_series`` from the FRED v1 JSON API.
 
 Compliance (FRED API Terms of Use, spec story 94):
 
-- Only public-domain series. A series must be in ``PUBLIC_DOMAIN_SERIES`` (IDs
-  whose status tag "Public Domain: Citation Requested" was checked on the FRED
-  site) *and* its metadata notes must not contain "copyright". The notes check
-  alone is not enough: T10Y2Y is "Copyrighted: Citation Required" with clean
-  notes. Add an ID to the allowlist only after checking its tag on FRED.
+- Only public-domain series (ADR 0005). A series' metadata notes must not
+  contain "copyright", *and* it must either be in ``PUBLIC_DOMAIN_SERIES`` (IDs
+  whose status tag was checked by hand on the FRED site: the headline
+  indicators) or carry FRED's ``PUBLIC_DOMAIN_TAG`` when fetched (any series a
+  visitor picks). The notes check alone is not enough: T10Y2Y is "Copyrighted:
+  Citation Required" with clean notes. Search asks FRED for public-domain-tagged
+  series only and drops any hit whose notes mention a copyright.
 - Pages using FRED show the required notice and a link to the Terms of Use
   (web: the ``fred`` attribution in ``src/lib/attributions.ts``).
 - At most 2 requests/second (``Throttle``, shared by every adapter instance in
@@ -26,7 +28,7 @@ from typing import Any
 
 import httpx
 
-from sextant_compute.data.adapters import EconomicSeries, Scope, SeriesMeta
+from sextant_compute.data.adapters import EconomicSeries, Scope, SeriesMeta, SeriesSummary
 from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import NoSuchData, SourceUnavailable
 from sextant_compute.data.retry import get_with_retries, is_retryable
@@ -53,6 +55,10 @@ PUBLIC_DOMAIN_SERIES: Mapping[str, str] = {
     "DGS2": FED_BOARD,  # 2 year
     "DGS10": FED_BOARD,  # 10 year
 }
+
+# FRED's status tag (group "cc") on public-domain series. The others are
+# "copyrighted: citation required" and "copyrighted: pre-approval required".
+PUBLIC_DOMAIN_TAG = "public domain: citation requested"
 
 # FRED's labels for its server-side transformations (the ``units`` parameter).
 UNITS_LABELS: Mapping[str, str | None] = {
@@ -105,7 +111,7 @@ class FredAdapter:
     scope: Scope = "shared"
     # Daily series (DGS*, DFF) update once per business day; monthly and
     # quarterly ones only on release days. 6h keeps daily series fresh enough.
-    ttl = {"economic_series": 6 * 3600}
+    ttl = {"economic_series": 6 * 3600, "series_search": 24 * 3600}
     version = "1"
 
     def __init__(
@@ -141,21 +147,15 @@ class FredAdapter:
     ) -> EconomicSeries:
         if units not in UNITS_LABELS:
             raise ValueError(f"Unknown FRED units transformation {units!r}")
-        agency = self._allowlist.get(series_id)
-        if agency is None:
-            raise NoSuchData(
-                FRED.id,
-                f"{series_id} is not on Sextant's list of verified public-domain FRED series.",
-                {series_id: f"{series_id} is not a verified public-domain series."},
-            )
         raw = self._get("/series", series_id=series_id)
         meta = _only_series(raw, series_id)
-        if "copyright" in str(meta.get("notes") or "").lower():
+        if _mentions_copyright(meta):
             raise NoSuchData(
                 FRED.id,
                 f"{series_id} is copyrighted by its owner, so Sextant does not republish it.",
                 {series_id: f"{series_id} is a copyrighted series."},
             )
+        agency = self._allowlist.get(series_id) or self._public_domain_agency(series_id)
         obs = self._get(
             "/series/observations", series_id=series_id, observation_start=start.isoformat(), units=units
         )
@@ -178,6 +178,43 @@ class FredAdapter:
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise SourceUnavailable(FRED.id, f"FRED returned an unexpected response for {series_id}.") from exc
+
+    def search_series(self, ctx: RequestContext, query: str, limit: int) -> list[SeriesSummary]:
+        raw = self._get("/series/search", search_text=query.strip(), tag_names=PUBLIC_DOMAIN_TAG, limit=str(limit))
+        hits = raw.get("seriess")  # sic
+        try:
+            if not isinstance(hits, list):
+                raise TypeError("seriess")
+            return [
+                SeriesSummary(
+                    id=str(hit["id"]),
+                    title=str(hit["title"]),
+                    units=str(hit["units"]),
+                    frequency=str(hit["frequency"]),
+                    seasonal_adjustment=str(hit["seasonal_adjustment_short"]),
+                    last_updated=datetime.fromisoformat(str(hit["last_updated"])).isoformat(),
+                    observation_end=str(hit["observation_end"]),
+                )
+                for hit in hits
+                if not _mentions_copyright(hit)
+            ][:limit]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise SourceUnavailable(FRED.id, "FRED returned an unexpected search response.") from exc
+
+    def _public_domain_agency(self, series_id: str) -> str:
+        """The publishing agency of a series FRED tags as public domain (from its
+        ``src`` tags). ``NoSuchData`` when the series lacks the public-domain tag."""
+        tags = self._get("/series/tags", series_id=series_id).get("tags")
+        if not isinstance(tags, list) or not all(isinstance(t, dict) for t in tags):
+            raise SourceUnavailable(FRED.id, f"FRED returned no tags for {series_id}.")
+        if PUBLIC_DOMAIN_TAG not in {str(t.get("name", "")).lower() for t in tags}:
+            raise NoSuchData(
+                FRED.id,
+                f"{series_id} is not in the public domain on FRED, so Sextant does not republish it.",
+                {series_id: f"{series_id} is not a public domain series."},
+            )
+        sources = [_source_name(t) for t in tags if t.get("group_id") == "src"]
+        return " / ".join(s for s in sources if s) or "Unknown agency"
 
     def _get(self, path: str, **params: str) -> dict[str, Any]:
         if not self._api_key:
@@ -208,6 +245,18 @@ class FredAdapter:
             raise NoSuchData(FRED.id, f"FRED has no series {series_id}.", {series_id: f"Unknown series {series_id}."})
         # Bad or missing key, bad parameters: our problem, not the visitor's.
         raise SourceUnavailable(FRED.id, f"FRED answered HTTP {response.status_code}.")
+
+
+def _mentions_copyright(series: Mapping[str, Any]) -> bool:
+    """FRED's terms: "Copyrighted series contain the word 'Copyright' in their notes"."""
+    return "copyright" in str(series.get("notes") or "").lower()
+
+
+def _source_name(tag: Mapping[str, Any]) -> str:
+    """A ``src`` tag's full name: its notes ("U.S. Bureau of Labor Statistics (source)")
+    without the suffix, else the short tag name ("bls")."""
+    notes = str(tag.get("notes") or "").strip().removesuffix("(source)").strip()
+    return notes or str(tag.get("name") or "").strip()
 
 
 def _only_series(raw: Mapping[str, Any], series_id: str) -> Mapping[str, Any]:
