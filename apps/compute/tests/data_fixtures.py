@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from datetime import date
 
 import pandas as pd
+from fastapi import FastAPI
 
 from main import app
 from sextant_compute.data.adapters import Adapter
@@ -64,11 +65,13 @@ class DownAdapter:
 
 
 @contextmanager
-def serving(adapter: Adapter, source_id: str = "synthetic", **service_kwargs) -> Iterator[DataService]:
-    """Route ``source_id`` requests to ``adapter`` for the duration of the block."""
+def serving(
+    adapter: Adapter, source_id: str = "synthetic", *, on: FastAPI = app, **service_kwargs
+) -> Iterator[DataService]:
+    """Route ``source_id`` requests to ``adapter`` on app ``on`` for the duration of the block."""
     service = DataService({source_id: adapter}, **service_kwargs)
-    app.dependency_overrides[get_data_service] = lambda: service
+    on.dependency_overrides[get_data_service] = lambda: service
     try:
         yield service
     finally:
-        app.dependency_overrides.pop(get_data_service, None)
+        on.dependency_overrides.pop(get_data_service, None)

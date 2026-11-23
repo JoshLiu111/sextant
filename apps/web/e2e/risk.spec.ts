@@ -67,6 +67,7 @@ test("an unknown ticker is shown inline next to the tickers input", async ({ pag
 
 test("a reversed date range is shown inline next to the end date", async ({ page }) => {
   const main = await openRisk(page);
+  await expect(metric(main, "annualized_return:DEMO-A")).toHaveAttribute("data-status", "ok");
 
   await main.getByLabel("End date").fill("2020-01-01");
 

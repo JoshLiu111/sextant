@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { getMessages } from "@/i18n";
 import { TOOLS } from "@/lib/tools";
 
-export function SiteNav() {
+/** `account` is the server-rendered signed-in state (see AccountMenu). */
+export function SiteNav({ account }: { account?: ReactNode }) {
   const t = getMessages();
   const [open, setOpen] = useState(false);
 
@@ -15,6 +16,7 @@ export function SiteNav() {
         <Link href="/" className="text-lg font-semibold tracking-tight">
           {t.site.name}
         </Link>
+        <div className="ml-auto md:order-last">{account}</div>
         <button
           type="button"
           className="rounded border border-black/15 px-3 py-1 text-sm md:hidden dark:border-white/20"

@@ -21,6 +21,7 @@ from typing import Annotated, Any, TypeVar, cast
 import pandas as pd
 from fastapi import Depends
 
+from sextant_compute.auth import OptionalUser
 from sextant_compute.data.adapters import Adapter, DailyPricesAdapter
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
@@ -159,9 +160,11 @@ def get_data_service() -> DataService:
     return _service
 
 
-def get_request_context() -> RequestContext:
-    """FastAPI dependency building ``ctx`` for the current request."""
-    return RequestContext.anonymous()
+def get_request_context(user: OptionalUser) -> RequestContext:
+    """FastAPI dependency building ``ctx`` for the current request: the signed-in
+    user's id (None when anonymous). The user's own provider keys get added here
+    once bring-your-own-key lands."""
+    return RequestContext(user_id=user.id) if user is not None else RequestContext.anonymous()
 
 
 Data = Annotated[DataService, Depends(get_data_service)]
