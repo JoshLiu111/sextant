@@ -132,6 +132,14 @@ export const en = {
       badge: "Demo data",
       body: "These results use synthetic prices for fictional tickers, not real market data.",
     },
+    dataMode: {
+      legend: "Data",
+      demo: "Demo data",
+      myData: "My data",
+      myDataFrom: (provider: string) => `My data (${provider})`,
+      note: (provider: string) =>
+        `Real prices from ${provider}, fetched with your own key and shown only to you. Enter real tickers.`,
+    },
     calculation: {
       id: "Calculation",
       source: "Source",
@@ -234,6 +242,12 @@ export const en = {
         label: "Risk-free rate (%)",
         hint: "Annual, effective. For Sharpe and Sortino. 0 compares returns with cash earning nothing.",
       },
+    },
+    /** Hints that replace `inputs` hints in My data mode (real tickers from the user's provider). */
+    myDataInputs: {
+      tickers: { hint: "Comma-separated real tickers, e.g. AAPL, MSFT." },
+      benchmark: { hint: "A real ticker, e.g. SPY." },
+      start: { hint: "Any range your provider has prices for." },
     },
     benchmarkSuffix: "(benchmark)",
     sections: {
