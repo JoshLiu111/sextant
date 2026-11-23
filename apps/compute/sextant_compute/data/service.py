@@ -35,6 +35,7 @@ from sextant_compute.data.adapters import (
     EconomicSeriesAdapter,
     FilingsAdapter,
     FinancialStatementsAdapter,
+    LatestCloseAdapter,
     SeriesMeta,
     YieldCurveAdapter,
     YieldCurves,
@@ -73,6 +74,16 @@ class PriceHistory:
     def last_date(self) -> date | None:
         ends = [f.index[-1].date() for f in self.frames.values() if not f.empty]
         return max(ends) if ends else None
+
+
+@dataclass(frozen=True)
+class LatestClose:
+    """One ticker's most recent close and the source it came from."""
+
+    source: DataSource
+    ticker: str
+    date: date
+    close: float
 
 
 class DataService:
@@ -215,6 +226,21 @@ class DataService:
             _encode_frames,
             _decode_frames,
         )
+
+    def latest_close(self, ctx: RequestContext, ticker: str, *, source: str) -> LatestClose:
+        """The most recent close for one ticker; see ``LatestCloseAdapter``."""
+        adapter = cast(LatestCloseAdapter, self._adapter(source))
+        symbol = ticker.strip().upper()
+        when, close = self._cached(
+            ctx,
+            adapter,
+            "latest_close",
+            {"ticker": symbol},
+            lambda: adapter.latest_close(ctx, symbol),
+            lambda v: {"date": v[0].isoformat(), "close": v[1]},
+            lambda raw: (date.fromisoformat(raw["date"]), float(raw["close"])),
+        )
+        return LatestClose(source=adapter.source, ticker=symbol, date=when, close=close)
 
     def financial_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
         """Standardized annual statements for one company; see ``FinancialStatementsAdapter``.

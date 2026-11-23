@@ -21,7 +21,9 @@ from pydantic_core import PydanticCustomError
 
 from sextant_compute.analytics import valuation as v
 from sextant_compute.data.errors import NoSuchData
-from sextant_compute.data.service import Ctx, Data
+from sextant_compute.data.context import RequestContext
+from sextant_compute.data.service import Ctx, Data, DataService
+from sextant_compute.data.sources import DEMO_SOURCE, PriceSource
 from sextant_compute.data.statements import FinancialStatements, Missing
 from sextant_compute.envelope import (
     DataSource,
@@ -84,7 +86,11 @@ class DcfRequest(BaseModel):
     ] = None
     """Override for D / (D + E); null = from total debt and the value of equity."""
     share_price: Annotated[float | None, check(lambda x: x > 0, "Enter a share price greater than 0.")] = None
-    """Optional. Market value of equity = price × shares outstanding; null = book equity."""
+    """Optional. Market value of equity = price × shares outstanding (for the weights, market
+    cap and margin of safety); null = the latest close on My data, else book equity and no comparison."""
+    price_source: PriceSource = DEMO_SOURCE
+    """Where a missing ``share_price`` comes from: ``"synthetic"`` (Demo) looks nothing up;
+    a My data provider (``"tiingo"``) uses its latest close, on the user's own key."""
 
     @field_validator("terminal_growth")
     @classmethod
@@ -186,7 +192,7 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
             )
         return fcf()
 
-    price, price_source = _share_price(req)
+    price, price_source = _share_price(req, data, ctx)
 
     def share_price() -> Detailed:
         if isinstance(price, MissingData):
@@ -316,11 +322,22 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
     )
 
 
-def _share_price(req: DcfRequest) -> tuple[Detailed | MissingData, DataSource | None]:
-    """The share price to compare with (and to weight equity at), and the provider it came from."""
+def _share_price(
+    req: DcfRequest, data: DataService, ctx: RequestContext
+) -> tuple[Detailed | MissingData, DataSource | None]:
+    """The share price to compare with (and to weight equity at), and the provider it came from.
+
+    A typed-in price wins (and spends none of the user's provider quota); otherwise
+    My data looks up the latest close. ``KeyRequired`` propagates (403)."""
     if req.share_price is not None:
         return Detailed(req.share_price, {"basis": "entered"}), None
-    return MissingData(NO_PRICE_MESSAGE), None
+    if req.price_source == DEMO_SOURCE:
+        return MissingData(NO_PRICE_MESSAGE), None
+    try:
+        close = data.latest_close(ctx, req.ticker, source=req.price_source)
+    except NoSuchData as exc:
+        return MissingData(exc.missing.get(req.ticker, exc.message)), data.source_info(req.price_source)
+    return Detailed(close.close, {"basis": "latest_close", "date": close.date.isoformat()}), close.source
 
 
 def _fcf_history(st: FinancialStatements) -> list[tuple[str, float | None]]:

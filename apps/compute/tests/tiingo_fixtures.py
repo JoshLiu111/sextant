@@ -71,10 +71,12 @@ class FakeTiingo:
         file = FIXTURES / f"{ticker}.json"
         if not file.exists():
             return httpx.Response(404, json={"detail": f"Error: Ticker '{ticker}' not found"})
+        rows = json.loads(file.read_text())
+        if "startDate" not in request.url.params and "endDate" not in request.url.params:
+            return httpx.Response(200, json=rows[-1:])  # no dates: Tiingo answers the latest day only
         start = request.url.params.get("startDate", "0000")
         end = request.url.params.get("endDate", "9999")
-        rows = [r for r in json.loads(file.read_text()) if start <= r["date"][:10] <= end]
-        return httpx.Response(200, json=rows)
+        return httpx.Response(200, json=[r for r in rows if start <= r["date"][:10] <= end])
 
     def adapter(self) -> TiingoAdapter:
         return TiingoAdapter(

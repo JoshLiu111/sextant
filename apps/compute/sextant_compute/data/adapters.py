@@ -55,6 +55,15 @@ class DailyPricesAdapter(Adapter, Protocol):
         ...
 
 
+class LatestCloseAdapter(Adapter, Protocol):
+    def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
+        """The most recent trading day's date and closing price, in today's share
+        count (a later split has not happened yet, so the raw close is current).
+        Raises ``NoSuchData`` (``missing`` keyed by ticker) for an unknown ticker or
+        one without prices."""
+        ...
+
+
 class FinancialStatementsAdapter(Adapter, Protocol):
     def financial_statements(self, ctx: RequestContext, ticker: str) -> FinancialStatements:
         """Standardized annual statements, every fiscal period available, oldest
