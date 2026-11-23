@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Valuation Calculator: margin of safety against a share price (typed in, or the
 // latest close from the user's own Tiingo key on My data), and saved assumption sets.
-// EDGAR is e2e/fake-edgar.mjs (MSFT FY2026, defaults give $158.11 per share);
+// EDGAR is e2e/fake-edgar.mjs (MSFT FY2026, defaults give $163.73 per share);
 // Tiingo is e2e/fake-tiingo.mjs (keys starting with "good"; MSFT's latest close is
 // $402.00 on 2024-02-12).
 
@@ -28,7 +28,7 @@ async function openValuation(page: Page) {
   await page.goto("/valuation");
   const main = page.getByRole("main");
   // Wait for the first result so the page is hydrated and the key list has loaded.
-  await expect(value(main, "intrinsic_value_per_share")).toContainText("$158.11");
+  await expect(value(main, "intrinsic_value_per_share")).toContainText("$163.73");
   return main;
 }
 
@@ -47,14 +47,14 @@ test("without a price the market comparison asks for one; a typed-in price gives
 
   // A fixed discount rate keeps the intrinsic value independent of the price (no WACC weights).
   await main.getByLabel("Discount rate (%)").fill("9");
-  await expect(value(main, "intrinsic_value_per_share")).toContainText("$163.27");
+  await expect(value(main, "intrinsic_value_per_share")).toContainText("$169.08");
   await main.getByLabel("Share price ($)").fill("100");
 
   await expect(value(market, "share_price")).toContainText("$100.00");
   await expect(value(market, "share_price")).toContainText("Your price");
-  // 7,427M shares x $100; margin of safety (163.27 - 100) / 163.27.
+  // 7,427M shares x $100; margin of safety (169.08 - 100) / 169.08.
   await expect(value(market, "market_cap")).toContainText("$742.70B");
-  await expect(value(market, "margin_of_safety")).toContainText("38.75%");
+  await expect(value(market, "margin_of_safety")).toContainText("40.86%");
 });
 
 test("visitors see a sign-in prompt instead of the save control", async ({ page }) => {
@@ -88,7 +88,7 @@ test("a signed-in user saves, loads and deletes a named set of assumptions", asy
 
   await main.getByLabel("Growth rate (%)").fill("8");
   await main.getByLabel("Cost of debt (%)").fill("4.5");
-  await expect(value(main, "intrinsic_value_per_share")).toContainText("$184.34");
+  await expect(value(main, "intrinsic_value_per_share")).toContainText("$190.93");
   await saved.getByLabel("Name").fill("Bullish");
   await saved.getByRole("button", { name: "Save assumptions" }).click();
   await expect(saved.getByRole("status")).toHaveText("Saved as Bullish.");
@@ -96,13 +96,13 @@ test("a signed-in user saves, loads and deletes a named set of assumptions", asy
 
   // Back to the defaults, then load the set: every input comes back and the result recomputes.
   await page.reload();
-  await expect(value(main, "intrinsic_value_per_share")).toContainText("$158.11");
+  await expect(value(main, "intrinsic_value_per_share")).toContainText("$163.73");
   await saved.getByRole("button", { name: "Load Bullish" }).click();
   await expect(main.getByLabel("Growth rate (%)")).toHaveValue("8");
   await expect(main.getByLabel("Cost of debt (%)")).toHaveValue("4.5");
   await expect(main.getByLabel("Terminal growth (%)")).toHaveValue("2.5");
   await expect(main.getByLabel("Share price ($)")).toHaveValue("");
-  await expect(value(main, "intrinsic_value_per_share")).toContainText("$184.34");
+  await expect(value(main, "intrinsic_value_per_share")).toContainText("$190.93");
 
   await saved.getByRole("button", { name: "Delete Bullish" }).click();
   await expect(saved.getByRole("status")).toHaveText("Deleted Bullish.");

@@ -1365,7 +1365,7 @@ export const en = {
       "Rows: growth rate during the forecast. Columns: discount rate. The highlighted cell is the base case.",
     growthAxis: "Growth",
     discountAxis: "Discount rate",
-    fcfTable: { year: "Year", historical: "Reported", forecast: "Forecast", value: "Free cash flow" },
+    fcfTable: { year: "Year", historical: "Reported", forecast: "Forecast", value: "Free cash flow to the firm" },
     notReported: "Not reported",
     labels: {
       presentValue: "Present value",
@@ -1557,10 +1557,16 @@ export const en = {
         read: "Usually the largest part of a DCF. Its share of enterprise value shows how much rides on the long run.",
       },
       free_cash_flow: {
-        name: "Free cash flow (base year)",
-        what: "Cash the business generated after investing in property and equipment, in US dollars.",
-        how: "Operating cash flow − capital expenditure, both from the base year's 10-K cash flow statement.",
+        name: "Free cash flow to the firm (base year)",
+        what: "Cash the business generated for all its investors, lenders and shareholders together, after investing in property and equipment, in US dollars.",
+        how: "Operating cash flow + interest expense × (1 − tax rate) − capital expenditure, from the base year's 10-K. Operating cash flow already has the interest paid taken out; it goes back in because the DCF discounts at the WACC and subtracts debt afterwards.",
         read: "The DCF needs a positive base. A negative or one-off year makes the result unreliable.",
+      },
+      interest_expense: {
+        name: "Interest expense",
+        what: "Interest the company paid on its debt in the base year, before and after tax, in US dollars.",
+        how: "Pre-tax: reported in the 10-K income statement. After tax: pre-tax × (1 − tax rate). The after-tax amount is added back to get free cash flow to the firm.",
+        read: "When the company doesn't report it, Sextant adds back $0 and says so on the card. That slightly understates the value of a company with debt.",
       },
       cash: {
         name: "Cash and cash equivalents",

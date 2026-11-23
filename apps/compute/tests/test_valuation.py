@@ -1,4 +1,4 @@
-"""Valuation Calculator (P2) API: FCF DCF, WACC breakdown and sensitivity table.
+"""Valuation Calculator (P2) API: free cash flow to the firm DCF, WACC breakdown and sensitivity table.
 
 Hand-computed cases run on a tiny company (round numbers in one fiscal year),
 served in place of MSFT's companyfacts; the rest run on the recorded fixtures.
@@ -21,8 +21,10 @@ M = 1_000_000
 
 # One fiscal year, FY2025 (2024-07-01 .. 2025-06-30), in USD millions.
 TINY = {
-    "NetCashProvidedByUsedInOperatingActivities": 120,
-    "PaymentsToAcquirePropertyPlantAndEquipment": 20,  # FCF = 100
+    # FCFF = OCF + interest x (1 - tax) - capex = 116.84 + 4 x 0.79 - 20 = 100. Operating
+    # cash flow already has the interest paid taken out; FCFF adds it back after tax.
+    "NetCashProvidedByUsedInOperatingActivities": 116.84,
+    "PaymentsToAcquirePropertyPlantAndEquipment": 20,
     "CashAndCashEquivalentsAtCarryingValue": 50,
     "DebtCurrent": 10,
     "LongTermDebtNoncurrent": 40,  # total debt = 50
@@ -73,7 +75,7 @@ def values(body: dict[str, Any], *ids: str) -> list[float | None]:
 
 
 def test_dcf_matches_a_hand_computed_example() -> None:
-    # FCF0 = 100. g = 10%, r = 10%, g_inf = 0, N = 2:
+    # FCFF0 = 100. g = 10%, r = 10%, g_inf = 0, N = 2:
     # CF1 = 110 -> PV 100; CF2 = 121 -> PV 100; TV = 121 / 0.10 = 1210 -> PV 1000.
     # EV = 1200; equity = 1200 + cash 50 - debt 50 = 1200; per share = 1200 / 10 = 120.
     res = post_tiny({"growth_rate": 0.10, "terminal_growth": 0.0, "discount_rate": 0.10, "forecast_years": 2})
@@ -82,12 +84,15 @@ def test_dcf_matches_a_hand_computed_example() -> None:
     body = res.json()
     assert body["tool"] == "valuation"
     assert body["source"]["id"] == "sec_edgar"
-    assert values(body, "free_cash_flow", "cash", "total_debt", "shares_outstanding") == [
-        100 * M,
+    assert body["metrics"]["free_cash_flow"]["value"] == pytest.approx(100 * M, rel=1e-12)
+    assert values(body, "interest_expense", "cash", "total_debt", "shares_outstanding") == [
+        4 * M,
         50 * M,
         50 * M,
         10 * M,
     ]
+    assert body["metrics"]["after_tax_interest"]["value"] == pytest.approx(3.16 * M, rel=1e-12)
+    assert body["metrics"]["after_tax_interest"]["unit"] == "currency"
     assert body["metrics"]["pv_forecast_fcf"]["value"] == pytest.approx(200 * M, rel=1e-12)
     assert body["metrics"]["pv_terminal_value"]["value"] == pytest.approx(1000 * M, rel=1e-12)
     assert body["metrics"]["enterprise_value"]["value"] == pytest.approx(1200 * M, rel=1e-12)
@@ -131,6 +136,46 @@ def test_unreported_short_term_investments_count_as_zero_with_a_note() -> None:
     assert sti["value"] == 0
     assert sti["details"]["basis"] == "not_reported"
     assert m["intrinsic_value_per_share"]["value"] == pytest.approx(120, rel=1e-12)
+
+
+def test_debt_is_not_charged_twice() -> None:
+    # The DCF discounts cash flow to all capital providers at the WACC and then subtracts
+    # debt. Operating cash flow alone (116.84 - 20 = 96.84 here) is cash after the
+    # lenders were paid, so it would charge the debt twice.
+    res = post_tiny({"growth_rate": 0.10, "terminal_growth": 0.0, "discount_rate": 0.10, "forecast_years": 2})
+
+    m = res.json()["metrics"]
+    assert m["free_cash_flow"]["value"] == pytest.approx(100 * M, rel=1e-12)
+    assert m["free_cash_flow"]["value"] > m["operating_cash_flow"]["value"] - m["capital_expenditure"]["value"]
+
+
+def test_the_interest_add_back_uses_an_overridden_tax_rate() -> None:
+    # 116.84 + 4 x (1 - 25%) - 20 = 99.84.
+    res = post_tiny({"tax_rate": 0.25})
+
+    m = res.json()["metrics"]
+    assert m["after_tax_interest"]["value"] == pytest.approx(3 * M, rel=1e-12)
+    assert m["free_cash_flow"]["value"] == pytest.approx(99.84 * M, rel=1e-12)
+
+
+def test_unreported_interest_expense_adds_back_nothing_with_a_note() -> None:
+    facts = tiny_facts({k: val for k, val in TINY.items() if k != "InterestExpense"})
+    res = post_tiny({"cost_of_debt": 0.08}, facts)
+
+    m = res.json()["metrics"]
+    assert m["interest_expense"]["status"] == "ok"
+    assert m["interest_expense"]["value"] == 0
+    assert m["interest_expense"]["details"]["basis"] == "not_reported"
+    assert m["free_cash_flow"]["value"] == pytest.approx(96.84 * M, rel=1e-12)
+    assert m["intrinsic_value_per_share"]["status"] == "ok"
+
+
+def test_historical_free_cash_flow_uses_the_same_definition_as_the_base_year() -> None:
+    res = post_tiny({})
+
+    body = res.json()
+    history = body["series"]["historical_fcf"]["points"]
+    assert history[-1]["y"] == pytest.approx(body["metrics"]["free_cash_flow"]["value"], rel=1e-12)
 
 
 def test_wacc_breakdown_is_derived_from_the_statements_and_capm() -> None:
@@ -290,8 +335,11 @@ def test_the_default_ticker_values_msft_from_its_latest_10k() -> None:
     assert body["base_period"]["label"] == "FY2026"
     assert body["meta"]["data_cutoff"] == body["base_period"]["filed"]
     m = body["metrics"]
-    # FCF = OCF 182,935M - capex 115,948M (MSFT 10-K FY2026).
-    assert m["free_cash_flow"]["value"] == 66_987_000_000
+    # FCFF = OCF 182,935M + interest 3,051M x (1 - effective tax) - capex 115,948M (MSFT 10-K FY2026).
+    assert m["interest_expense"]["value"] == 3_051_000_000
+    assert m["after_tax_interest"]["value"] == pytest.approx(3_051_000_000 * (1 - m["tax_rate"]["value"]))
+    fcff = 182_935_000_000 + m["after_tax_interest"]["value"] - 115_948_000_000
+    assert m["free_cash_flow"]["value"] == pytest.approx(fcff)
     assert m["free_cash_flow"]["details"]["url"].startswith("https://www.sec.gov/Archives/edgar/data/789019/")
     assert m["total_debt"]["value"] == 9_227_000_000 + 31_067_000_000
     # MSFT tags ShortTermInvestments 55,908M at 2026-06-30; it adds to cash in the equity bridge.

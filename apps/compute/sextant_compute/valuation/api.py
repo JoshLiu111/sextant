@@ -1,7 +1,11 @@
 """Valuation Calculator (P2): FCF-based DCF, WACC breakdown, sensitivity table.
 
-Free cash flow = Operating Cash Flow − Capital Expenditure from the latest fiscal
-year of the company's EDGAR statements. Equity value = enterprise value + cash +
+Free cash flow to the firm = Operating Cash Flow + Interest Expense × (1 − tax rate)
+− Capital Expenditure, from the latest fiscal year of the company's EDGAR statements.
+Operating cash flow already has the interest paid taken out, and the DCF discounts at
+the WACC and then subtracts debt, so the after-tax interest goes back in; a company
+that reports no interest expense adds back 0 (``details.basis = "not_reported"``).
+Equity value = enterprise value + cash +
 short-term investments − total debt; a company that reports no short-term
 investments counts them as 0 (``details.basis = "not_reported"``). Market-data inputs (risk-free rate, beta,
 equity risk premium, share price) have no public source here, so they start from
@@ -172,9 +176,23 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
             raise MissingData(cell.message)
         return Detailed(cell.value, {"period": period.label, "filed": cell.filing.filed.isoformat(), "url": cell.filing.url})
 
+    def interest_expense() -> Detailed:
+        if isinstance(st.cell("interest_expense", pid), Missing):
+            return Detailed(0.0, {"basis": "not_reported"})
+        return item("interest_expense")
+
+    def after_tax_interest() -> float:
+        interest = interest_expense().value
+        if interest == 0:
+            return 0.0  # nothing to add back, so no tax rate needed
+        return v.after_tax_interest(interest_expense=interest, tax_rate=tax.get())
+
     @cache
     def fcf() -> float:
-        return st.value("operating_cash_flow", pid) - st.value("capital_expenditure", pid)
+        ocf, capex = st.value("operating_cash_flow", pid), st.value("capital_expenditure", pid)
+        return v.free_cash_flow_to_firm(
+            operating_cash_flow=ocf, capital_expenditure=capex, after_tax_interest=after_tax_interest()
+        )
 
     def short_term_investments() -> Detailed:
         if isinstance(st.cell("short_term_investments", pid), Missing):
@@ -271,6 +289,8 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
         "free_cash_flow": metric(sourced(fcf), unit="currency"),
         "operating_cash_flow": metric(lambda: item("operating_cash_flow"), unit="currency"),
         "capital_expenditure": metric(lambda: item("capital_expenditure"), unit="currency"),
+        "interest_expense": metric(interest_expense, unit="currency"),
+        "after_tax_interest": metric(after_tax_interest, unit="currency"),
         "cash": metric(lambda: item("cash"), unit="currency"),
         "short_term_investments": metric(short_term_investments, unit="currency"),
         "total_debt": metric(sourced(total_debt), unit="currency"),
@@ -345,10 +365,23 @@ def _share_price(
 
 
 def _fcf_history(st: FinancialStatements) -> list[tuple[str, float | None]]:
+    """Free cash flow to the firm per fiscal year, each with that year's own effective tax rate."""
     points: list[tuple[str, float | None]] = []
     for p in st.last(HISTORY_YEARS).periods:
         try:
-            points.append((p.id, st.value("operating_cash_flow", p.id) - st.value("capital_expenditure", p.id)))
+            points.append((p.id, _reported_fcff(st, p.id)))
         except MissingData:
             points.append((p.id, None))
     return points
+
+
+def _reported_fcff(st: FinancialStatements, pid: str) -> float:
+    shield = 0.0
+    if not isinstance(st.cell("interest_expense", pid), Missing):
+        rate = v.tax_rate(income_tax=st.value("income_tax", pid), pretax_income=st.value("pretax_income", pid))
+        shield = v.after_tax_interest(interest_expense=st.value("interest_expense", pid), tax_rate=rate)
+    return v.free_cash_flow_to_firm(
+        operating_cash_flow=st.value("operating_cash_flow", pid),
+        capital_expenditure=st.value("capital_expenditure", pid),
+        after_tax_interest=shield,
+    )

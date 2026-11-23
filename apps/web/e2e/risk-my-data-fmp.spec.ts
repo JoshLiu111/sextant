@@ -80,7 +80,7 @@ test("the Valuation Calculator takes its My data price from FMP's latest close",
   const main = page.getByRole("main");
   const value = (id: string) => main.locator(`[data-metric-value="${id}"]`);
   // EDGAR's MSFT FY2026 at the defaults (e2e/fake-edgar.mjs).
-  await expect(value("intrinsic_value_per_share")).toContainText("$158.11");
+  await expect(value("intrinsic_value_per_share")).toContainText("$163.73");
 
   await main.getByTestId("data-mode").getByText("My data").click();
 

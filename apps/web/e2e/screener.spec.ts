@@ -112,7 +112,7 @@ test("the Valuation link opens the Valuation Calculator with that company's resu
   await expect(valuation.getByLabel("Ticker")).toHaveValue("MSFT");
   await expect(valuation.getByTestId("results").getByRole("heading", { name: "MICROSOFT CORP" })).toBeVisible();
   // MSFT on the default assumptions (see valuation.spec.ts).
-  await expect(valuation.locator('[data-metric-value="intrinsic_value_per_share"]')).toContainText("$158.11");
+  await expect(valuation.locator('[data-metric-value="intrinsic_value_per_share"]')).toContainText("$163.73");
 });
 
 test("the latest filings list works market-wide and for one company", async ({ page }) => {
