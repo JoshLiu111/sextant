@@ -517,3 +517,14 @@ def test_a_benchmark_that_never_moves_leaves_the_benchmark_metrics_missing_only(
         assert "benchmark" in body["metrics"][f"{name}:OK"]["reason"]
     assert value(body, "information_ratio:OK") > 0
     assert value(body, "sharpe:OK") == pytest.approx(251**0.5)
+
+
+def test_the_alpha_demo_ticker_recovers_its_configured_beta_and_alpha():
+    # DEMO-G is built with a large alpha and little idiosyncratic noise, so ten years pin both down.
+    body = metrics(tickers=["DEMO-G"])
+
+    configured = PERSONALITIES["DEMO-G"]
+    assert configured.alpha > 0.03
+    assert value(body, "beta:DEMO-G") == pytest.approx(configured.beta, abs=0.03)
+    assert value(body, "alpha:DEMO-G") == pytest.approx(configured.alpha, abs=0.02)
+    assert value(body, "alpha:DEMO-MKT") == pytest.approx(0.0, abs=1e-12)
