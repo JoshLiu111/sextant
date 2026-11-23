@@ -2,8 +2,10 @@
 
 Sign-in handshake: apps/web runs Google OIDC and verifies the ID token, then
 signs a short-lived HS256 *login assertion* with ``SESSION_SECRET``
-(iss=sextant-web, aud=sextant-compute, sub=Google subject, email, name).
-Compute verifies it, upserts the user and issues an opaque session token.
+(iss=sextant-web, aud=sextant-compute, sub=Google subject, email, name, and a
+random jti) that lives at most 60 seconds. Compute verifies it, records the jti
+so the assertion cannot be replayed, upserts the user and issues an opaque
+session token.
 Only holders of SESSION_SECRET can mint assertions, so the endpoint is safe
 to expose publicly under /api/compute.
 """
@@ -19,7 +21,7 @@ import jwt
 import psycopg
 
 SESSION_LIFETIME = timedelta(days=30)
-ASSERTION_MAX_AGE = timedelta(minutes=5)
+ASSERTION_MAX_AGE = timedelta(seconds=60)  # ADR 0001
 MIN_SECRET_LENGTH = 32
 
 
@@ -46,7 +48,7 @@ def verify_login_assertion(assertion: str) -> dict:
             algorithms=["HS256"],
             audience="sextant-compute",
             issuer="sextant-web",
-            options={"require": ["exp", "iat", "sub", "email"]},
+            options={"require": ["exp", "iat", "sub", "email", "jti"]},
         )
     except jwt.PyJWTError as exc:
         raise InvalidAssertion(str(exc)) from exc
@@ -59,7 +61,25 @@ def _hash(token: str) -> bytes:
     return hashlib.sha256(token.encode()).digest()
 
 
+def _consume_assertion(conn: psycopg.Connection, claims: dict) -> None:
+    """Record the assertion's jti; raise InvalidAssertion if it was already used."""
+    conn.execute("DELETE FROM used_login_assertions WHERE expires_at < now()")
+    fresh = conn.execute(
+        """
+        INSERT INTO used_login_assertions (jti, expires_at)
+        VALUES (%s, to_timestamp(%s))
+        ON CONFLICT (jti) DO NOTHING
+        RETURNING jti
+        """,
+        (str(claims["jti"]), claims["exp"]),
+    ).fetchone()
+    if fresh is None:
+        raise InvalidAssertion("assertion already used")
+
+
 def create_session(conn: psycopg.Connection, claims: dict) -> tuple[str, datetime, dict]:
+    """Open a session for verified ``claims``. Raises InvalidAssertion on a replayed jti."""
+    _consume_assertion(conn, claims)
     user = conn.execute(
         """
         INSERT INTO users (google_sub, email, name)
