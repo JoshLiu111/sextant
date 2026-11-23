@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
@@ -167,9 +168,12 @@ function RatioTable({
 export function CompanyRatios() {
   const t = getMessages();
   const r = t.companyRatios;
-  const [rows, setRows] = useState<Row[]>(DEFAULT_ROWS);
+  // `?ticker=MSFT` (links from the screener) prefills and loads that company.
+  const linked = useSearchParams().get("ticker")?.trim().toUpperCase();
+  const initialRows = linked ? [{ ticker: linked, price: "" }] : DEFAULT_ROWS;
+  const [rows, setRows] = useState<Row[]>(initialRows);
   // Only submitted inputs are fetched: typing doesn't fire EDGAR requests.
-  const [query, setQuery] = useState(() => toRequest(DEFAULT_ROWS));
+  const [query, setQuery] = useState(() => toRequest(initialRows));
   const { result, fieldErrors, error, pending, run } = useCompute("/company/ratios", query);
   const ratios = result as RatiosResult | null;
 

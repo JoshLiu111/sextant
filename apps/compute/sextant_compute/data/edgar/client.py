@@ -124,6 +124,17 @@ class EdgarClient:
 
     def get_json(self, host: str, path: str) -> Any:
         """GET ``host + path`` (``WWW_URL`` or ``DATA_URL``) and parse the JSON body."""
+        res = self._get(host, path)
+        try:
+            return res.json()
+        except ValueError as exc:
+            raise SourceUnavailable(SOURCE_ID, f"unparsable JSON from {res.request.url}") from exc
+
+    def get_text(self, host: str, path: str) -> str:
+        """GET ``host + path`` and return the decoded body (e.g. the Atom feed)."""
+        return self._get(host, path).text
+
+    def _get(self, host: str, path: str) -> httpx.Response:
         client = self._client()
         url = self.url(host, path)
         problem = ""
@@ -144,8 +155,5 @@ class EdgarClient:
             if res.status_code != 200:
                 # 403 means a missing/undeclared User-Agent or an IP block; retrying won't help.
                 raise SourceUnavailable(SOURCE_ID, f"HTTP {res.status_code} from {url}")
-            try:
-                return res.json()
-            except ValueError as exc:
-                raise SourceUnavailable(SOURCE_ID, f"unparsable JSON from {url}") from exc
+            return res
         raise SourceUnavailable(SOURCE_ID, f"{problem} from {url}")

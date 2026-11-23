@@ -2,7 +2,10 @@
 
 ``tests/fixtures/edgar/`` holds trimmed real responses, recorded with
 ``scripts/record_edgar_fixtures.py``: the ticker map (AAPL, MSFT, JPM, WMT,
-GOOGL/GOOG, BRK-B) and companyfacts for AAPL, MSFT, JPM and WMT.
+GOOGL/GOOG, BRK-B, plus the screener's 37-company universe), companyfacts for
+AAPL, MSFT, JPM and WMT, frames (``frames/``, CY2024/CY2025, universe rows only),
+the getcurrent Atom feed (``getcurrent/all.atom``, ``getcurrent/10-K.atom``) and
+submissions for AAPL and MSFT (``submissions/``).
 
     adapter = edgar_adapter()                       # serves the fixtures
     adapter = edgar_adapter(edgar_transport(status=503))  # EDGAR is down
@@ -65,6 +68,20 @@ class EdgarTransport(httpx.MockTransport):
             path = request.url.path
             if path == "/files/company_tickers.json":
                 return httpx.Response(200, content=(FIXTURES / "company_tickers.json").read_bytes())
+            if path.startswith("/api/xbrl/frames/"):
+                file = FIXTURES / path.removeprefix("/api/xbrl/")
+                if file.exists():
+                    return httpx.Response(200, content=file.read_bytes())
+            if path.startswith("/submissions/"):
+                file = FIXTURES / path.lstrip("/")
+                if file.exists():
+                    return httpx.Response(200, content=file.read_bytes())
+            if path == "/cgi-bin/browse-edgar":
+                file = FIXTURES / "getcurrent" / f"{request.url.params.get('type') or 'all'}.atom"
+                if file.exists():
+                    return httpx.Response(
+                        200, content=file.read_bytes(), headers={"content-type": "application/atom+xml; charset=ISO-8859-1"}
+                    )
             if path.startswith("/api/xbrl/companyfacts/"):
                 name = path.rsplit("/", 1)[-1]
                 if name in overrides:

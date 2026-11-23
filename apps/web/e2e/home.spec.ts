@@ -19,6 +19,7 @@ const LIVE_TOOLS = new Set([
   "Company Health Check",
   "Valuation Calculator",
   "Macro Dashboard",
+  "Screener & Calendar",
 ]);
 
 test("home page lists all eight tools with a description", async ({ page }) => {

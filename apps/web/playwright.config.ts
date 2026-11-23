@@ -24,6 +24,8 @@ const EDGAR_PORT = Number(process.env.EDGAR_PORT || COMPUTE_PORT + 3);
 const edgar = {
   EDGAR_BASE_URL: `http://127.0.0.1:${EDGAR_PORT}`,
   SEC_USER_AGENT: "Sextant e2e admin@example.com",
+  // The screener's default year follows the calendar; pin it to the recorded frames.
+  SCREENER_DEFAULT_YEAR: "2025",
 };
 const TREASURY_PORT = Number(process.env.TREASURY_PORT || COMPUTE_PORT + 4);
 const isCI = !!process.env.CI;
