@@ -20,6 +20,10 @@ export const ATTRIBUTIONS = {
     text: "Source: U.S. Department of the Treasury, Daily Treasury Par Yield Curve Rates. Not endorsed by the U.S. Treasury.",
     href: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve",
   },
+  frankfurter: {
+    text: "Exchange rates: Frankfurter (frankfurter.dev).",
+    href: "https://frankfurter.dev/",
+  },
 } as const satisfies Record<string, Attribution>;
 
 export type AttributionId = keyof typeof ATTRIBUTIONS;

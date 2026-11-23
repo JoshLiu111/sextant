@@ -36,6 +36,11 @@ const tiingo = {
   TIINGO_BASE_URL: `http://127.0.0.1:${TIINGO_PORT}`,
   PROVIDER_KEY_SECRET: "e2e-provider-key-secret-not-for-production-0123456789",
 };
+// Frankfurter: exchange rates come from a fake (e2e/fake-frankfurter.mjs) serving
+// the recorded responses, on FRANKFURTER_PORT (default COMPUTE_PORT + 9; +7/+8 are
+// the World Bank and ECB fakes).
+const FRANKFURTER_PORT = Number(process.env.FRANKFURTER_PORT || COMPUTE_PORT + 9);
+const frankfurter = { FRANKFURTER_BASE_URL: `http://127.0.0.1:${FRANKFURTER_PORT}` };
 const isCI = !!process.env.CI;
 const reuse = !isCI && process.env.PW_REUSE_SERVERS === "1";
 const computeUrl = `http://127.0.0.1:${COMPUTE_PORT}`;
@@ -117,6 +122,12 @@ export default defineConfig({
       env: { TIINGO_PORT: String(TIINGO_PORT) },
     },
     {
+      command: "node e2e/fake-frankfurter.mjs",
+      url: `${frankfurter.FRANKFURTER_BASE_URL}/health`,
+      reuseExistingServer: reuse,
+      env: { FRANKFURTER_PORT: String(FRANKFURTER_PORT) },
+    },
+    {
       command: e2eDatabaseUrl
         ? uvicorn
         : `uv run python scripts/ephemeral_postgres.py -- ${uvicorn}`,
@@ -132,6 +143,7 @@ export default defineConfig({
         ...treasury,
         ...ai,
         ...tiingo,
+        ...frankfurter,
         ...(e2eDatabaseUrl ? { DATABASE_URL: e2eDatabaseUrl } : {}),
       },
     },

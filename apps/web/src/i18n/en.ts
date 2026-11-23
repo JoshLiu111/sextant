@@ -568,7 +568,7 @@ export const en = {
       name: { label: "Portfolio name", placeholder: "For example: Retirement account" },
       holdings: {
         heading: "Holdings",
-        hint: "Demo tickers: DEMO-A to DEMO-G. Cost price is the average price you paid per unit. Use one currency per portfolio for now.",
+        hint: "Demo tickers: DEMO-A to DEMO-G. Cost price is the average price you paid per unit, in the holding's currency. Holdings can be in different currencies; results are converted into the reporting currency.",
         ticker: "Ticker",
         quantity: "Quantity",
         cost_price: "Cost price",
@@ -588,9 +588,14 @@ export const en = {
       },
       loading: "Loading portfolio…",
       analysisHeading: "Analysis settings",
+      reportingCurrency: {
+        label: "Reporting currency",
+        hint: "3-letter code, like USD or EUR. Other currencies convert at each date's rate from Frankfurter.",
+      },
       sections: {
         value: "Value and profit",
-        valueNote: "Today's value uses each holding's latest close in the date range, in the portfolio's currency.",
+        valueNote:
+          "Today's value uses each holding's latest close in the date range. Amounts are in the reporting currency, each converted at the exchange rate of its own date: values at the closing date, costs at the date the shares were bought (or entered by hand), realized P&L at the date of the sell.",
         positions: "Positions",
         positionsNote:
           "One row per holding, plus tickers your imports sold out. Realized P&L is booked first in, first out when a sell is imported and covers every sale to date.",
@@ -612,19 +617,19 @@ export const en = {
           name: "Market value",
           what: "What the holdings are worth at the end of the date range.",
           how: "Sum over holdings of quantity × latest close in the range. Dividends are not added here.",
-          read: "Shown in the portfolio's currency.",
+          read: "Shown in the reporting currency.",
         },
         cost_basis: {
           name: "Cost basis",
           what: "What you paid for the holdings.",
           how: "Sum over holdings of quantity × cost price.",
-          read: "Shown in the portfolio's currency.",
+          read: "Shown in the reporting currency.",
         },
         unrealized_pnl: {
           name: "Unrealized profit or loss",
           what: "How much the holdings have gained or lost versus what you paid, if sold now.",
           how: "Market value − cost basis.",
-          read: "Positive is a gain, negative a loss, in the portfolio's currency. Taxes, fees and dividends received are not included.",
+          read: "Positive is a gain, negative a loss, in the reporting currency. Taxes, fees and dividends received are not included.",
         },
         unrealized_return: {
           name: "Unrealized return",
@@ -636,7 +641,7 @@ export const en = {
           name: "Realized profit or loss",
           what: "What your imported sells gained or lost versus what those shares cost.",
           how: "For each sell: quantity × price − fees − the cost of the shares it sold, taking the oldest shares first (FIFO). Shares entered by hand count as the oldest. Summed over every sell to date.",
-          read: "Positive is a gain, negative a loss, in the portfolio's currency. It is booked when the sell is imported, so editing a holding later does not change it.",
+          read: "Positive is a gain, negative a loss, in the reporting currency. It is booked when the sell is imported, so editing a holding later does not change it.",
         },
       },
       import: {
@@ -676,7 +681,7 @@ export const en = {
       },
       returns: {
         heading: "Your return",
-        note: "Rebuilt day by day over the date range from today's holdings and your imported transactions. Buys put money in (price × quantity + fees), sells and dividends take it out, and trades count at the close of their day.",
+        note: "Rebuilt day by day over the date range from today's holdings and your imported transactions. Buys put money in (price × quantity + fees), sells and dividends take it out, and trades count at the close of their day. Values and trades in other currencies convert into the reporting currency at each day's rate.",
         whichHeading: "Which one to use",
         which:
           "Use the time-weighted return to judge the holdings themselves, or to compare with a benchmark or a fund: it ignores when you added or took out money. Use the money-weighted return (IRR) to see how your own money did, including the timing of your deposits and withdrawals. They differ most when large amounts go in or out before a big move.",

@@ -13,11 +13,23 @@ type ReturnMetricId = `${(typeof RETURN_METRICS)[number]}:portfolio`;
  * Errors (bad range, unknown ticker) are shown by the surrounding results, which
  * send the same dates.
  */
-export function PortfolioReturns({ portfolioId, start, end }: { portfolioId: string; start: string; end: string }) {
+export function PortfolioReturns({
+  portfolioId,
+  start,
+  end,
+  reportingCurrency,
+}: {
+  portfolioId: string;
+  start: string;
+  end: string;
+  /** Values and trades in other currencies convert into this one; null: the first holding's. */
+  reportingCurrency: string | null;
+}) {
   const r = getMessages().portfolio.saved.returns;
   const { result } = useCompute<ReturnMetricId, never>(`/portfolios/${portfolioId}/returns`, {
     start: start || null,
     end: end || null,
+    reporting_currency: reportingCurrency,
   });
 
   return (

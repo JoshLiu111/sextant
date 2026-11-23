@@ -28,12 +28,16 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
   const p = t.portfolio;
   const s = p.saved;
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
+  // Amounts in other currencies are converted into this one (Frankfurter rates, per date).
+  const [reporting, setReporting] = useState(portfolio.holdings[0]?.currency ?? "USD");
+  const reportingCurrency = reporting.trim().toUpperCase() || null;
   const { result, fieldErrors, error } = useCompute<string, string>(`/portfolios/${portfolio.id}/metrics`, {
     benchmark: settings.benchmark.trim() || null,
     start: settings.start || null,
     end: settings.end || null,
+    reporting_currency: reportingCurrency,
   });
-  const currency = String(result?.metrics["market_value:portfolio"]?.details?.currency ?? portfolio.holdings[0]?.currency ?? "");
+  const currency = String(result?.metrics["market_value:portfolio"]?.details?.currency ?? reportingCurrency ?? "");
   // Unknown tickers come back on their holding row; list them in the notice.
   const holdingErrors = Object.entries(fieldErrors)
     .filter(([field]) => field.startsWith("holdings."))
@@ -43,7 +47,7 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
     <section data-testid="saved-results" aria-label={s.sections.value} className="min-w-0 space-y-6">
       <div>
         <h3 className="text-sm font-medium">{s.analysisHeading}</h3>
-        <div className="mt-2 grid gap-4 sm:grid-cols-3">
+        <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {SETTINGS.map((field) => (
             <TextField
               key={field}
@@ -55,6 +59,14 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
               error={fieldErrors[field]}
             />
           ))}
+          <TextField
+            name="saved-reporting_currency"
+            label={s.reportingCurrency.label}
+            hint={s.reportingCurrency.hint}
+            value={reporting}
+            onChange={setReporting}
+            error={fieldErrors.reporting_currency}
+          />
         </div>
       </div>
       <DemoBadge source={result?.source} />
@@ -90,7 +102,12 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
           <PositionsTable result={result} currency={currency} />
         </div>
       </div>
-      <PortfolioReturns portfolioId={portfolio.id} start={settings.start} end={settings.end} />
+      <PortfolioReturns
+        portfolioId={portfolio.id}
+        start={settings.start}
+        end={settings.end}
+        reportingCurrency={reportingCurrency}
+      />
       <PortfolioResults result={result} metricsNote={s.sections.metricsNote} />
     </section>
   );
