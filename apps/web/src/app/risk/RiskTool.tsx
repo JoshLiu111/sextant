@@ -17,16 +17,15 @@ import { RollingCharts } from "./RollingCharts";
 import { DEFAULT_ROLLING_WINDOW, PeriodNote, TimescaleInputs, type ReturnPeriod } from "./TimescaleInputs";
 
 // Metric ids are "<metric>:<ticker>", series ids "drawdown:<ticker>".
-const METRICS = [
-  "annualized_return",
-  "annualized_volatility",
-  "max_drawdown",
-  "var",
-  "cvar",
-  "sharpe",
-  "sortino",
-  "beta",
-] as const;
+// Cards are grouped by section; the order within a group is the display order.
+const METRIC_GROUPS = {
+  metrics: ["annualized_return", "annualized_volatility", "max_drawdown"],
+  tail: ["var", "cvar", "parametric_var", "parametric_cvar", "cornish_fisher_var", "cornish_fisher_cvar"],
+  riskAdjusted: ["sharpe", "sortino", "treynor", "information_ratio"],
+  benchmark: ["beta", "alpha", "upside_capture", "downside_capture"],
+} as const;
+
+type MetricId = (typeof METRIC_GROUPS)[keyof typeof METRIC_GROUPS][number];
 
 // confidence and risk_free_rate are kept in percent; the API takes decimals.
 type Form = {
@@ -218,28 +217,30 @@ export function RiskTool() {
             message={error}
           />
         )}
-        <div>
-          <h2 className="text-lg font-semibold">{r.sections.metrics}</h2>
-          <PeriodNote period={params?.period} />
-          <div className="mt-2 grid gap-4 xl:grid-cols-3">
-            {METRICS.map((id) => (
-              <MetricCard
-                key={id}
-                id={id}
-                explainer={r.metrics[id]}
-                values={
-                  symbols.length
-                    ? symbols.map((ticker) => ({
-                        id: `${id}:${ticker}`,
-                        label: label(ticker),
-                        result: result?.metrics[`${id}:${ticker}`],
-                      }))
-                    : [{ id: `${id}:pending`, result: undefined }]
-                }
-              />
-            ))}
+        <PeriodNote period={params?.period} />
+        {(Object.keys(METRIC_GROUPS) as (keyof typeof METRIC_GROUPS)[]).map((group) => (
+          <div key={group}>
+            <h2 className="text-lg font-semibold">{r.sections[group]}</h2>
+            <div className="mt-2 grid gap-4 xl:grid-cols-3">
+              {METRIC_GROUPS[group].map((id: MetricId) => (
+                <MetricCard
+                  key={id}
+                  id={id}
+                  explainer={r.metrics[id]}
+                  values={
+                    symbols.length
+                      ? symbols.map((ticker) => ({
+                          id: `${id}:${ticker}`,
+                          label: label(ticker),
+                          result: result?.metrics[`${id}:${ticker}`],
+                        }))
+                      : [{ id: `${id}:pending`, result: undefined }]
+                  }
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        ))}
         <div>
           <div className="flex flex-wrap items-end justify-between gap-2">
             <h2 className="text-lg font-semibold">{r.sections.chart}</h2>

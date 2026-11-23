@@ -83,7 +83,13 @@ def test_switching_the_period_changes_the_period_statistics_but_not_return_or_dr
     daily = metrics(tickers=["DEMO-B"], period="daily")
     monthly = metrics(tickers=["DEMO-B"], period="monthly")
 
-    for name in ("annualized_volatility", "sharpe", "sortino", "var", "cvar", "beta"):
+    period_dependent = (
+        "annualized_volatility",
+        *("sharpe", "sortino", "treynor", "information_ratio"),
+        *("var", "cvar", "parametric_var", "parametric_cvar", "cornish_fisher_var", "cornish_fisher_cvar"),
+        *("beta", "alpha", "upside_capture", "downside_capture"),
+    )
+    for name in period_dependent:
         assert value(daily, f"{name}:DEMO-B") != pytest.approx(value(monthly, f"{name}:DEMO-B"), rel=1e-6), name
     for name in ("annualized_return", "max_drawdown"):
         assert value(daily, f"{name}:DEMO-B") == value(monthly, f"{name}:DEMO-B")

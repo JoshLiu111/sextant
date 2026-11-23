@@ -2,9 +2,28 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Defaults: DEMO-A, DEMO-B, DEMO-D vs DEMO-MKT, 2021-01-01 to 2025-12-31 (synthetic demo data).
 const DEFAULT_TICKERS = ["DEMO-A", "DEMO-B", "DEMO-D", "DEMO-MKT"];
-const PERCENT_METRICS = ["annualized_return", "annualized_volatility", "max_drawdown", "var", "cvar"];
+const VAR_METRICS = [
+  "var",
+  "cvar",
+  "parametric_var",
+  "parametric_cvar",
+  "cornish_fisher_var",
+  "cornish_fisher_cvar",
+];
+const PERCENT_METRICS = [
+  "annualized_return",
+  "annualized_volatility",
+  "max_drawdown",
+  ...VAR_METRICS,
+  "treynor",
+  "alpha",
+  "upside_capture",
+  "downside_capture",
+];
 const RATIO_METRICS = ["sharpe", "sortino", "beta"];
-const METRICS = [...PERCENT_METRICS, ...RATIO_METRICS];
+// The benchmark has no active return, so its information ratio is missing_data by design.
+const ACTIVE_METRICS = ["information_ratio"];
+const METRICS = [...PERCENT_METRICS, ...RATIO_METRICS, ...ACTIVE_METRICS];
 
 async function openRisk(page: Page) {
   await page.goto("/risk");
@@ -32,6 +51,10 @@ test("smoke: open the page, submit the defaults, see the results and the Demo ba
       await expect(metric(results, `${id}:${ticker}`)).toContainText(/\d\.\d{2}/);
     }
   }
+  for (const ticker of DEFAULT_TICKERS.filter((t) => t !== "DEMO-MKT")) {
+    await expect(metric(results, `information_ratio:${ticker}`)).toHaveAttribute("data-status", "ok");
+  }
+  await expect(metric(results, "information_ratio:DEMO-MKT")).toHaveAttribute("data-status", "missing_data");
   await expect(main.getByTestId("demo-badge")).toBeVisible();
   await expect(main.getByTestId("demo-badge")).toContainText("Demo data");
   await expect(main.getByTestId("calculation-id")).toContainText("calc_");
@@ -95,6 +118,22 @@ test("VaR and CVaR update when the confidence level changes", async ({ page }) =
   await expect(metric(main, "cvar:DEMO-B")).not.toHaveText(cvarAt95 ?? "");
   const percent = (text: string | null) => parseFloat(/(-?[\d.]+)%/.exec(text ?? "")?.[1] ?? "NaN");
   expect(percent(await varB.textContent())).toBeGreaterThan(percent(at95));
+});
+
+test("changing the confidence level recomputes every VaR and CVaR variant", async ({ page }) => {
+  const main = await openRisk(page);
+  const percent = (text: string | null) => parseFloat(/(-?[\d.]+)%/.exec(text ?? "")?.[1] ?? "NaN");
+  await expect(metric(main, "cornish_fisher_cvar:DEMO-B")).toHaveAttribute("data-status", "ok");
+  const at95: Record<string, number> = {};
+  for (const id of VAR_METRICS) at95[id] = percent(await metric(main, `${id}:DEMO-B`).textContent());
+
+  await main.getByLabel("VaR confidence level (%)").fill("99");
+
+  for (const id of VAR_METRICS) {
+    await expect
+      .poll(async () => percent(await metric(main, `${id}:DEMO-B`).textContent()), { message: id })
+      .toBeGreaterThan(at95[id]);
+  }
 });
 
 test("an out-of-range confidence level is shown inline", async ({ page }) => {

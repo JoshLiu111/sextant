@@ -5,8 +5,13 @@
 Each metric is ``"<ratio id>:<TICKER>:<period id>"`` (the period id is the
 fiscal year end, as in ``/company/statements``). ``ratios`` lists the ratio ids
 with their category and unit, in display order; ``companies`` lists each
-company's displayed fiscal periods. Altman Z is metric ``altman_z`` with
-``details.zone`` (safe / grey / distress) and its five inputs ``x1``..``x5``.
+company's displayed fiscal periods. ``models`` lists, the same way, the
+scores (category ``scores``), the nine Piotroski signals (``piotroski``, unit
+``signal``, value 1 = pass) and the DuPont burdens (``dupont``); see
+``analytics.scores``. Altman Z (``altman_z``) has ``details.zone`` (safe / grey
+/ distress) and ``x1``..``x5``; Piotroski F (``piotroski_f``) has ``zone``
+(strong / neutral / weak) and each signal's 0/1; Beneish M (``beneish_m``) has
+``zone`` (likely / unlikely) and its eight indices.
 """
 
 from __future__ import annotations
@@ -18,7 +23,8 @@ from typing import Annotated, Literal
 from fastapi import APIRouter
 from pydantic import BaseModel, BeforeValidator, Field
 
-from sextant_compute.analytics.ratios import ALTMAN_Z, RATIOS, PeriodValues, Ratio, WithDetails, Year
+from sextant_compute.analytics.ratios import RATIOS, PeriodValues, Ratio, WithDetails, Year
+from sextant_compute.analytics.scores import MODELS
 from sextant_compute.company.api import MAX_YEARS
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
@@ -79,6 +85,7 @@ class CompanyRatiosOut(BaseModel):
 class RatiosEnvelope(ResultEnvelope):
     companies: list[CompanyRatiosOut]
     ratios: list[RatioOut]
+    models: list[RatioOut]
 
 
 def _period_values(statements: FinancialStatements, period: FiscalPeriod) -> PeriodValues:
@@ -113,14 +120,18 @@ def ratio_metrics(
     labels = {item.id: item.label for item in statements.items}
     values = [_period_values(statements, p) for p in periods]
     n = len(periods)
-    for index in range(max(n - years, 0), n):
+    year: Year | None = None
+    for index in range(n):
         year = Year(
             values[index],
             values[index - 1] if index > 0 else None,
             labels,
             is_latest=index == n - 1,
             price=price,
+            earlier=year,
         )
+        if index < n - years:
+            continue
         for r in ratios:
             out[f"{r.id}:{periods[index].id}"] = metric(_computed(r, year), unit=r.unit)
     return out
@@ -155,7 +166,7 @@ def ratios(req: RatiosRequest, data: Data, ctx: Ctx) -> RatiosEnvelope:
     companies: list[CompanyRatiosOut] = []
     for c, full in zip(req.companies, fetched, strict=True):
         ticker = full.company.ticker
-        for key, result in ratio_metrics(full, req.years, c.price, (*RATIOS, ALTMAN_Z)).items():
+        for key, result in ratio_metrics(full, req.years, c.price, (*RATIOS, *MODELS)).items():
             ratio_id, period_id = key.split(":", 1)
             metrics[f"{ratio_id}:{ticker}:{period_id}"] = result
         shown = full.last(req.years)
@@ -183,4 +194,5 @@ def ratios(req: RatiosRequest, data: Data, ctx: Ctx) -> RatiosEnvelope:
         **base.model_dump(),
         companies=companies,
         ratios=[RatioOut(id=r.id, category=r.category, unit=r.unit) for r in RATIOS],
+        models=[RatioOut(id=r.id, category=r.category, unit=r.unit) for r in MODELS],
     )

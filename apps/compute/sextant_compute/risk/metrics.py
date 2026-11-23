@@ -23,7 +23,16 @@ METRIC_NAMES = (
     "sortino",
     "var",
     "cvar",
+    "parametric_var",
+    "parametric_cvar",
+    "cornish_fisher_var",
+    "cornish_fisher_cvar",
     "beta",
+    "treynor",
+    "information_ratio",
+    "alpha",
+    "upside_capture",
+    "downside_capture",
 )
 
 
@@ -51,7 +60,7 @@ def risk_metric_set(
     the matching wealth series (1.0 on the day before the first return).
 
     ``period`` picks the return period for the period-dependent metrics
-    (volatility, Sharpe, Sortino, VaR, CVaR, beta), annualized with that period's
+    (volatility, every ratio, every VaR/CVaR, beta, alpha, capture), annualized with that period's
     count per year. Annualized return and max drawdown describe the whole wealth
     path, so they always use the daily data.
     """
@@ -66,7 +75,16 @@ def risk_metric_set(
         "sortino": metric(lambda: performance.sortino_ratio(r, risk_free_rate, per_year), unit="ratio"),
         "var": metric(lambda: risk.historical_var(r, confidence, period=period), unit="decimal"),
         "cvar": metric(lambda: risk.historical_cvar(r, confidence, period=period), unit="decimal"),
+        "parametric_var": metric(lambda: risk.parametric_var(r, confidence, period=period), unit="decimal"),
+        "parametric_cvar": metric(lambda: risk.parametric_cvar(r, confidence, period=period), unit="decimal"),
+        "cornish_fisher_var": metric(lambda: risk.cornish_fisher_var(r, confidence, period=period), unit="decimal"),
+        "cornish_fisher_cvar": metric(lambda: risk.cornish_fisher_cvar(r, confidence, period=period), unit="decimal"),
         "beta": metric(lambda: risk.beta(r, b), unit="ratio"),
+        "treynor": metric(lambda: risk.treynor_ratio(r, b, risk_free_rate, per_year), unit="decimal"),
+        "information_ratio": metric(lambda: risk.information_ratio(r, b, per_year), unit="ratio"),
+        "alpha": metric(lambda: risk.capm_alpha(r, b, risk_free_rate, per_year), unit="decimal"),
+        "upside_capture": metric(lambda: risk.upside_capture(r, b), unit="decimal"),
+        "downside_capture": metric(lambda: risk.downside_capture(r, b), unit="decimal"),
     }
 
 
