@@ -118,9 +118,73 @@ def piotroski_f(y: Year) -> WithDetails:
     return WithDetails(score, {"zone": zone, **passed})
 
 
+BENEISH_THRESHOLD = -1.78
+
+
+def _soft_assets_share(y: Year) -> float:
+    """Assets other than current assets and PP&E, as a share of total assets."""
+    return 1 - div(y("current_assets") + y("ppe_net"), y("total_assets"), "Total Assets")
+
+
+def _depreciation_rate(y: Year) -> float:
+    da = y("depreciation_amortization")
+    return div(da, da + y("ppe_net"), "D&A plus PP&E")
+
+
+def _leverage_share(y: Year) -> float:
+    return div(y("current_liabilities") + y("long_term_debt"), y("total_assets"), "Total Assets")
+
+
+def _index(now: float, before: float, what: str) -> float:
+    return div(now, before, f"The prior year's {what}")
+
+
+def beneish_m(y: Year) -> WithDetails:
+    """Beneish M-Score, the 1999 eight-variable model. Each index compares this
+    year with the prior one: DSRI (receivables / sales), GMI (prior gross margin
+    / this year's), AQI (non-current, non-PP&E assets share), SGI (sales growth),
+    DEPI (prior depreciation rate / this year's), SGAI (SG&A / sales), TATA
+    (net income minus operating cash flow, over total assets) and LVGI ((current
+    liabilities + long-term debt) / total assets). Above -1.78 flags a likely
+    earnings manipulator."""
+    p = y.last_year()
+    dsri = _index(
+        div(y("receivables"), y("revenue"), "Revenue"), div(p("receivables"), p("revenue"), "Revenue"),
+        "receivables to sales",
+    )
+    gmi = _index(_gross_margin(p), _gross_margin(y), "gross margin")
+    aqi = _index(_soft_assets_share(y), _soft_assets_share(p), "asset quality")
+    sgi = _index(y("revenue"), p("revenue"), "revenue")
+    depi = _index(_depreciation_rate(p), _depreciation_rate(y), "depreciation rate")
+    sgai = _index(
+        div(y("selling_general_administrative"), y("revenue"), "Revenue"),
+        div(p("selling_general_administrative"), p("revenue"), "Revenue"),
+        "SG&A to sales",
+    )
+    tata = div(y("net_income") - y("operating_cash_flow"), y("total_assets"), "Total Assets")
+    lvgi = _index(_leverage_share(y), _leverage_share(p), "leverage")
+    m = (
+        -4.84
+        + 0.920 * dsri
+        + 0.528 * gmi
+        + 0.404 * aqi
+        + 0.892 * sgi
+        + 0.115 * depi
+        - 0.172 * sgai
+        + 4.679 * tata
+        - 0.327 * lvgi
+    )
+    zone = "likely" if m > BENEISH_THRESHOLD else "unlikely"
+    return WithDetails(
+        m,
+        {"zone": zone, "dsri": dsri, "gmi": gmi, "aqi": aqi, "sgi": sgi, "depi": depi, "sgai": sgai, "tata": tata, "lvgi": lvgi},
+    )
+
+
 MODELS: tuple[Ratio, ...] = (
     ALTMAN_Z,
     Ratio("piotroski_f", "scores", "score", piotroski_f),
+    Ratio("beneish_m", "scores", "score", beneish_m),
     *PIOTROSKI_SIGNALS,
 )
 """Every model, in display order: the scores, then the Piotroski signals, then

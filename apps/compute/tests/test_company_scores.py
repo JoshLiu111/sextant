@@ -104,3 +104,36 @@ def test_piotroski_signals_and_score_match_a_hand_computation() -> None:
     assert f["value"] == 8
     assert f["details"]["zone"] == "strong"
     assert m(body, "piotroski_f", "AAPL", AAPL_FY26)["value"] == 9
+
+
+def test_beneish_m_matches_a_hand_computation_and_names_its_zone() -> None:
+    body = post()
+
+    # FY2026 against FY2025:
+    # DSRI = (43,817 / 478,834) / (39,777 / 416,161)                     = 0.9574
+    # GMI  = (195,201 / 416,161) / (233,602 / 478,834)                   = 0.9615
+    # AQI  = (1 - (173,857 + 52,084) / 404,548) / (1 - (147,957 + 49,834) / 359,241) = 0.9824
+    # SGI  = 478,834 / 416,161                                           = 1.1506
+    # DEPI = (11,698 / (11,698 + 49,834)) / (13,423 / (13,423 + 52,084)) = 0.9278
+    # SGAI = (29,774 / 478,834) / (27,601 / 416,161)                     = 0.9375
+    # TATA = (132,175 - 145,097) / 404,548                               = -0.0319
+    # LVGI = ((169,915 + 68,208) / 404,548) / ((165,631 + 78,328) / 359,241) = 0.8668
+    # M = -4.84 + 0.920·DSRI + 0.528·GMI + 0.404·AQI + 0.892·SGI + 0.115·DEPI
+    #     - 0.172·SGAI + 4.679·TATA - 0.327·LVGI                        = -2.5158
+    beneish = m(body, "beneish_m", "AAPL", AAPL_FY26)
+    assert beneish["status"] == "ok"
+    assert beneish["unit"] == "score"
+    assert beneish["value"] == approx(-2.515793, abs=1e-5)
+    details = beneish["details"]
+    assert details["zone"] == "unlikely"
+    for index, expected in {
+        "dsri": 0.957386,
+        "gmi": 0.961455,
+        "aqi": 0.982373,
+        "sgi": 1.150598,
+        "depi": 0.927788,
+        "sgai": 0.937538,
+        "tata": -0.031942,
+        "lvgi": 0.866763,
+    }.items():
+        assert details[index] == approx(expected, abs=1e-5), index
