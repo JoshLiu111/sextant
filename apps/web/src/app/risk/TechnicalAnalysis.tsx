@@ -9,6 +9,7 @@ import { getMessages } from "@/i18n";
 import type { SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartNumber } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
+import { fieldsCodec, useUrlInputs, writeUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { CorrelationHeatmap } from "./CorrelationHeatmap";
 
 /** The Risk & Performance selection the panel follows (from the last good `/risk/metrics` result). */
@@ -52,6 +53,28 @@ const DEFAULTS: Form = {
     macd_slow: "26",
     macd_signal: "9",
   },
+};
+
+const INDICATORS = Object.keys(PARAMS) as IndicatorId[];
+const VALUES_CODEC = fieldsCodec(DEFAULTS.values);
+
+// Shareable links: `/risk?...&indicators=sma,macd&sma_window=50&macd_fast=8`: which
+// indicators are on (`indicators=` for none) and every parameter. Written on every
+// change, since the panel has no submit button.
+const URL_CODEC: UrlCodec<Form> = {
+  keys: ["indicators", ...VALUES_CODEC.keys],
+  read(params) {
+    const raw = params.get("indicators");
+    const listed = raw === null ? null : new Set(raw.split(",").map((id) => id.trim()));
+    const on = listed
+      ? (Object.fromEntries(INDICATORS.map((id) => [id, listed.has(id)])) as Form["on"])
+      : DEFAULTS.on;
+    return { on, values: VALUES_CODEC.read(params) };
+  },
+  write: (form) => ({
+    indicators: INDICATORS.filter((id) => form.on[id]).join(","),
+    ...VALUES_CODEC.write(form.values),
+  }),
 };
 
 const COLORS: Record<SeriesId, string> = {
@@ -98,7 +121,13 @@ export function TechnicalAnalysis({ selection }: { selection: RiskSelection }) {
   const symbols = [...new Set([...selection.tickers, selection.benchmark])];
   const [chosen, setChosen] = useState<string | null>(null);
   const ticker = chosen && symbols.includes(chosen) ? chosen : symbols[0];
-  const [form, setForm] = useState<Form>(DEFAULTS);
+  const { initial } = useUrlInputs(URL_CODEC);
+  const [form, setFormState] = useState<Form>(initial);
+  const setForm = (update: (f: Form) => Form) => {
+    const next = update(form);
+    setFormState(next);
+    writeUrlInputs(URL_CODEC, next);
+  };
   const { result, fieldErrors, error } = useCompute<never, SeriesId>(
     "/risk/indicators",
     toRequest(ticker, selection, form),

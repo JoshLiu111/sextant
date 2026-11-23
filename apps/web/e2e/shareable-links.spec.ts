@@ -45,6 +45,20 @@ test.describe("Company Health Check", () => {
     await expect(page).toHaveURL(/[?&]companies=AAPL:250(&|$)/);
   });
 
+  test("the statements ticker in the URL doesn't leak into the ratios on reload", async ({ page }) => {
+    const main = await open(page, "/company", "Company Health Check");
+    const ratios = main.getByTestId("ratios");
+    await expect(metric(ratios, "current_ratio:AAPL:2026-09-26")).toHaveAttribute("data-status", "ok", COLD);
+    await main.getByLabel("Ticker").fill("MSFT");
+    await main.getByRole("button", { name: "Show statements" }).click();
+    await expect(page).toHaveURL(/[?&]ticker=MSFT(&|$)/);
+
+    await page.reload();
+    await expect(main.getByLabel("Ticker")).toHaveValue("MSFT");
+    // No `companies` param: the ratios fall back to their default company.
+    await expect(ratios.getByLabel("Compare company 1", { exact: true })).toHaveValue("AAPL");
+  });
+
   test("a duplicate company shows the normal validation error", async ({ page }) => {
     const main = await open(page, "/company?companies=AAPL,AAPL", "Company Health Check");
     await expect(main.getByTestId("field-error-companies.1.ticker")).toBeVisible(COLD);
@@ -274,6 +288,23 @@ test.describe("Risk & Performance", () => {
     await expect(page).toHaveURL(/[?&]benchmark=DEMO-MKT(&|$)/);
   });
 
+  test("the technical indicators and their parameters round-trip through the URL", async ({ page }) => {
+    const main = await open(page, "/risk?indicators=ema,macd&ema_window=30&macd_fast=8", "Risk & Performance");
+    const legend = main.getByTestId("indicator-legend-price");
+    await expect(legend).toContainText("EMA (30)", COLD);
+    await expect(legend).not.toContainText("SMA");
+    await expect(main.getByLabel("SMA", { exact: true })).not.toBeChecked();
+    await expect(main.getByLabel("RSI", { exact: true })).not.toBeChecked();
+    await expect(main.getByLabel("MACD fast window (days)")).toHaveValue("8");
+    await expect(main.getByRole("img", { name: /^MACD panel/ })).toBeVisible();
+
+    // No submit button: each change is written straight away.
+    await main.getByLabel("RSI", { exact: true }).check();
+    await main.getByLabel("EMA window (days)").fill("40");
+    await expect(page).toHaveURL(/[?&]indicators=ema,rsi,macd(&|$)/);
+    await expect(page).toHaveURL(/[?&]ema_window=40(&|$)/);
+  });
+
   test("an out-of-range value shows the normal validation error", async ({ page }) => {
     const main = await open(page, "/risk?confidence=200", "Risk & Performance");
     await expect(main.getByTestId("field-error-confidence")).toBeVisible();
@@ -297,6 +328,21 @@ test.describe("My Portfolio (demo)", () => {
     await demo.getByRole("button", { name: "60/40" }).click();
     await demo.getByRole("button", { name: "Calculate" }).click();
     await expect(page).toHaveURL(/[?&]holdings=DEMO-C:60,DEMO-E:40(&|$)/);
+  });
+
+  test("the rebalancing rule and drift threshold round-trip through the URL", async ({ page }) => {
+    const main = await open(page, "/portfolio?rule=drift&drift_threshold=10", "My Portfolio");
+    const rebalancing = main.getByRole("region", { name: "Rebalancing backtest" });
+    await expect(rebalancing.getByLabel("Rebalancing rule")).toHaveValue("drift");
+    await expect(rebalancing.getByLabel("Drift threshold (%)")).toHaveValue("10");
+    await expect(rebalancing.locator('[data-metric-value="rebalance_count:rebalanced"]')).toHaveAttribute(
+      "data-status",
+      "ok",
+      COLD,
+    );
+
+    await rebalancing.getByLabel("Rebalancing rule").selectOption("monthly");
+    await expect(page).toHaveURL(/[?&]rule=monthly(&|$)/);
   });
 
   test("weights that don't add up show the normal validation error", async ({ page }) => {
