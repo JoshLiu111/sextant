@@ -19,14 +19,17 @@ token and says in ``message`` whether the token worked:
 - ``"You successfully sent a request"``: the token is valid.
 - ``"Auth Token was not correct"``: the token is wrong.
 
-Prices: ``GET /tiingo/daily/<ticker>/prices?startDate=&endDate=&format=json``,
+Prices: ``GET /tiingo/daily/<ticker>/prices?startDate=&format=json``,
 one request per ticker, answering a JSON list of ``{date, open, high, low,
 close, volume, adjOpen, ..., adjClose, adjVolume, divCash, splitFactor}``
 (documented shape). ``close`` is raw; ``divCash`` is the cash dividend on its
 ex-date; ``splitFactor`` is the split ratio on the split date (4.0 for 4:1),
-1.0 otherwise. We return prices *split*-adjusted (so a split is not a crash)
-but not dividend-adjusted (``DailyPricesAdapter``'s contract: tools add the
-dividends back themselves). Data URLs answer 403 ``{"detail":"Invalid token."}``
+1.0 otherwise. We return prices *split*-adjusted to today's share count (so a
+split is not a crash, and the prices match holdings, which are in today's share
+count): ``daily_prices`` asks for ``startDate`` only, so Tiingo answers up to
+the latest day and every later split is in the rows, then drops the rows after
+the range's end. Prices are not dividend-adjusted (``DailyPricesAdapter``'s
+contract: tools add the dividends back themselves). Data URLs answer 403 ``{"detail":"Invalid token."}``
 for a bad token (probed 2026-11-22). Checked with a real key on 2026-11-23: an
 unknown ticker answers 404 ``{"detail":"Error: Ticker 'X' not found"}``, a
 range without prices (e.g. a weekend) answers ``[]``, and prices are only
@@ -67,7 +70,8 @@ class TiingoAdapter(UserKeyHttpAdapter):
     # End-of-day data changes once a day; half a day keeps a user's repeat requests
     # off their hourly Tiingo quota without serving yesterday's close for long.
     ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600}
-    version = "1"
+    # 2: prices are split-adjusted to today's share count (cached series may not be).
+    version = "2"
 
     def __init__(
         self,
@@ -112,12 +116,14 @@ class TiingoAdapter(UserKeyHttpAdapter):
         key = self._key(ctx)
 
         def fetch(ticker: str) -> pd.DataFrame | str:
-            rows = self._prices(key, ticker, start, end)
+            # Up to today, not just ``end``: a split after ``end`` still changes the share count.
+            rows = self._prices(key, ticker, start, None)
             if rows is None:
                 return f"Tiingo has no ticker {ticker}."
-            if not rows:
+            frame = _frame(rows).loc[: pd.Timestamp(end)] if rows else None
+            if frame is None or frame.empty:
                 return f"No Tiingo prices for {ticker} between {start} and {end}."
-            return _frame(rows)
+            return frame
 
         return self._per_ticker(tickers, fetch)
 
@@ -134,10 +140,13 @@ class TiingoAdapter(UserKeyHttpAdapter):
         raise NoSuchData(TIINGO.id, message, {ticker: message})
 
     def _prices(self, key: str, ticker: str, start: date | None, end: date | None) -> list[dict[str, Any]] | None:
-        """The raw rows, or None for a ticker Tiingo doesn't know. No dates: the latest day."""
+        """The raw rows, or None for a ticker Tiingo doesn't know. No dates: the latest day;
+        a start without an end: up to the latest day."""
         params = {"format": "json"}
-        if start is not None and end is not None:
-            params |= {"startDate": start.isoformat(), "endDate": end.isoformat()}
+        if start is not None:
+            params["startDate"] = start.isoformat()
+        if end is not None:
+            params["endDate"] = end.isoformat()
         response = self._tiingo_get(f"/tiingo/daily/{quote(ticker.lower(), safe='')}/prices", key, params)
         if response.status_code in (401, 403):
             raise KeyRequired(TIINGO.id, REJECTED_KEY_MESSAGE)
@@ -152,7 +161,8 @@ class TiingoAdapter(UserKeyHttpAdapter):
 
 
 def _frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    """Rows -> a ``PRICE_COLUMNS`` frame, split-adjusted to the last row's share count."""
+    """Rows -> a ``PRICE_COLUMNS`` frame, split-adjusted to the last row's share count
+    (today's, when the rows run up to the latest day)."""
     try:
         raw = pd.DataFrame(
             {
