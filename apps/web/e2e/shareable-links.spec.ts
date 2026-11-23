@@ -159,6 +159,50 @@ test.describe("Options Calculator", () => {
     const main = await open(page, "/options?volatility=-5", "Options Calculator");
     await expect(main.getByTestId("field-error-volatility")).toBeVisible();
   });
+
+  test("a strategy link opens the strategy tab with its legs", async ({ page }) => {
+    // Iron condor 80/90/110/120 around S = 100 -> credit 4.4155.
+    const legs = "put:long:1:80,put:short:1:90,call:short:1:110,call:long:1:120";
+    const main = await open(page, `/options?tab=strategy&legs=${legs}`, "Options Calculator");
+    await expect(main.getByRole("tab", { name: "Strategy builder" })).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByTestId("strategy-leg")).toHaveCount(4);
+    await expect(main.getByLabel("Strike 4")).toHaveValue("120");
+    await expect(metric(main, "net_cost")).toContainText("-4.4155");
+  });
+
+  test("submitting a strategy writes the tab, market inputs and legs to the URL", async ({ page }) => {
+    const main = await open(page, "/options", "Options Calculator");
+    await main.getByRole("tab", { name: "Strategy builder" }).click();
+    await expect(page).toHaveURL(/[?&]tab=strategy(&|$)/);
+    await main.getByRole("button", { name: "Iron condor" }).click();
+    await main.getByRole("button", { name: "Calculate" }).click();
+    await expect(page).toHaveURL(/[?&]legs=put:long:1:80,put:short:1:90,call:short:1:110,call:long:1:120(&|$)/);
+    await expect(page).toHaveURL(/[?&]spot=100(&|$)/);
+
+    await page.reload();
+    await expect(main.getByTestId("strategy-leg")).toHaveCount(4);
+    await expect(metric(main, "net_cost")).toContainText("-4.4155");
+  });
+
+  test("a strategy leg without a strike shows the normal validation error", async ({ page }) => {
+    const main = await open(page, "/options?tab=strategy&legs=call:long:1:", "Options Calculator");
+    await expect(main.getByTestId("field-error-legs.0.strike")).toBeVisible();
+  });
+
+  test("an American link prices its inputs and a bad step count shows the field error", async ({ page }) => {
+    // S = 110: the Black-Scholes European call next to the tree is 17.66, as on the single-option tab.
+    let main = await open(page, "/options?tab=american&spot=110", "Options Calculator");
+    await expect(main.getByRole("tab", { name: "American (binomial)" })).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByLabel("Spot price")).toHaveValue("110");
+    await expect(metric(main, "european_call")).toContainText("17.66");
+
+    await main.getByLabel("Steps", { exact: true }).fill("200");
+    await main.getByRole("button", { name: "Calculate" }).click();
+    await expect(page).toHaveURL(/[?&]steps=200(&|$)/);
+
+    main = await open(page, "/options?tab=american&steps=0", "Options Calculator");
+    await expect(main.getByTestId("field-error-steps")).toBeVisible();
+  });
 });
 
 test.describe("Valuation Calculator", () => {

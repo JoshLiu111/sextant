@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getMessages } from "@/i18n";
+import { useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { AmericanPricer } from "./AmericanPricer";
 import { OptionsCalculator } from "./OptionsCalculator";
 import { StrategyBuilder } from "./StrategyBuilder";
@@ -9,10 +10,29 @@ import { StrategyBuilder } from "./StrategyBuilder";
 const TABS = ["single", "strategy", "american"] as const;
 type Tab = (typeof TABS)[number];
 
-/** The Options Calculator's three views. Only the active one is mounted, so only it calls the API. */
+// Shareable links: `/options?tab=strategy&...`. The open tab is written when it
+// changes; each tab writes its own inputs on submit. An unknown tab opens the first.
+const TAB_CODEC: UrlCodec<{ tab: Tab }> = {
+  keys: ["tab"],
+  read: (params) => {
+    const raw = params.get("tab");
+    return { tab: TABS.find((id) => id === raw) ?? TABS[0] };
+  },
+  write: ({ tab }) => ({ tab }),
+};
+
+/**
+ * The Options Calculator's three views. Only the active one is mounted, so only it calls the API.
+ * Uses `useSearchParams` (via `useUrlInputs`), so render it inside `<Suspense>`.
+ */
 export function OptionsTool() {
   const t = getMessages().options.tabs;
-  const [tab, setTab] = useState<Tab>("single");
+  const { initial, share } = useUrlInputs(TAB_CODEC);
+  const [tab, setTabState] = useState<Tab>(initial.tab);
+  const setTab = (id: Tab) => {
+    setTabState(id);
+    share({ tab: id });
+  };
 
   return (
     <div className="mt-6">

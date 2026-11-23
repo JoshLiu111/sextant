@@ -8,6 +8,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
 import { getMessages } from "@/i18n";
 import { formatChartNumber } from "@/lib/format";
+import { decodeRows, encodeRows, fieldsCodec, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 import { chartPoints, MARKET_DEFAULTS, MARKET_FIELDS, marketRequest, toNumber, type MarketForm } from "./form";
 import {
@@ -28,6 +29,39 @@ type SeriesId = "profit_at_expiry" | "profit_today" | `${Greek}_vs_spot` | `${Gr
 
 const INSTRUMENTS: Instrument[] = ["call", "put", "underlying"];
 const POSITIONS: Position[] = ["long", "short"];
+
+type StrategyForm = { market: MarketForm; legs: LegForm[] };
+
+function defaultLegs(spot: string): LegForm[] {
+  const n = Number(spot);
+  return presetLegs(DEFAULT_PRESET, Number.isFinite(n) && n > 0 ? n : Number(MARKET_DEFAULTS.spot));
+}
+
+// Shareable links: the market fields one param each, plus
+// `legs=call:long:1:100,call:short:1:110` (instrument:position:quantity:strike).
+// Without `legs` the default preset is built around the linked spot.
+const MARKET_CODEC = fieldsCodec(MARKET_DEFAULTS);
+const URL_CODEC: UrlCodec<StrategyForm> = {
+  keys: [...MARKET_CODEC.keys, "legs"],
+  read(params) {
+    const market = MARKET_CODEC.read(params);
+    const raw = params.get("legs");
+    const legs =
+      raw === null
+        ? defaultLegs(market.spot)
+        : decodeRows(raw, 4).map(([instrument, position, quantity, strike]) => ({
+            instrument: instrument as Instrument,
+            position: position as Position,
+            quantity,
+            strike,
+          }));
+    return { market, legs };
+  },
+  write: ({ market, legs }) => ({
+    ...MARKET_CODEC.write(market),
+    legs: encodeRows(legs.map((leg) => [leg.instrument, leg.position, leg.quantity, leg.strike])),
+  }),
+};
 
 function toRequest(market: MarketForm, legs: LegForm[]) {
   return {
@@ -51,8 +85,9 @@ export function StrategyBuilder() {
   const t = getMessages();
   const o = t.options;
   const s = o.strategy;
-  const [market, setMarket] = useState<MarketForm>(MARKET_DEFAULTS);
-  const [legs, setLegs] = useState<LegForm[]>(() => presetLegs(DEFAULT_PRESET, Number(MARKET_DEFAULTS.spot)));
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [market, setMarket] = useState<MarketForm>(initial.market);
+  const [legs, setLegs] = useState<LegForm[]>(initial.legs);
   const [greek, setGreek] = useState<Greek>("delta");
   const [axis, setAxis] = useState<Axis>("spot");
   const { result, fieldErrors, error, run } = useCompute<MetricId, SeriesId>("/options/strategy", toRequest(market, legs));
@@ -68,6 +103,7 @@ export function StrategyBuilder() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    share({ market, legs });
     run();
   }
 

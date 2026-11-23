@@ -8,6 +8,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
 import { getMessages } from "@/i18n";
 import { formatChartNumber } from "@/lib/format";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 import { chartPoints, MARKET_DEFAULTS, MARKET_FIELDS, marketRequest, toNumber, type MarketForm } from "./form";
 
@@ -20,6 +21,9 @@ const DEFAULTS: Form = { ...MARKET_DEFAULTS, strike: "100", steps: "500" };
 const FIELDS: (keyof Form)[] = ["spot", "strike", ...MARKET_FIELDS.slice(1), "steps"];
 const KINDS: Kind[] = ["call", "put"];
 
+// Shareable links: `/options?tab=american&spot=110&steps=200`, one param per field.
+const URL_CODEC = fieldsCodec(DEFAULTS);
+
 function toRequest(form: Form) {
   return { ...marketRequest(form), strike: toNumber(form.strike), steps: toNumber(form.steps) };
 }
@@ -28,7 +32,8 @@ export function AmericanPricer() {
   const t = getMessages();
   const o = t.options;
   const a = o.american;
-  const [form, setForm] = useState<Form>(DEFAULTS);
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [form, setForm] = useState<Form>(initial);
   const [chartKind, setChartKind] = useState<Kind>("put");
   const { result, fieldErrors, error, run } = useCompute<MetricId, SeriesId>("/options/american", toRequest(form));
   const m = result?.metrics;
@@ -36,6 +41,7 @@ export function AmericanPricer() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    share(form);
     run();
   }
 
