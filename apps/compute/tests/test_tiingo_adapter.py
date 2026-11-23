@@ -95,3 +95,15 @@ def test_a_range_ending_before_a_later_split_is_still_in_todays_share_count(fake
     assert aapl.loc["2024-01-16", "close"] == pytest.approx(120.0)
     assert aapl.loc["2024-01-23", "close"] == pytest.approx(108.0)
     assert aapl["volume"].iloc[0] == pytest.approx(200_000_000)
+
+
+def test_splits_come_from_the_split_factors_up_to_the_latest_day(fake):
+    adapter = fake.adapter()
+
+    assert adapter.splits(ALICE, "AAPL", FIRST_DAY) == [(date(2024, 1, 30), 4.0)]
+    assert "endDate" not in fake.requests[-1].url.params
+    assert adapter.splits(ALICE, "AAPL", date(2024, 1, 31)) == []
+    assert adapter.splits(ALICE, "MSFT", FIRST_DAY) == []
+    with pytest.raises(NoSuchData) as unknown:
+        adapter.splits(ALICE, "ZZZZ", FIRST_DAY)
+    assert set(unknown.value.missing) == {"ZZZZ"}

@@ -4,7 +4,7 @@ Tiingo's terms forbid showing its data to anyone but the key holder, so the
 adapter's scope is ``"user"``: ``DataService`` caches what it fetches under that
 user only, never in the shared cache, and only while the user has a key.
 
-Two jobs:
+Its jobs:
 
 - ``verify_key``: Settings checks a key before saving it.
 - ``daily_prices``: end-of-day prices for Risk & Performance on My data (and
@@ -12,6 +12,8 @@ Two jobs:
 - ``latest_close``: the last close, for the Valuation Calculator's margin of
   safety. The same URL without ``startDate``/``endDate`` answers only the latest
   day (checked with a real key on 2026-11-23).
+- ``splits``: the stock splits since a date (Portfolio returns turn a past trade
+  into today's share count), from the ``splitFactor`` of the prices up to today.
 
 Key check: ``GET /api/test``. Checked 2026-11-22: it answers HTTP 200 for every
 token and says in ``message`` whether the token worked:
@@ -69,7 +71,7 @@ class TiingoAdapter(UserKeyHttpAdapter):
     no_key_message = NO_KEY_MESSAGE
     # End-of-day data changes once a day; half a day keeps a user's repeat requests
     # off their hourly Tiingo quota without serving yesterday's close for long.
-    ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600}
+    ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600, "splits": 12 * 3600}
     # 2: prices are split-adjusted to today's share count (cached series may not be).
     version = "2"
 
@@ -127,6 +129,15 @@ class TiingoAdapter(UserKeyHttpAdapter):
 
         return self._per_ticker(tickers, fetch)
 
+    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[tuple[date, float]]:
+        """See ``SplitsAdapter``. The ``splitFactor`` of every row from ``start`` to the latest day."""
+        rows = self._prices(self._key(ctx), ticker, start, None)
+        if rows is None:
+            message = f"Tiingo has no ticker {ticker}."
+            raise NoSuchData(TIINGO.id, message, {ticker: message})
+        split = _raw(rows)["split"] if rows else pd.Series(dtype=float)
+        return [(d.date(), float(ratio)) for d, ratio in split.items() if ratio != 1.0]
+
     def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
         """See ``LatestCloseAdapter``. Tiingo's prices URL without dates answers the latest day."""
         rows = self._prices(self._key(ctx), ticker, None, None)
@@ -163,6 +174,18 @@ class TiingoAdapter(UserKeyHttpAdapter):
 def _frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
     """Rows -> a ``PRICE_COLUMNS`` frame, split-adjusted to the last row's share count
     (today's, when the rows run up to the latest day)."""
+    raw = _raw(rows)
+    # A row's prices are divided by every split that happens *after* it.
+    later_splits = raw["split"][::-1].cumprod()[::-1].shift(-1, fill_value=1.0)
+    out = raw[PRICE_COLUMNS].copy()
+    for column in ("open", "high", "low", "close", "dividend"):
+        out[column] = raw[column] / later_splits
+    out["volume"] = raw["volume"] * later_splits
+    return out
+
+
+def _raw(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    """Rows -> ``PRICE_COLUMNS`` as Tiingo sent them, plus ``split``, oldest first."""
     try:
         raw = pd.DataFrame(
             {
@@ -178,10 +201,4 @@ def _frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
         ).sort_index()
     except (KeyError, TypeError, ValueError):
         raise SourceUnavailable(TIINGO.id, "Tiingo returned prices in an unexpected shape.") from None
-    # A row's prices are divided by every split that happens *after* it.
-    later_splits = raw["split"][::-1].cumprod()[::-1].shift(-1, fill_value=1.0)
-    out = raw[PRICE_COLUMNS].copy()
-    for column in ("open", "high", "low", "close", "dividend"):
-        out[column] = raw[column] / later_splits
-    out["volume"] = raw["volume"] * later_splits
-    return out
+    return raw
