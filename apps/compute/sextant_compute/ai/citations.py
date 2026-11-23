@@ -10,6 +10,11 @@ unit (``decimal`` metrics hold fractions, ``percent`` metrics hold percents).
 The sign must match too ("2%" does not match an alpha of -0.02), except for
 metrics whose name says the value is a fall or a loss (drawdowns, VaR/CVaR,
 losses): those may be written with or without a minus sign ("a drawdown of 35%").
+
+A number in the prose outside a citation becomes an ``uncited`` segment: nothing
+checked it, and the UI says so rather than pass it off as a checked figure.
+Dates, years and numbers inside names ("DEMO-A", "ff3_alpha", "10-year") are left
+as text. AI Analyst and AI Explain answers are checked the same way.
 """
 
 from __future__ import annotations
@@ -23,6 +28,17 @@ from pydantic import BaseModel
 
 from sextant_compute.envelope import ResultEnvelope
 
+CITING_RULE = """\
+- Cite every number you take from a result, in this exact form: \
+[[<the number as you write it>|<calculation_id>|<metric id>]], for example \
+[[18.3%|calc_0123abcd|annualized_volatility:DEMO-A]] or [[$391.0B|calc_0123abcd|revenue:2024-09-28]]. \
+Only metric ids from the result's "metrics" (or a screener row as <metric>:<TICKER>) can be cited. \
+Write the number in the citation exactly as the reader should see it, rounded sensibly; \
+show decimal metrics as percentages (0.183 as 18.3%). Keep a negative number's minus \
+sign in the citation ([[-2.1%|...|alpha:DEMO-A]]), even when the sentence says "fell" or "lagged".
+"""
+"""The system-prompt rule (AI Analyst and AI Explain) that makes the model write ``CITATION``s."""
+
 CITATION = re.compile(r"\[\[([^\[\]|]*)\|([^\[\]|]*)\|([^\[\]|]*)\]\]")
 
 _NUMBER = re.compile(
@@ -32,6 +48,14 @@ _NUMBER = re.compile(
     r"\s*(?:usd)?$",
     re.IGNORECASE,
 )
+
+_UNCITED = re.compile(
+    r"(?<![\w.,/:\-−])[-−+]?\$?\d+(?:,\d{3})*(?:\.\d+)?"
+    r"(?:\s?(?i:%|pp|percentage points?|bps?|basis points?|bn|thousand|million|billion|trillion|[kmbt]|x|×))?"
+    r"(?![\w\-−/:%]|[.,]\d)"
+)
+"""A number in the prose, with its sign, currency symbol and unit."""
+_YEAR = re.compile(r"(19|20)\d\d")
 
 _MULTIPLIERS = {
     "k": 1e3, "thousand": 1e3,
@@ -68,7 +92,13 @@ class Citation(BaseModel):
     """Why the citation does not check out (None when it matches)."""
 
 
-Segment = TextSegment | Citation
+class UncitedNumber(BaseModel):
+    type: Literal["uncited"] = "uncited"
+    text: str
+    """A number the model wrote without citing a calculation: not checked."""
+
+
+Segment = TextSegment | Citation | UncitedNumber
 
 
 class Written(NamedTuple):
@@ -147,17 +177,32 @@ def check_citation(text: str, calculation_id: str, metric_id: str, calculations:
     return cite(found.value, found.unit, None)
 
 
+def _prose(text: str) -> list[Segment]:
+    """``text`` as text segments, with its uncited numbers split out."""
+    segments: list[Segment] = []
+    at = 0
+    for m in _UNCITED.finditer(text):
+        if _YEAR.fullmatch(m[0]):
+            continue
+        if m.start() > at:
+            segments.append(TextSegment(text=text[at : m.start()]))
+        segments.append(UncitedNumber(text=m[0]))
+        at = m.end()
+    if at < len(text):
+        segments.append(TextSegment(text=text[at:]))
+    return segments
+
+
 def check_answer(answer: str, calculations: Mapping[str, ResultEnvelope]) -> list[Segment]:
+    """``answer`` as segments: prose, checked citations, and uncited numbers."""
     segments: list[Segment] = []
     at = 0
     for m in CITATION.finditer(answer):
-        if m.start() > at:
-            segments.append(TextSegment(text=answer[at : m.start()]))
+        segments += _prose(answer[at : m.start()])
         text, calc, metric_id = (part.strip() for part in m.groups())
         segments.append(check_citation(text, calc, metric_id, calculations))
         at = m.end()
-    if at < len(answer):
-        segments.append(TextSegment(text=answer[at:]))
+    segments += _prose(answer[at:])
     return segments
 
 

@@ -198,7 +198,7 @@ def risk_answer(metric: str, written: str) -> Script:
 def test_percentages_are_read_against_the_metric_unit(client, model):
     token = sign_in(client)
     model.script = [lambda _: tool_use("risk_metrics", RISK), lambda m: answer(json.dumps(last_result(m)))]
-    raw = json.loads(ask(client, token).json()["answer"][0]["text"])
+    raw = json.loads("".join(s["text"] for s in ask(client, token).json()["answer"]))
     vol = raw["metrics"]["annualized_volatility:DEMO-A"]
     assert vol["unit"] == "decimal"
     pct = f"{vol['value'] * 100:.1f}%"
@@ -215,6 +215,19 @@ def test_percentages_are_read_against_the_metric_unit(client, model):
 
     assert right["matches"] is True
     assert wrong["matches"] is False
+
+
+def test_numbers_that_cite_nothing_are_marked_uncited_as_in_ai_explain(client, model):
+    model.script = prices_the_option_then(lambda _: answer("The call is worth about 10.45 per share."))
+    token = sign_in(client)
+
+    segments = ask(client, token).json()["answer"]
+
+    assert [(s["type"], s["text"]) for s in segments] == [
+        ("text", "The call is worth about "),
+        ("uncited", "10.45"),
+        ("text", " per share."),
+    ]
 
 
 def test_citations_of_unknown_calculations_or_metrics_are_flagged(client, model):

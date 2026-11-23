@@ -43,6 +43,40 @@ test("a signed-in user gets a plain-English explanation and sees the quota go do
   await expect(ai.getByTestId("ai-quota")).toHaveText("2 of 3 AI calls left today");
 });
 
+test("cited numbers are checked against the result, and uncited ones are marked as unchecked", async ({ page }) => {
+  const ai = await signInOnOptions(page);
+  await ai.getByRole("button", { name: "AI Explain" }).click();
+
+  const explanation = ai.getByTestId("ai-explanation");
+  const cited = explanation.getByTestId("citation");
+  await expect(cited).toHaveText("10.45");
+  await expect(cited).toHaveAttribute("data-matches", "true");
+  await expect(cited).toHaveAccessibleDescription(/^From calculation calc_/);
+  await expect(ai.getByTestId("mismatch-notice")).toHaveCount(0);
+  // The strike (100) is an input, not a metric: the fake model writes it uncited.
+  const uncited = explanation.getByTestId("uncited-number");
+  await expect(uncited).toHaveText("100");
+  await expect(uncited).toHaveAccessibleDescription(/not checked/i);
+  await expect(ai.getByTestId("uncited-notice")).toBeVisible();
+});
+
+test("a cited number that doesn't match the result is flagged in red", async ({ page }) => {
+  const ai = await signInOnOptions(page);
+  // With a spot of 99 the fake model miscites the call price as 12.00.
+  await page.getByRole("main").getByRole("spinbutton", { name: "Spot price" }).fill("99");
+  await expect(page.getByRole("main").locator('[data-metric-value="call_price"]')).not.toContainText("10.45");
+  await ai.getByRole("button", { name: "AI Explain" }).click();
+
+  const cited = ai.getByTestId("ai-explanation").getByTestId("citation");
+  await expect(cited).toHaveText("12.00");
+  await expect(cited).toHaveAttribute("data-matches", "false");
+  await expect(cited).toHaveClass(/text-red-700/);
+  await expect(cited).toHaveAccessibleDescription(/does not match.*9\.\d\d/i);
+  await expect(ai.getByTestId("mismatch-notice")).toHaveText(
+    "1 number in this answer does not match the calculation it cites. It is highlighted in red.",
+  );
+});
+
 test("the explanation follows the result on screen", async ({ page }) => {
   const ai = await signInOnOptions(page);
   const main = page.getByRole("main");
