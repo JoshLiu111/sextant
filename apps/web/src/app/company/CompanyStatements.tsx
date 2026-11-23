@@ -13,14 +13,17 @@ import { csvFilename, type CsvTable } from "@/lib/csv";
 import { formatStatementValue } from "@/lib/format";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { useFrequency } from "./FrequencyToggle";
 
 // Mirrors StatementsEnvelope in apps/compute/sextant_compute/company/api.py.
 // Cells are metrics "<item id>:<period id>"; the period id is its end date.
+// Periods are fiscal years, or fiscal quarters (fiscal_quarter 1..4) with ?frequency=quarterly.
 type Statement = "income" | "balance" | "cash_flow";
 type Period = {
   id: string;
   label: string;
   fiscal_year: number;
+  fiscal_quarter: number | null;
   start: string | null;
   end: string;
   filed: string;
@@ -104,7 +107,7 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
                 <th key={p.id} scope="col" className="px-3 py-2 text-right font-medium">
                   <span className="block">{p.label}</span>
                   <span className="block text-xs font-normal text-black/50 dark:text-white/50">
-                    {c.yearEnded} {p.end}
+                    {p.fiscal_quarter ? c.quarterEnded : c.yearEnded} {p.end}
                   </span>
                   <a
                     href={p.url}
@@ -150,9 +153,10 @@ export function CompanyStatements() {
   const { initial, share } = useUrlInputs(URL_CODEC);
   const initialTicker = initial.ticker.trim().toUpperCase() || DEFAULT_TICKER;
   const [ticker, setTicker] = useState(initialTicker);
+  const frequency = useFrequency();
   // Only a submitted ticker is fetched: typing doesn't fire EDGAR requests.
   const [query, setQuery] = useState({ ticker: initialTicker });
-  const { result, fieldErrors, error, pending, run } = useCompute("/company/statements", query);
+  const { result, fieldErrors, error, pending, run } = useCompute("/company/statements", { ...query, frequency });
   const statements = result as StatementsResult | null;
 
   function onSubmit(e: FormEvent) {
@@ -206,6 +210,9 @@ export function CompanyStatements() {
               <p className="text-sm text-black/60 dark:text-white/60">
                 {statements.company.ticker} · CIK {statements.company.cik} · {c.unitsNote}
               </p>
+              {statements.periods.some((p) => p.fiscal_quarter) && (
+                <p className="mt-1 text-xs text-black/60 dark:text-white/60">{c.quarterlyNote}</p>
+              )}
               <MetricExplainer explainer={c.explainer} />
             </div>
             {STATEMENTS.map((s) => (

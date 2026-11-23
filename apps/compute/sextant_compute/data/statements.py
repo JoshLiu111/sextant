@@ -7,8 +7,11 @@ cell is either ``Reported`` (a value with the filing it came from) or
 ``statements.value(item_id, period_id)``, which raises ``MissingData`` naming the
 item, so a ratio built in ``metric(lambda: ...)`` goes ``missing_data`` on its own.
 
-Look-ahead: ``FiscalPeriod.filed`` is the date the period's own annual report
-was filed; a daily metric dated before it must use an older period. A few cells
+Periods are fiscal years, or fiscal quarters (``fiscal_quarter`` 1..4) in the
+quarterly dataset; see ``data/edgar/quarterly.py``.
+
+Look-ahead: ``FiscalPeriod.filed`` is the date the period's own report was
+filed; a daily metric dated before it must use an older period. A few cells
 can come from a later filing (an item the company first tagged a year later);
 each ``Reported.filing.filed`` is exact, so strict point-in-time code checks it.
 """
@@ -26,6 +29,7 @@ from sextant_compute.envelope import DataSource
 Statement = Literal["income", "balance", "cash_flow"]
 STATEMENTS: tuple[Statement, ...] = ("income", "balance", "cash_flow")
 MissingReason = Literal["not_reported", "not_reported_for_period"]
+Frequency = Literal["annual", "quarterly"]
 
 
 @dataclass(frozen=True)
@@ -70,12 +74,13 @@ Cell = Reported | Missing
 @dataclass(frozen=True)
 class FiscalPeriod:
     id: str  # the period end as ISO date, e.g. "2025-09-27"; unique within a company
-    label: str  # "FY2025" (the company's own fiscal year number)
+    label: str  # "FY2025" (the company's own fiscal year number), or "Q2 FY2026"
     fiscal_year: int
     start: date | None
     end: date
-    filed: date  # when the period's own annual report was filed (= filing.filed)
-    filing: Filing  # the period's own annual report (most values come from it)
+    filed: date  # when the period's own report was filed (= filing.filed)
+    filing: Filing  # the period's own report, 10-K or 10-Q (most values come from it)
+    fiscal_quarter: int | None = None  # 1..4 for quarterly periods; None for fiscal years
 
 
 @dataclass(frozen=True)
@@ -139,6 +144,7 @@ class FinancialStatements:
                 "end": p.end.isoformat(),
                 "filed": p.filed.isoformat(),
                 "filing": ref(p.filing),
+                "fiscal_quarter": p.fiscal_quarter,
             }
             for p in self.periods
         ]
@@ -184,6 +190,7 @@ class FinancialStatements:
                     end=date.fromisoformat(p["end"]),
                     filed=date.fromisoformat(p["filed"]),
                     filing=filings[p["filing"]],
+                    fiscal_quarter=p.get("fiscal_quarter"),
                 )
                 for p in raw["periods"]
             ),

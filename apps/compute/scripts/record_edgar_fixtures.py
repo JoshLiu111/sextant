@@ -16,8 +16,9 @@ Trimming keeps the files small but real (values are never edited):
   and ``SCREEN_TICKERS``.
 - companyfacts: ``cik``, ``entityName``, and for every tag named in
   ``line_items.toml`` only annual-report facts (10-K family) filed since
-  ``SINCE``; for the per-share dividend tags (``DIVIDEND_TAGS``) the 10-Q
-  family too. ``description`` texts are dropped.
+  ``SINCE`` and quarterly-report facts (10-Q) filed since ``QUARTERLY_SINCE``;
+  for the per-share dividend tags (``DIVIDEND_TAGS``) 10-Q facts since
+  ``SINCE``. ``description`` texts are dropped.
 - frames (screener): ``frames/<taxonomy>/<Tag>/<unit>/<period>.json``, one per tag
   the screener metrics need, for ``FRAME_YEARS``, keeping only the rows of
   ``SCREEN_TICKERS`` companies. A tag without a frame (404) gets no file.
@@ -60,8 +61,15 @@ FEED_COUNT = 40
 SUBMISSION_TICKERS = sorted({"AAPL", "MSFT", *CALENDAR_TICKERS})
 SUBMISSIONS_KEEP = 60
 ANNUAL_FORMS = {"10-K", "10-K/A", "10-KT", "20-F", "40-F"}
-QUARTERLY_FORMS = {"10-Q", "10-Q/A"}
 SINCE = "2016-01-01"
+QUARTERLY_FORMS = {"10-Q", "10-Q/A"}
+# Quarterly views need trailing-twelve-month windows and year-ago comparisons.
+QUARTERLY_SINCE = "2023-01-01"
+
+
+def keep_fact(row: dict, quarterly_since: str = QUARTERLY_SINCE) -> bool:
+    form, filed = row.get("form"), row.get("filed", "")
+    return (form in ANNUAL_FORMS and filed >= SINCE) or (form in QUARTERLY_FORMS and filed >= quarterly_since)
 
 
 def trim_tickers(raw: dict) -> dict:
@@ -84,10 +92,11 @@ def trim_companyfacts(raw: dict) -> dict:
             concept = raw.get("facts", {}).get(taxonomy, {}).get(name)
             if concept is None:
                 continue
-            forms = ANNUAL_FORMS | QUARTERLY_FORMS if (taxonomy, name) in quarterly else ANNUAL_FORMS
+            # Dividend history goes back further than the quarterly statements.
+            since = SINCE if (taxonomy, name) in quarterly else QUARTERLY_SINCE
             units = {}
             for unit, rows in concept["units"].items():
-                kept = [r for r in rows if r.get("form") in forms and r.get("filed", "") >= SINCE]
+                kept = [r for r in rows if keep_fact(r, since)]
                 if kept:
                     units[unit] = kept
             if units:

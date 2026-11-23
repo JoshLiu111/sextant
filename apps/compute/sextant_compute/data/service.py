@@ -58,7 +58,7 @@ from sextant_compute.data.errors import KeyRequired, NoSuchData
 from sextant_compute.data.filings import FilingList
 from sextant_compute.data.frankfurter import FrankfurterAdapter
 from sextant_compute.data.fred import FredAdapter
-from sextant_compute.data.statements import FinancialStatements
+from sextant_compute.data.statements import FinancialStatements, Frequency
 from sextant_compute.data.synthetic import SyntheticAdapter
 from sextant_compute.data.tiingo import TiingoAdapter
 from sextant_compute.data.treasury import TreasuryAdapter
@@ -279,6 +279,27 @@ class DataService:
             FinancialStatements.to_json,
             FinancialStatements.from_json,
         )
+
+    def quarterly_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
+        """Standardized statements by fiscal quarter; see ``FinancialStatementsAdapter``."""
+        adapter = cast(FinancialStatementsAdapter, self._adapter(source))
+        return self._cached(
+            ctx,
+            adapter,
+            "quarterly_statements",
+            {"ticker": ticker.strip().upper()},
+            lambda: adapter.quarterly_statements(ctx, ticker),
+            FinancialStatements.to_json,
+            FinancialStatements.from_json,
+        )
+
+    def statements(
+        self, ctx: RequestContext, ticker: str, *, source: str, frequency: Frequency
+    ) -> FinancialStatements:
+        """Annual or quarterly statements."""
+        if frequency == "quarterly":
+            return self.quarterly_statements(ctx, ticker, source=source)
+        return self.financial_statements(ctx, ticker, source=source)
 
     def cross_sections(
         self, ctx: RequestContext, item_ids: Sequence[str], year: int, *, source: str
