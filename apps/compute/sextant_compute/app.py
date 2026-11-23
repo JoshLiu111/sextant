@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 
 from sextant_compute import SERVICE_NAME, __version__
+from sextant_compute.ai.analyst import router as ai_analyst_router
 from sextant_compute.ai.api import router as ai_router
 from sextant_compute.ai.model import AnthropicModel
 from sextant_compute.ai.operator import router as operator_router
@@ -61,7 +62,7 @@ def create_app() -> FastAPI:
     install_error_handlers(app)
     # Opened lazily on first use, so anonymous tools never need a database.
     app.state.db = Database.from_env()
-    # Claude for AI Explain; tests replace it with a stub.
+    # Claude for AI Explain and AI Analyst; tests replace it with a stub.
     app.state.ai_model = AnthropicModel.from_env()
     app.include_router(health_router, prefix=API_PREFIX)
     app.include_router(options_router, prefix=f"{API_PREFIX}/options")
@@ -80,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(screener_router, prefix=f"{API_PREFIX}/screener")
     app.include_router(screener_calendar_router, prefix=f"{API_PREFIX}/screener")
     app.include_router(ai_router, prefix=f"{API_PREFIX}/ai")
+    app.include_router(ai_analyst_router, prefix=f"{API_PREFIX}/ai")
     app.include_router(operator_router, prefix=f"{API_PREFIX}/operator")
     app.include_router(keys_router, prefix=f"{API_PREFIX}/keys")
     app.include_router(auth_router, prefix=API_PREFIX)

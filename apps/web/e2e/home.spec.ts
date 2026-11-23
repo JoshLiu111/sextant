@@ -20,6 +20,7 @@ const LIVE_TOOLS = new Set([
   "Valuation Calculator",
   "Macro Dashboard",
   "Screener & Calendar",
+  "AI Analyst",
 ]);
 
 test("home page lists all eight tools with a description", async ({ page }) => {

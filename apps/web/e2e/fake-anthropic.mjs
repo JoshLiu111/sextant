@@ -3,9 +3,14 @@
 // ANTHROPIC_BASE_URL, so the real Claude client runs end to end without the
 // network or a real key.
 //
-// It answers deterministically from the result JSON in the prompt: it quotes the
-// call price the compute service calculated, and mentions buying so the
-// not-advice notice shows.
+// AI Explain (no tools): it answers deterministically from the result JSON in the
+// prompt: it quotes the call price the compute service calculated, and mentions
+// buying so the not-advice notice shows.
+//
+// AI Analyst (a tool-use conversation): the first turn calls options_price with
+// the default inputs; once the tool result comes back it answers, citing the call
+// price as [[value|calculation_id|call_price]]. A question containing "misquote"
+// makes it cite 12.00 instead, so the UI's mismatch highlighting can be tested.
 
 import { createServer } from "node:http";
 
@@ -14,6 +19,53 @@ const PORT = Number(process.env.ANTHROPIC_PORT || 9600);
 function send(res, status, body) {
   res.writeHead(status, { "content-type": "application/json" });
   res.end(JSON.stringify(body));
+}
+
+const OPTION = {
+  spot: 100,
+  strike: 100,
+  time_to_expiry: 1,
+  volatility: 0.2,
+  risk_free_rate: 0.05,
+  dividend_yield: 0,
+  option_type: "call",
+};
+
+function message(body, content, stopReason, inputLength) {
+  return {
+    id: "msg_fake",
+    type: "message",
+    role: "assistant",
+    model: body.model,
+    content,
+    stop_reason: stopReason,
+    usage: {
+      input_tokens: Math.ceil(inputLength / 4),
+      output_tokens: Math.ceil(JSON.stringify(content).length / 4),
+    },
+  };
+}
+
+function analystTurn(body) {
+  const messages = body.messages;
+  const question = typeof messages[0].content === "string" ? messages[0].content : "";
+  const last = messages[messages.length - 1];
+  const inputLength = JSON.stringify(messages).length;
+  const results = Array.isArray(last.content) ? last.content.filter((b) => b.type === "tool_result") : [];
+  if (results.length === 0 && body.tools && body.tool_choice?.type !== "none") {
+    const call = { type: "tool_use", id: "toolu_fake_1", name: "options_price", input: OPTION };
+    return message(body, [call], "tool_use", inputLength);
+  }
+  const result = results.length ? JSON.parse(results[results.length - 1].content) : null;
+  const value = result?.metrics?.call_price?.value;
+  if (value == null) {
+    return message(body, [{ type: "text", text: "I could not price the option." }], "end_turn", inputLength);
+  }
+  const written = /misquote/i.test(question) ? "12.00" : value.toFixed(2);
+  const text =
+    `An at-the-money one-year call with these inputs is worth [[${written}|${result.calculation_id}|call_price]] per share.\n\n` +
+    "That figure comes from the Black-Scholes model in the Options Calculator.";
+  return message(body, [{ type: "text", text }], "end_turn", inputLength);
 }
 
 function resultFrom(prompt) {
@@ -34,6 +86,7 @@ createServer((req, res) => {
   req.on("data", (chunk) => (raw += chunk));
   req.on("end", () => {
     const body = JSON.parse(raw);
+    if (body.tools || body.messages?.length > 1) return send(res, 200, analystTurn(body));
     const prompt = body.messages?.[0]?.content ?? "";
     const result = resultFrom(prompt);
     const call = result?.metrics?.call_price?.value;
