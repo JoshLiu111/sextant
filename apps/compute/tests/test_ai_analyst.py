@@ -65,8 +65,10 @@ class ScriptedModel:
     fail: bool = False
     requests: list[dict] = field(default_factory=list)
 
-    def converse(self, system: str, messages: list[dict], tools: list[dict] | None) -> Turn:
-        self.requests.append({"system": system, "messages": json.loads(json.dumps(messages)), "tools": tools})
+    def converse(self, system: str, messages: list[dict], tools: list[dict], *, must_answer: bool) -> Turn:
+        self.requests.append(
+            {"system": system, "messages": json.loads(json.dumps(messages)), "tools": tools, "must_answer": must_answer}
+        )
         if self.fail:
             raise ModelUnavailable("stubbed outage")
         return self.script[len(self.requests) - 1](messages)
@@ -269,7 +271,9 @@ def test_the_model_must_answer_after_the_last_tool_round(client, model):
 
     body = ask(client, token).json()
 
-    assert model.requests[-1]["tools"] is None
+    assert [r["must_answer"] for r in model.requests] == [False] * 5 + [True]
+    # The tools stay declared (the history holds tool calls); the model just may not call them.
+    assert model.requests[-1]["tools"] == model.requests[0]["tools"]
     assert len(body["calls"]) == len(model.requests) - 1
     assert body["answer"] == [{"type": "text", "text": "Done."}]
 

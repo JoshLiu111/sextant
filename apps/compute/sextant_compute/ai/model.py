@@ -66,8 +66,9 @@ class ExplainModel(Protocol):
 
 
 class AnalystModel(Protocol):
-    def converse(self, system: str, messages: list[dict], tools: list[dict] | None) -> Turn:
-        """The next assistant turn. ``tools`` None means the model must answer in text."""
+    def converse(self, system: str, messages: list[dict], tools: list[dict], *, must_answer: bool) -> Turn:
+        """The next assistant turn. With ``must_answer`` the model may not call a tool
+        (the tools stay declared: the API requires them once the history holds tool calls)."""
         ...
 
 
@@ -113,10 +114,10 @@ class AnthropicModel:
         except (KeyError, TypeError) as exc:
             raise ModelUnavailable("Claude API returned an unexpected response") from exc
 
-    def converse(self, system: str, messages: list[dict], tools: list[dict] | None) -> Turn:
-        body: dict = {"max_tokens": ANALYST_MAX_OUTPUT_TOKENS, "system": system, "messages": messages}
-        if tools:
-            body["tools"] = tools
+    def converse(self, system: str, messages: list[dict], tools: list[dict], *, must_answer: bool) -> Turn:
+        body: dict = {"max_tokens": ANALYST_MAX_OUTPUT_TOKENS, "system": system, "messages": messages, "tools": tools}
+        if must_answer:
+            body["tool_choice"] = {"type": "none"}
         data = self._post(body)
         try:
             content = [

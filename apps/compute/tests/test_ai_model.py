@@ -99,7 +99,7 @@ def test_a_tool_use_conversation_sends_the_tools_and_returns_the_tool_calls():
 
     tools = [{"name": "options_price", "description": "d", "input_schema": {"type": "object", "properties": {}}}]
     messages = [{"role": "user", "content": "What is the call worth?"}]
-    turn = AnthropicModel("k", transport=fake(handler)).converse("system", messages, tools)
+    turn = AnthropicModel("k", transport=fake(handler)).converse("system", messages, tools, must_answer=False)
 
     assert turn.stop_reason == "tool_use"
     assert turn.tool_uses == [{"type": "tool_use", "id": "toolu_01", "name": "options_price", "input": {"spot": 100}}]
@@ -108,17 +108,22 @@ def test_a_tool_use_conversation_sends_the_tools_and_returns_the_tool_calls():
     assert seen[0]["tools"] == tools
     assert seen[0]["messages"] == messages
     assert seen[0]["system"] == "system"
+    assert "tool_choice" not in seen[0]
 
 
-def test_a_conversation_without_tools_sends_no_tools_field():
+def test_a_turn_that_must_answer_keeps_the_tools_declared_but_forbids_calling_them():
     seen: list[dict] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(json.loads(request.content))
         return httpx.Response(200, json=REPLY)
 
-    turn = AnthropicModel("k", transport=fake(handler)).converse("s", [{"role": "user", "content": "q"}], None)
+    tools = [{"name": "t", "description": "d", "input_schema": {"type": "object", "properties": {}}}]
+    turn = AnthropicModel("k", transport=fake(handler)).converse(
+        "s", [{"role": "user", "content": "q"}], tools, must_answer=True
+    )
 
-    assert "tools" not in seen[0]
+    assert seen[0]["tools"] == tools
+    assert seen[0]["tool_choice"] == {"type": "none"}
     assert turn.tool_uses == []
     assert turn.text == "The call is worth 10.45."

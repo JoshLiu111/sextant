@@ -140,8 +140,8 @@ class Conversation:
         self.calculations: dict[str, ResultEnvelope] = {}
         self.input_tokens = self.output_tokens = 0
 
-    def _turn(self, messages: list[dict], offer_tools: bool) -> Turn:
-        turn = self.model.converse(SYSTEM, messages, tools.specs() if offer_tools else None)
+    def _turn(self, messages: list[dict], must_answer: bool) -> Turn:
+        turn = self.model.converse(SYSTEM, messages, tools.specs(), must_answer=must_answer)
         self.input_tokens += turn.input_tokens
         self.output_tokens += turn.output_tokens
         return turn
@@ -168,12 +168,12 @@ class Conversation:
     def answer(self, question: str) -> str:
         messages: list[dict] = [{"role": "user", "content": question}]
         for round_no in range(MAX_TOOL_ROUNDS + 1):
-            turn = self._turn(messages, offer_tools=round_no < MAX_TOOL_ROUNDS)
-            if not turn.tool_uses:
+            turn = self._turn(messages, must_answer=round_no == MAX_TOOL_ROUNDS)
+            if not turn.tool_uses or round_no == MAX_TOOL_ROUNDS:
                 return turn.text
             messages.append({"role": "assistant", "content": turn.content})
             messages.append({"role": "user", "content": [self._run(use) for use in turn.tool_uses]})
-        raise AssertionError("unreachable: the last round offers no tools")
+        raise AssertionError("unreachable: the last round always answers")
 
 
 def _quota_exceeded(limit: int) -> ApiError:
