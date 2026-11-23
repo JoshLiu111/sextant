@@ -8,9 +8,10 @@ import { LineChart, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
 import { getMessages } from "@/i18n";
-import type { SeriesResult } from "@/lib/envelope";
 import { formatChartNumber } from "@/lib/format";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { chartPoints, isPercentField, toNumber } from "./form";
 
 type MetricId =
   | "call_price"
@@ -51,7 +52,9 @@ const DEFAULTS: Form = {
   market_price: "",
 };
 
-const PERCENT_FIELDS = new Set<NumericField>(["volatility", "risk_free_rate", "dividend_yield"]);
+// Shareable links: `/options?spot=110&volatility=30`, one param per field.
+const URL_CODEC = fieldsCodec(DEFAULTS);
+
 const NUMERIC_FIELDS: NumericField[] = [
   "spot",
   "strike",
@@ -61,36 +64,25 @@ const NUMERIC_FIELDS: NumericField[] = [
   "dividend_yield",
 ];
 
-/** Empty or non-numeric input goes to the API as null so it reports the field. */
-function toNumber(raw: string, percent: boolean): number | null {
-  if (raw.trim() === "") return null;
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return null;
-  return percent ? n / 100 : n;
-}
-
 function toRequest(form: Form) {
   const body: Record<string, unknown> = { option_type: form.option_type };
-  for (const field of NUMERIC_FIELDS) body[field] = toNumber(form[field], PERCENT_FIELDS.has(field));
-  body.market_price = form.market_price.trim() === "" ? null : toNumber(form.market_price, false);
+  for (const field of NUMERIC_FIELDS) body[field] = toNumber(form[field], isPercentField(field));
+  body.market_price = toNumber(form.market_price);
   return body;
-}
-
-function chartPoints(series: SeriesResult | undefined) {
-  if (!series || series.status !== "ok") return [];
-  return series.points.map((p) => ({ x: Number(p.x), y: p.y }));
 }
 
 export function OptionsCalculator() {
   const t = getMessages();
   const o = t.options;
-  const [form, setForm] = useState<Form>(DEFAULTS);
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [form, setForm] = useState<Form>(initial);
   const { result, fieldErrors, error, run } = useCompute<MetricId, SeriesId>("/options/price", toRequest(form));
   const m = result?.metrics;
   const set = (field: keyof Form) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    share(form);
     run();
   }
 

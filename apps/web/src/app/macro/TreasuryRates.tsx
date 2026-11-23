@@ -5,7 +5,7 @@ import { ErrorNotice } from "@/components/ErrorNotice";
 import { LineChart, type ChartBand, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { getMessages } from "@/i18n";
-import type { MetricResult, SeriesResult } from "@/lib/envelope";
+import type { MetricResult, ResultEnvelope, SeriesResult } from "@/lib/envelope";
 import {
   formatChartDate,
   formatChartMaturity,
@@ -13,7 +13,6 @@ import {
   formatTimestampUtc,
   formatValue,
 } from "@/lib/format";
-import { useCompute } from "@/lib/useCompute";
 
 // Envelope ids from POST /macro/rates. Curves: x = maturity in years, details.date
 // = the curve's date. The spread history's bands are its inversion periods.
@@ -23,18 +22,21 @@ const CURVES = [
   { key: "1y_ago", color: "#9ca3af", dashed: true },
 ] as const;
 type CurveKey = (typeof CURVES)[number]["key"];
-type MetricId = "latest:yield_2y" | "latest:yield_10y" | "latest:spread_10y_2y";
-type SeriesId = `yield_curve:${CurveKey}` | "history:spread_10y_2y";
+export type RatesMetricId = "latest:yield_2y" | "latest:yield_10y" | "latest:spread_10y_2y";
+export type RatesSeriesId = `yield_curve:${CurveKey}` | "history:spread_10y_2y";
 
 const TREASURY_PAGE =
   "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve";
 
-// No inputs yet: the endpoint's defaults pick the spread history range (2018 on).
-const REQUEST = {};
-
-export function TreasuryRates() {
+/** POST /macro/rates results; `MacroTool` owns the request (the chart range). */
+export function TreasuryRates({
+  result,
+  error,
+}: {
+  result: ResultEnvelope<RatesMetricId, RatesSeriesId> | null;
+  error: string | null;
+}) {
   const t = getMessages();
-  const { result, error } = useCompute<MetricId, SeriesId>("/macro/rates", REQUEST);
 
   return (
     <section data-testid="rates" aria-labelledby="macro-rates" className="mt-10 space-y-6">
