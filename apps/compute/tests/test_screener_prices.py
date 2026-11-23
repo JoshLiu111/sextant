@@ -14,7 +14,7 @@ from __future__ import annotations
 import psycopg
 import pytest
 
-from sextant_compute.data.service import make_data_service
+from sextant_compute.data.service import cache_key, make_data_service
 from sextant_compute.keys.api import get_tiingo
 from tests.auth_helpers import bearer, sign_in
 from tests.edgar_fixtures import edgar_adapter
@@ -41,6 +41,7 @@ def tiingo(client, monkeypatch) -> FakeTiingo:
     client.app.state.data_service = make_data_service(
         client.app.state.db, {"sec_edgar": edgar_adapter(), "tiingo": adapter}
     )
+    fake.served_by = adapter  # type: ignore[attr-defined]
     return fake
 
 
@@ -91,3 +92,127 @@ def test_fundamental_and_price_criteria_combine(client, alice):
     assert body["source"]["id"] == "sec_edgar"
     assert body["price_source"] == {"id": "tiingo", "name": "Tiingo", "is_demo": False}
     assert body["prices_as_of"] == "2026-11-20"
+
+
+def test_companies_the_provider_cannot_price_are_excluded_with_the_reason(client, alice):
+    body = screen(client, alice, criteria=priced({"metric": "from_52w_high", "op": "min", "value": -0.2})).json()
+
+    # Last close over the highest close since 2025-11-21: GOOGL ends on its high,
+    # AVGO 300/320, AMZN 240/260, LLY 920/1000, NVDA 150/180, NFLX 900/1100 (-18.2%);
+    # META 540/700 (-22.9%) is further than 20% off its high.
+    values = {r["ticker"]: r["values"]["from_52w_high"] for r in body["rows"]}
+    assert values == pytest.approx(
+        {
+            "AMZN": 240 / 260 - 1,
+            "GOOGL": 0.0,
+            "NVDA": 150 / 180 - 1,
+            "LLY": 920 / 1000 - 1,
+            "AVGO": 300 / 320 - 1,
+            "NFLX": 900 / 1100 - 1,
+        }
+    )
+    assert body["matched"] == 6
+    price = next(e for e in body["excluded"]["by_criterion"] if e["metric"] == "from_52w_high")
+    assert price["label"] == "From 52-week high"
+    assert price["count"] == 2
+    assert sorted(r["reason"] for r in price["reasons"]) == [
+        "No Tiingo prices for MSFT between 2025-11-14 and 2026-11-20.",
+        "Tiingo has no ticker ADBE.",
+    ]
+    assert body["excluded"]["total"] == 9 + 2  # the fundamental exclusions plus the two unpriced companies
+
+
+def test_results_sort_by_a_price_column(client, alice):
+    body = screen(
+        client,
+        alice,
+        criteria=priced({"metric": "change_52w", "op": "min", "value": -1}),
+        sort="change_52w",
+        direction="asc",
+    ).json()
+
+    # META -10%, NFLX -10% (tie, by ticker), LLY +15%, AMZN and AVGO +20%, GOOGL +40%, NVDA +50%.
+    assert tickers(body) == ["META", "NFLX", "LLY", "AMZN", "AVGO", "GOOGL", "NVDA"]
+
+
+def test_screener_prices_fetched_for_one_user_are_never_a_cache_hit_for_another_user_or_a_visitor(
+    client, tiingo, alice, db_url
+):
+    bob = user_with_key(client, "bob", BOB_KEY)
+    change = priced({"metric": "change_52w", "op": "min", "value": 0})
+
+    assert screen(client, alice, criteria=change).status_code == 200
+    assert screen(client, alice, criteria=change).status_code == 200
+    assert tiingo.price_requests[(ALICE_KEY, "nvda")] == 1  # Alice's repeat came from her own cache
+
+    assert screen(client, bob, criteria=change).status_code == 200
+    assert tiingo.price_requests[(BOB_KEY, "nvda")] == 1  # Bob missed Alice's entry and used his own key
+
+    anonymous = screen(client, criteria=change)
+    assert anonymous.status_code == 403
+    assert anonymous.json()["error"]["code"] == "key_required"
+    assert "NVDA" not in anonymous.text
+    # The 7 priced fundamental matches once each for Alice and Bob, none for the visitor.
+    # (MSFT and ADBE have no prices; misses are not cached, so they are asked again.)
+    priced_requests = {k: n for k, n in tiingo.price_requests.items() if k[1] not in ("msft", "adbe")}
+    assert sorted(priced_requests.values()) == [1] * 14
+
+    service = client.app.state.data_service
+    shared_key = cache_key(
+        tiingo.served_by,
+        "daily_prices",
+        {"tickers": ["NVDA"], "start": "2025-11-14", "end": "2026-11-20"},
+    )
+    assert service.shared_cache.get(shared_key) is None
+    with psycopg.connect(db_url) as conn:
+        owners = conn.execute("SELECT DISTINCT u.email FROM user_data_cache c JOIN users u ON u.id = c.user_id")
+        assert sorted(email for (email,) in owners) == ["alice@example.test", "bob@example.test"]
+
+
+def test_a_user_without_a_key_is_sent_to_settings_even_when_nothing_would_be_priced(client, tiingo):
+    carol = user_with_key(client, "carol", None)
+    nothing = [{"metric": "gross_margin", "op": "min", "value": 5}, {"metric": "change_52w", "op": "min", "value": 0}]
+
+    response = screen(client, carol, criteria=nothing)
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "key_required"
+    assert "Settings" in response.json()["error"]["message"]
+    assert tiingo.price_requests == {}
+
+
+def test_price_criteria_without_my_data_are_flagged_on_the_criterion(client, alice):
+    response = screen(
+        client, alice, criteria=priced({"metric": "change_52w", "op": "min", "value": 0}), price_source=None
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["fields"] == {
+        "criteria.3.metric": "Price criteria need My data: sign in and add a price data key in Settings."
+    }
+
+
+def test_demo_prices_cannot_back_price_criteria(client, alice):
+    response = screen(
+        client, alice, criteria=priced({"metric": "change_52w", "op": "min", "value": 0}), price_source="synthetic"
+    )
+
+    assert response.status_code == 422
+    assert "price_source" in response.json()["error"]["fields"]
+
+
+def test_a_screen_that_would_price_too_many_companies_asks_to_tighten_the_fundamentals(client, tiingo, alice):
+    response = screen(client, alice, criteria=[{"metric": "change_52w", "op": "min", "value": 0}])
+
+    assert response.status_code == 422
+    message = response.json()["error"]["fields"]["criteria"]
+    assert message.startswith("Price criteria check at most 25 companies, and 36 pass")
+    assert tiingo.price_requests == {}
+
+
+def test_a_screen_without_price_criteria_carries_no_price_source(client, alice):
+    body = screen(client, alice).json()
+
+    assert body["price_source"] is None
+    assert body["prices_as_of"] is None
+    assert len(body["rows"]) == 9

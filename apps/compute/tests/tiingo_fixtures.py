@@ -13,6 +13,16 @@ ISO dates, raw vs ``adj*`` prices, ``divCash`` on the ex-date and
 - ``msft``: no split, no dividend.
 - ``spy``: a 1.50 dividend on 2024-01-09 (row 5).
 
+For the screener's price criteria (tests/test_screener_prices.py), seven of the
+default screen's matches have *weekly* rows (Fridays 2025-11-14..2026-11-20, 54
+rows, piecewise-linear closes; real Tiingo is daily, the code doesn't care).
+Split-adjusted close on 2025-11-21 -> highest close -> close on 2026-11-20:
+``nvda`` 100 -> 180 -> 150, ``amzn`` 200 -> 260 -> 240, ``googl`` 150 -> 210 (ends
+on its high), ``meta`` 600 -> 700 -> 540, ``lly`` 800 -> 1000 -> 920, ``nflx``
+1000 -> 1100 -> 900, ``avgo`` 250 -> 320 -> 300 with a 4:1 split on 2026-05-15
+(raw closes before it are 4x). The 2025-11-14 row differs from the base on
+purpose. ``msft`` has no rows in that window and ``adbe`` has no file.
+
 The same files back the e2e fake (``apps/web/e2e/fake-tiingo.mjs``), which
 follows the same rules as ``FakeTiingo`` below. Unknown tickers answer 404
 ``{"detail": "Error: Ticker 'X' not found"}`` and a token Tiingo doesn't know

@@ -55,7 +55,7 @@ FundamentalMetricId = Literal[
     "current_ratio",
 ]
 PriceMetricId = Literal["change_52w", "from_52w_high"]
-MetricId = FundamentalMetricId | PriceMetricId
+MetricId = Literal[FundamentalMetricId, PriceMetricId]
 FilingForm = Literal["", "10-K", "10-Q", "8-K", "4", "S-1", "DEF 14A", "20-F", "6-K"]
 
 
