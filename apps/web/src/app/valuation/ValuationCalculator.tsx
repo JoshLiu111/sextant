@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
@@ -426,6 +427,7 @@ export function ValuationCalculator() {
             </div>
             <FcfTable result={valuation} />
             <CalculationInfo result={valuation} />
+            <AiExplain tool="valuation" result={valuation} />
           </>
         ) : (
           !error && <p className="text-sm text-black/60 dark:text-white/60">{v.loading}</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { DataModeToggle } from "@/components/DataModeToggle";
 import { DemoBadge } from "@/components/DemoBadge";
@@ -369,6 +370,7 @@ export function RiskTool() {
         <ModelChecks result={result} symbols={symbols} label={label} />
         {result && <TechnicalAnalysis selection={result.meta.parameters as RiskSelection} />}
         {result && <CalculationInfo result={result} />}
+        {result && <AiExplain tool="risk" result={result} />}
       </section>
     </div>
   );

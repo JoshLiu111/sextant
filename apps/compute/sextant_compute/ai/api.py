@@ -7,13 +7,15 @@
   model for a plain-English reading. One call costs one unit of the daily quota;
   a failed model call costs nothing.
 
-Add a tool with ``add_explainer(tool, RequestModel, compute, guide)``.
+Each tool registers itself with ``add_explainer(tool, RequestModel, compute, guide)``;
+the registrations and their guides live in ``ai/explainers.py``.
 """
 
 # No ``from __future__ import annotations``: ``add_explainer`` builds handlers
 # whose parameter types are only known at runtime, and FastAPI reads them eagerly.
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
@@ -21,13 +23,13 @@ from pydantic import BaseModel
 
 from sextant_compute.ai import prompts, usage
 from sextant_compute.ai.model import ExplainModel, ModelUnavailable
-from sextant_compute.auth import CurrentUser
+from sextant_compute.auth import CurrentUser, User
 from sextant_compute.auth.deps import get_db
+from sextant_compute.data.context import RequestContext
+from sextant_compute.data.service import Ctx, Data, DataService
 from sextant_compute.db import Database
 from sextant_compute.envelope import ResultEnvelope
 from sextant_compute.errors import ApiError
-from sextant_compute.options.api import OptionsRequest
-from sextant_compute.options.api import price as options_price
 
 router = APIRouter(tags=["ai"])
 
@@ -110,33 +112,39 @@ def explain(tool: str, guide: str, result: ResultEnvelope, user_id, db: Database
     )
 
 
+@dataclass(frozen=True)
+class ToolInputs:
+    """What a tool's endpoint may need besides its request: the signed-in user,
+    the database, and the DataService with this request's ``ctx``."""
+
+    user: User
+    db: Database
+    data: DataService
+    ctx: RequestContext
+
+
 def add_explainer(
     tool: str,
     request_model: type[BaseModel],
-    compute: Callable[..., ResultEnvelope],
+    compute: Callable[[BaseModel, ToolInputs], ResultEnvelope],
     guide: str,
 ) -> None:
-    """Expose ``POST /explain/<tool>``: validate like the tool, recompute, explain."""
+    """Expose ``POST /explain/<tool>``: validate like the tool, recompute, explain.
 
-    def handler(req: request_model, user: CurrentUser, db: Db, model: Model) -> Explanation:  # type: ignore[valid-type]
-        return explain(tool, guide, compute(req), user.id, db, model)
+    ``compute(req, inputs)`` returns the tool's envelope, usually by calling the
+    tool's own endpoint function. It runs before the quota is touched, so the
+    tool's own errors (422 field errors, unknown tickers, source outages) cost nothing.
+    """
+
+    def handler(  # type: ignore[valid-type]
+        req: request_model, user: CurrentUser, db: Db, model: Model, data: Data, ctx: Ctx
+    ) -> Explanation:
+        result = compute(req, ToolInputs(user=user, db=db, data=data, ctx=ctx))
+        return explain(tool, guide, result, user.id, db, model)
 
     handler.__name__ = f"explain_{tool}"
     router.add_api_route(f"/explain/{tool}", handler, methods=["POST"], response_model=Explanation)
 
 
-OPTIONS_GUIDE = """
-Options Calculator: European Black-Scholes prices and Greeks for one option.
-Inputs (meta.parameters) are decimals: volatility 0.2 means 20%, rates and dividend
-yield likewise; time_to_expiry is in years. option_type selects the chart and the
-implied volatility; prices and Greeks are given for both the call and the put.
-Units: currency = price per share; per_dollar = change per $1 move in the spot
-(Delta, Gamma); per_vol_point = price change per 1 percentage point of volatility
-(Vega); per_day = price change per calendar day (Theta, usually negative);
-per_rate_point = price change per 1 percentage point of the risk-free rate (Rho);
-decimal = a fraction (implied volatility 0.25 means 25%). implied_volatility is
-missing_data unless a market price was entered. Series: payoff_at_expiry and
-theoretical_value across spot prices (x = spot, y = option value).
-"""
-
-add_explainer("options", OptionsRequest, options_price, OPTIONS_GUIDE)
+# Registers every tool's explainer (imports this module, so it comes last).
+from sextant_compute.ai import explainers  # noqa: E402, F401

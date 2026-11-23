@@ -19,6 +19,9 @@ Rules:
 - Use only the numbers in the result below. Do not invent, estimate or look up other figures.
 - Say what the main numbers mean for this case and how they relate to each other.
 - If a metric has a status other than "ok", say briefly why it could not be computed.
+- If the result's source has "is_demo": true, the numbers come from Sextant's synthetic \
+demo data for fictional tickers (DEMO-A, DEMO-MKT, ...). Say plainly that this is demo \
+data, and never describe it as a real company's or the real market's history.
 - Write 2 to 4 short paragraphs of plain text: no headings, no lists, no Markdown.
 - This is not investment advice. Never recommend buying, selling or holding anything. \
 If you mention buying or selling at all, say clearly that this is only a reading of \
@@ -51,18 +54,51 @@ def _sampled(points: list, n: int = SAMPLE_POINTS) -> list:
     return [points[round(i * step)] for i in range(n)]
 
 
+PROVENANCE_FIELDS = frozenset({"url", "accession", "tag"})
+"""Where a figure was filed (SEC filing links, XBRL tags): shown on screen, not needed to explain it."""
+
+
+def _compact(value, *, drop_empty: bool):
+    """Drop provenance fields everywhere, and (``drop_empty``) null or empty fields."""
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            if k in PROVENANCE_FIELDS:
+                continue
+            v = _compact(v, drop_empty=drop_empty)
+            if drop_empty and v in (None, {}, []):
+                continue
+            out[k] = v
+        return out
+    if isinstance(value, list):
+        return [_compact(v, drop_empty=drop_empty) for v in value]
+    return value
+
+
 def result_payload(result: ResultEnvelope) -> dict:
-    """The envelope as the model sees it: chart series are thinned to a few points."""
+    """The envelope as the model sees it, kept small: chart series are thinned to a
+    few points, provenance fields are left out, and so are empty fields of metrics
+    and series (a metric keeps ``value``, null when it could not be computed)."""
     data = result.model_dump(mode="json")
     for s in data["series"].values():
         s["points"] = _sampled(s["points"])
-    return data
+    metrics = {k: {"value": None, **_compact(m, drop_empty=True)} for k, m in data.pop("metrics").items()}
+    series = {k: _compact(s, drop_empty=True) for k, s in data.pop("series").items()}
+    return _compact(data, drop_empty=False) | {"metrics": metrics, "series": series}
+
+
+DEMO_NOTE = (
+    "Note: this result uses synthetic demo data (fictional tickers, generated prices), "
+    "not real market data. Explain it as demo data."
+)
 
 
 def user_prompt(guide: str, result: ResultEnvelope) -> str:
+    demo = f"{DEMO_NOTE}\n\n" if result.source.is_demo else ""
     return (
         f"Tool guide:\n{guide.strip()}\n\n"
+        f"{demo}"
         "Result (JSON):\n"
-        f"{json.dumps(result_payload(result), indent=1)}\n\n"
+        f"{json.dumps(result_payload(result), separators=(',', ':'))}\n\n"
         "Explain this result."
     )

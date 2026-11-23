@@ -1,5 +1,6 @@
 "use client";
 
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { LineChart, type ChartSeries } from "@/components/LineChart";
@@ -45,9 +46,12 @@ function chartPoints(series: SeriesResult | undefined) {
 export function PortfolioResults({
   result,
   metricsNote,
+  aiTool,
 }: {
   result: PortfolioEnvelope | null;
   metricsNote?: string;
+  /** The AI Explain endpoint for this result: `portfolio` (demo) or `portfolio-saved`. */
+  aiTool: "portfolio" | "portfolio-saved";
 }) {
   const t = getMessages();
   const p = t.portfolio;
@@ -122,6 +126,7 @@ export function PortfolioResults({
         </div>
       </div>
       {result && <CalculationInfo result={result} />}
+      {result && <AiExplain tool={aiTool} result={result} />}
     </>
   );
 }

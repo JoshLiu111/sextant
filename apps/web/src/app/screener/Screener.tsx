@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
@@ -462,6 +463,7 @@ export function Screener() {
             )}
             <p className="text-xs text-black/50 dark:text-white/50">{s.unitsNote}</p>
             <CalculationInfo result={screen} />
+            <AiExplain tool="screener" result={screen} />
           </>
         ) : (
           !error && <p className="text-sm text-black/60 dark:text-white/60">{s.loading}</p>
