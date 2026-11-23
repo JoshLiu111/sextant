@@ -12,7 +12,7 @@ import {
   type AnswerSegment,
 } from "@/lib/analyst";
 import type { Unit } from "@/lib/envelope";
-import { formatValue } from "@/lib/format";
+import { formatLocalTime, formatValue } from "@/lib/format";
 
 type Account =
   | { kind: "loading" }
@@ -141,7 +141,7 @@ export function AiAnalyst() {
             data-testid="ai-quota-used-up"
             className="text-sm text-black/70 dark:text-white/70"
           >
-            {ai.usedUp}
+            {ai.usedUp(formatLocalTime(quota.resets_at))}
           </p>
         )}
       </form>

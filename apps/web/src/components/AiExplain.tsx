@@ -6,6 +6,7 @@ import { SignInLink } from "@/components/SignInLink";
 import { getMessages } from "@/i18n";
 import { explainResult, fetchAiQuota, type AiExplanation, type AiQuota } from "@/lib/ai";
 import type { ResultEnvelope } from "@/lib/envelope";
+import { formatLocalTime } from "@/lib/format";
 
 type Account = { kind: "loading" } | { kind: "signed_out" } | { kind: "signed_in"; quota: AiQuota | null };
 
@@ -105,7 +106,7 @@ export function AiExplain({ tool, result }: { tool: string; result: ResultEnvelo
           </div>
           {usedUp && (
             <p data-testid="ai-quota-used-up" className="text-sm text-black/70 dark:text-white/70">
-              {t.usedUp}
+              {t.usedUp(formatLocalTime(quota.resets_at))}
             </p>
           )}
           {error && !usedUp && <ErrorNotice title={t.errorHeading} message={error} />}

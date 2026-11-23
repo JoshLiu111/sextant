@@ -2100,7 +2100,8 @@ export const en = {
     pending: "Explaining…",
     signInPrompt: "Sign in to use AI Explain.",
     quota: (remaining: number, limit: number) => `${remaining} of ${limit} AI calls left today`,
-    usedUp: "You have used all of today's AI calls. Your quota resets at 00:00 UTC.",
+    /** `resetsAt` is already a local clock time ("7:00 PM EST"). */
+    usedUp: (resetsAt: string) => `You have used all of today's AI calls. Your quota resets at ${resetsAt}.`,
     generatedBy: "AI-generated from calculation",
     errorHeading: "AI Explain failed",
     unavailable: "AI Explain is temporarily unavailable. Please retry in a moment.",
