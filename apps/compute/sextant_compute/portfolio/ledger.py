@@ -1,13 +1,16 @@
 """Applying transactions to a portfolio's holdings (pure).
 
-Transactions apply in date order (file order within a day) on top of the
-current holdings:
+Each holding is a list of open lots, oldest first (see docs/adr/0004). A
+holding entered or edited by hand is one lot at its cost price. Transactions
+apply in date order (file order within a day) on top of the current lots:
 
-- A buy adds to the holding. The cost price becomes the average cost including
-  fees: ``(q * cost + qty * price + fees) / (q + qty)``. A new ticker is added
-  at the end of the holdings.
-- A sell reduces the quantity and leaves the average cost unchanged (realized
-  P&L is a later ticket). A holding sold down to zero is removed.
+- A buy adds a lot at ``price + fees / quantity`` per unit. A new ticker is
+  added at the end of the holdings.
+- A sell closes lots first in, first out. It books realized P&L of
+  ``quantity * price - fees - cost of the closed lots``. A holding sold down to
+  zero is removed.
+
+A holding's cost price is the average cost of its open lots.
 
 A row that cannot apply (selling more than is held, or a currency that differs
 from the holding's) becomes a row error and is skipped; later rows apply as if
@@ -16,12 +19,19 @@ it was not there.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sextant_compute.portfolio.transactions_csv import RowError, Transaction
 
-# Quantities this close to zero after a sell count as fully sold (float dust).
+# Quantities this close to zero count as nothing left (float dust).
 _DUST = 1e-9
+
+
+@dataclass
+class Lot:
+    quantity: float
+    cost_price: float
+    """Cost per unit, including buy fees."""
 
 
 @dataclass
@@ -30,6 +40,44 @@ class Position:
     quantity: float
     cost_price: float
     currency: str
+    lots: list[Lot] = field(default_factory=list)
+    """Open lots, oldest first. Empty: one lot of ``quantity`` at ``cost_price``."""
+
+    def __post_init__(self) -> None:
+        self.lots = [Lot(**lot) if isinstance(lot, dict) else lot for lot in self.lots]
+        if not self.lots or abs(sum(lot.quantity for lot in self.lots) - self.quantity) > _DUST * max(1.0, self.quantity):
+            # No lots, or lots that no longer add up to the holding: the holding itself is the lot.
+            self.lots = [Lot(self.quantity, self.cost_price)]
+
+    def _sync(self) -> None:
+        self.quantity = sum(lot.quantity for lot in self.lots)
+        if self.quantity > _DUST:
+            self.cost_price = sum(lot.quantity * lot.cost_price for lot in self.lots) / self.quantity
+
+    def buy(self, quantity: float, price: float, fees: float) -> None:
+        self.lots.append(Lot(quantity, price + fees / quantity))
+        self._sync()
+
+    def sell(self, quantity: float, price: float, fees: float) -> float:
+        """Close lots first in, first out; returns the realized P&L."""
+        cost, left = 0.0, quantity
+        while left > _DUST and self.lots:
+            lot = self.lots[0]
+            take = min(lot.quantity, left)
+            cost += take * lot.cost_price
+            lot.quantity -= take
+            left -= take
+            if lot.quantity <= _DUST:
+                self.lots.pop(0)
+        self._sync()
+        return quantity * price - fees - cost
+
+
+@dataclass(frozen=True)
+class Applied:
+    transaction: Transaction
+    realized_pnl: float | None
+    """For a sell, the P&L it booked; None for a buy."""
 
 
 def _fmt(x: float) -> str:
@@ -38,11 +86,14 @@ def _fmt(x: float) -> str:
 
 def apply_transactions(
     holdings: list[Position], transactions: list[Transaction]
-) -> tuple[list[Position], list[Transaction], list[RowError]]:
+) -> tuple[list[Position], list[Applied], list[RowError]]:
     """The holdings after ``transactions``, the transactions that applied, and the ones that could not."""
-    book = {h.ticker: Position(h.ticker, h.quantity, h.cost_price, h.currency) for h in holdings}
+    book = {
+        h.ticker: Position(h.ticker, h.quantity, h.cost_price, h.currency, [Lot(l.quantity, l.cost_price) for l in h.lots])
+        for h in holdings
+    }
     order = [h.ticker for h in holdings]
-    applied: list[Transaction] = []
+    applied: list[Applied] = []
     errors: list[RowError] = []
     for t in sorted(transactions, key=lambda t: (t.date, t.line)):
         held = book.get(t.ticker)
@@ -51,21 +102,20 @@ def apply_transactions(
             continue
         if t.side == "buy":
             if held is None:
-                held = book[t.ticker] = Position(t.ticker, 0.0, 0.0, t.currency)
+                held = book[t.ticker] = Position(t.ticker, t.quantity, t.price + t.fees / t.quantity, t.currency)
                 order.append(t.ticker)
-            total = held.quantity + t.quantity
-            held.cost_price = (held.quantity * held.cost_price + t.quantity * t.price + t.fees) / total
-            held.quantity = total
-        else:
-            have = held.quantity if held is not None else 0.0
-            if held is None or t.quantity > have + _DUST:
-                errors.append(
-                    RowError(t.line, "quantity", f"Sells {_fmt(t.quantity)} {t.ticker}, but only {_fmt(have)} is held on {t.date.isoformat()}.")
-                )
-                continue
-            held.quantity -= t.quantity
-            if held.quantity <= _DUST:
-                del book[t.ticker]
-                order.remove(t.ticker)
-        applied.append(t)
+            else:
+                held.buy(t.quantity, t.price, t.fees)
+            applied.append(Applied(t, None))
+            continue
+        have = held.quantity if held is not None else 0.0
+        if held is None or t.quantity > have + _DUST:
+            errors.append(
+                RowError(t.line, "quantity", f"Sells {_fmt(t.quantity)} {t.ticker}, but only {_fmt(have)} is held on {t.date.isoformat()}.")
+            )
+            continue
+        applied.append(Applied(t, held.sell(t.quantity, t.price, t.fees)))
+        if held.quantity <= _DUST:
+            del book[t.ticker]
+            order.remove(t.ticker)
     return [book[ticker] for ticker in order], applied, errors

@@ -591,6 +591,19 @@ export const en = {
       sections: {
         value: "Value and profit",
         valueNote: "Today's value uses each holding's latest close in the date range, in the portfolio's currency.",
+        positions: "Positions",
+        positionsNote:
+          "One row per holding, plus tickers your imports sold out. Realized P&L is booked first in, first out when a sell is imported and covers every sale to date.",
+        total: "Total",
+        columns: {
+          ticker: "Ticker",
+          quantity: "Quantity",
+          cost_basis: "Cost basis",
+          market_value: "Market value",
+          weight: "Weight",
+          unrealized_pnl: "Unrealized P&L",
+          realized_pnl: "Realized P&L",
+        },
         metricsNote:
           "The portfolio holds its quantities from the first day of the range, with dividends reinvested, and is never rebalanced. These metrics are computed on its daily value with the same formulas as Risk & Performance.",
       },
@@ -619,11 +632,17 @@ export const en = {
           how: "(Market value − cost basis) ÷ cost basis.",
           read: "Shown in percent. 10% means the holdings are worth 10% more than they cost.",
         },
+        realized_pnl: {
+          name: "Realized profit or loss",
+          what: "What your imported sells gained or lost versus what those shares cost.",
+          how: "For each sell: quantity × price − fees − the cost of the shares it sold, taking the oldest shares first (FIFO). Shares entered by hand count as the oldest. Summed over every sell to date.",
+          read: "Positive is a gain, negative a loss, in the portfolio's currency. It is booked when the sell is imported, so editing a holding later does not change it.",
+        },
       },
       import: {
         heading: "Import transactions",
         intro:
-          "Upload a CSV of your trades (date, ticker, buy or sell, quantity, price, and optionally fees and currency). You will see a preview and can match your file's columns before anything is imported. Buys add to a holding at their average cost including fees; sells reduce it.",
+          "Upload a CSV of your trades (date, ticker, buy or sell, quantity, price, and optionally fees and currency). You will see a preview and can match your file's columns before anything is imported. Buys add to a holding at their cost including fees; sells take the oldest shares first (FIFO) and book a realized profit or loss.",
         file: "CSV file",
         reading: "Reading file…",
         mappingHeading: "Match your columns",
@@ -654,6 +673,33 @@ export const en = {
         importing: "Importing…",
         cancel: "Cancel",
         done: (n: number) => `Imported ${n} ${n === 1 ? "transaction" : "transactions"}.`,
+      },
+      returns: {
+        heading: "Your return",
+        note: "Rebuilt day by day over the date range from today's holdings and your imported transactions. Buys put money in (price × quantity + fees), sells and dividends take it out, and trades count at the close of their day.",
+        whichHeading: "Which one to use",
+        which:
+          "Use the time-weighted return to judge the holdings themselves, or to compare with a benchmark or a fund: it ignores when you added or took out money. Use the money-weighted return (IRR) to see how your own money did, including the timing of your deposits and withdrawals. They differ most when large amounts go in or out before a big move.",
+        metrics: {
+          twr: {
+            name: "Time-weighted return",
+            what: "How much the holdings grew over the date range, with the effect of money going in and out removed.",
+            how: "Daily returns chained together: each day's (value + money out − money in) ÷ the previous day's value. Over the whole range.",
+            read: "Shown in percent over the whole range. This is the return to compare with a benchmark or a fund.",
+          },
+          twr_annualized: {
+            name: "Time-weighted return per year",
+            what: "The time-weighted return as a yearly rate.",
+            how: "(1 + time-weighted return)^(365 ÷ days) − 1, from the first day with money in to the end of the range.",
+            read: "Shown in percent a year. Over less than a year this extrapolates, so read it with care.",
+          },
+          irr: {
+            name: "Money-weighted return (IRR)",
+            what: "The yearly rate your own money earned, given when you put it in and took it out.",
+            how: "The rate r at which the starting value, every buy, sell and dividend, and the ending value net to zero: Σ cash flow ÷ (1 + r)^(years since the start) = 0.",
+            read: "Shown in percent a year. Higher than the time-weighted return when you added money before gains; lower when you added it before losses. Not shown when no single rate solves the equation.",
+          },
+        },
       },
     },
     sections: {
