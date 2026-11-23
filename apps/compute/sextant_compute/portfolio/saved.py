@@ -145,7 +145,7 @@ def saved_portfolio_metrics(
     """Performance and risk of the user's saved portfolio, held at its quantities (buy and hold),
     plus each position's value, weight and P&L (``portfolio.positions``).
 
-    Prices come from ``settings.source`` (demo data until bring-your-own-key lands).
+    Prices come from ``settings.source``: Demo data or the user's own provider (My data).
     """
     saved = load(db, user.id, portfolio_id)
     with db.connection() as conn:
