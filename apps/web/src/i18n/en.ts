@@ -658,6 +658,33 @@ export const en = {
         cancel: "Cancel",
         done: (n: number) => `Imported ${n} ${n === 1 ? "transaction" : "transactions"}.`,
       },
+      returns: {
+        heading: "Your return",
+        note: "Rebuilt day by day over the date range from today's holdings and your imported transactions. Buys put money in (price × quantity + fees), sells and dividends take it out, and trades count at the close of their day.",
+        whichHeading: "Which one to use",
+        which:
+          "Use the time-weighted return to judge the holdings themselves, or to compare with a benchmark or a fund: it ignores when you added or took out money. Use the money-weighted return (IRR) to see how your own money did, including the timing of your deposits and withdrawals. They differ most when large amounts go in or out before a big move.",
+        metrics: {
+          twr: {
+            name: "Time-weighted return",
+            what: "How much the holdings grew over the date range, with the effect of money going in and out removed.",
+            how: "Daily returns chained together: each day's (value + money out − money in) ÷ the previous day's value. Over the whole range.",
+            read: "Shown in percent over the whole range. This is the return to compare with a benchmark or a fund.",
+          },
+          twr_annualized: {
+            name: "Time-weighted return per year",
+            what: "The time-weighted return as a yearly rate.",
+            how: "(1 + time-weighted return)^(365 ÷ days) − 1, from the first day with money in to the end of the range.",
+            read: "Shown in percent a year. Over less than a year this extrapolates, so read it with care.",
+          },
+          irr: {
+            name: "Money-weighted return (IRR)",
+            what: "The yearly rate your own money earned, given when you put it in and took it out.",
+            how: "The rate r at which the starting value, every buy, sell and dividend, and the ending value net to zero: Σ cash flow ÷ (1 + r)^(years since the start) = 0.",
+            read: "Shown in percent a year. Higher than the time-weighted return when you added money before gains; lower when you added it before losses. Not shown when no single rate solves the equation.",
+          },
+        },
+      },
     },
     sections: {
       chart: "Cumulative return",
@@ -677,6 +704,14 @@ export const en = {
       indicators: "US headline indicators",
       rates: "US Treasury yields",
     },
+    inputsHeading: "Chart range",
+    inputs: {
+      start: {
+        label: "History from",
+        hint: "Leave blank for the defaults: indicators from 2015, Treasury yields from 2018. Treasury data starts 1990-01-02.",
+      },
+    },
+    submit: "Update charts",
     meta: {
       source: "Source",
       via: "via FRED, series",

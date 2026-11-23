@@ -135,3 +135,16 @@ test("saved portfolios persist across sessions and devices", async ({ page, brow
   const again = await signInOnPortfolio(page, email);
   await expect(again.getByLabel("Saved portfolio").locator("option")).toHaveText(["Long term"]);
 });
+
+test("saved portfolios are never encoded in the URL; only demo-mode inputs are", async ({ page }) => {
+  const saved = await signInOnPortfolio(page, uniqueEmail("url"));
+  await createPortfolio(saved, "Private", [{ ticker: "DEMO-F", quantity: "5", cost: "30" }]);
+  await expect(metric(saved, "market_value:portfolio")).toHaveAttribute("data-status", "ok");
+  await expect(page).toHaveURL(/\/portfolio$/);
+
+  const demo = page.getByRole("main").getByRole("region", { name: "Demo portfolio" });
+  await demo.getByRole("button", { name: "Calculate" }).click();
+  await expect(page).toHaveURL(/[?&]holdings=DEMO-A:40,DEMO-B:30,DEMO-E:30(&|$)/);
+  expect(page.url()).not.toContain("DEMO-F");
+  expect(page.url()).not.toContain("Private");
+});

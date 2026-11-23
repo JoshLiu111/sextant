@@ -9,6 +9,7 @@ import { getMessages } from "@/i18n";
 import type { SavedPortfolio } from "@/lib/portfolios";
 import { useCompute } from "@/lib/useCompute";
 import { PortfolioResults } from "./PortfolioResults";
+import { PortfolioReturns } from "./PortfolioReturns";
 
 /** Value metrics only the saved portfolio has (it knows quantities and cost prices). */
 const VALUE_METRICS = ["market_value", "cost_basis", "unrealized_pnl", "unrealized_return"] as const;
@@ -82,6 +83,7 @@ export function SavedPortfolioResults({ portfolio }: { portfolio: SavedPortfolio
           ))}
         </div>
       </div>
+      <PortfolioReturns portfolioId={portfolio.id} start={settings.start} end={settings.end} />
       <PortfolioResults result={result} metricsNote={s.sections.metricsNote} />
     </section>
   );

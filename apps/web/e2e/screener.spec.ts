@@ -95,6 +95,21 @@ test("each row opens the company in Company Health Check and the Valuation Calcu
   const company = page.getByRole("main");
   await expect(company.getByLabel("Ticker")).toHaveValue("MSFT");
   await expect(company.getByTestId("results").getByRole("heading", { name: "MICROSOFT CORP" })).toBeVisible();
+  await expect(company.getByTestId("ratios").getByLabel("Compare company 1", { exact: true })).toHaveValue("MSFT");
+  await expect(company.locator('[data-metric-value^="current_ratio:MSFT:"]').first()).toHaveAttribute("data-status", "ok");
+});
+
+test("the Valuation link opens the Valuation Calculator with that company's results", async ({ page }) => {
+  const main = await openScreener(page);
+  const msft = results(main).getByRole("row", { name: /MICROSOFT CORP/ });
+
+  await msft.getByRole("link", { name: "Valuation" }).click();
+  await expect(page).toHaveURL(/\/valuation\?ticker=MSFT$/);
+  const valuation = page.getByRole("main");
+  await expect(valuation.getByLabel("Ticker")).toHaveValue("MSFT");
+  await expect(valuation.getByTestId("results").getByRole("heading", { name: "MICROSOFT CORP" })).toBeVisible();
+  // MSFT on the default assumptions (see valuation.spec.ts).
+  await expect(valuation.locator('[data-metric-value="intrinsic_value_per_share"]')).toContainText("$158.11");
 });
 
 test("the latest filings list works market-wide and for one company", async ({ page }) => {
