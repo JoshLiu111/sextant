@@ -40,6 +40,8 @@ from sextant_compute.data.adapters import (
     FilingsAdapter,
     FinancialStatementsAdapter,
     SeriesMeta,
+    SeriesSearchAdapter,
+    SeriesSummary,
     YieldCurveAdapter,
     YieldCurves,
 )
@@ -350,6 +352,21 @@ class DataService:
             lambda: adapter.economic_series(ctx, series_id, start, units),
             _encode_series,
             _decode_series,
+        )
+
+    def search_series(self, ctx: RequestContext, query: str, *, limit: int, source: str) -> list[SeriesSummary]:
+        """Series matching a name, keyword or id; see ``SeriesSearchAdapter``.
+        Cached per (query lowercased and trimmed, limit)."""
+        adapter = cast(SeriesSearchAdapter, self._adapter(source))
+        text = " ".join(query.split())
+        return self._cached(
+            ctx,
+            adapter,
+            "series_search",
+            {"query": text.lower(), "limit": limit},
+            lambda: adapter.search_series(ctx, text, limit),
+            lambda hits: [dataclasses.asdict(h) for h in hits],
+            lambda raw: [SeriesSummary(**h) for h in raw],
         )
 
     def yield_curves(self, ctx: RequestContext, *, start: date, end: date, source: str) -> YieldCurves:

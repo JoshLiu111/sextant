@@ -1,0 +1,75 @@
+{
+ "realtime_start": "2026-11-22",
+ "realtime_end": "2026-11-22",
+ "order_by": "series_count",
+ "sort_order": "desc",
+ "count": 8,
+ "offset": 0,
+ "limit": 1000,
+ "tags": [
+  {
+   "name": "nation",
+   "group_id": "geot",
+   "notes": "",
+   "created": "2012-02-27 10:18:19-06",
+   "popularity": 50,
+   "series_count": 400000
+  },
+  {
+   "name": "nsa",
+   "group_id": "seas",
+   "notes": "Not Seasonally Adjusted",
+   "created": "2012-02-27 10:18:19-06",
+   "popularity": 50,
+   "series_count": 600000
+  },
+  {
+   "name": "public domain: citation requested",
+   "group_id": "cc",
+   "notes": "",
+   "created": "2012-02-27 10:18:19-06",
+   "popularity": 99,
+   "series_count": 600000
+  },
+  {
+   "name": "usa",
+   "group_id": "geo",
+   "notes": "United States of America",
+   "created": "2012-02-27 10:18:19-06",
+   "popularity": 50,
+   "series_count": 600000
+  },
+  {
+   "name": "bls",
+   "group_id": "src",
+   "notes": "U.S. Bureau of Labor Statistics (source)",
+   "created": "2012-02-27 10:18:19-06",
+   "popularity": 87,
+   "series_count": 140000
+  },
+  {
+   "name": "monthly",
+   "group_id": "freq",
+   "notes": "",
+   "created": "2012-02-27 10:18:19-06",
+   "popularity": 50,
+   "series_count": 400000
+  },
+  {
+   "name": "unemployment",
+   "group_id": "gen",
+   "notes": "",
+   "created": "2012-02-27 10:18:19-06",
+   "popularity": 50,
+   "series_count": 50000
+  },
+  {
+   "name": "cps",
+   "group_id": "rls",
+   "notes": "Employment Situation",
+   "created": "2012-02-27 10:18:19-06",
+   "popularity": 50,
+   "series_count": 20000
+  }
+ ]
+}

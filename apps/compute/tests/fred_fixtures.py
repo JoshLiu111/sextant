@@ -2,7 +2,11 @@
 
 ``tests/fixtures/fred/series/<ID>.json`` is the body of ``GET /fred/series`` and
 ``tests/fixtures/fred/observations/<ID>.json`` the body of
-``GET /fred/series/observations`` for that series. The files are hand-crafted
+``GET /fred/series/observations`` and ``tags/<ID>.json`` the body of
+``GET /fred/series/tags`` for that series. ``search/<slug>.json`` is the body of
+``GET /fred/series/search`` for a search text (slug: lowercased, runs of
+non-alphanumerics as ``_``, so "High yield" -> ``high_yield``); a search
+without a recording answers no results. The files are hand-crafted
 from the documented v1 JSON shapes (see sextant-notes research/fred.md; a real
 key was not available when they were made): field names, the ``seriess`` key,
 string values with ``"."`` for missing observations and ``-05``/``-06``
@@ -15,6 +19,7 @@ does not exist."
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -26,6 +31,13 @@ FIXTURES = Path(__file__).parent / "fixtures" / "fred"
 TEST_KEY = "0123456789abcdef0123456789abcdef"
 
 SERIES_DOES_NOT_EXIST = {"error_code": 400, "error_message": "Bad Request.  The series does not exist."}
+NO_RESULTS = {"realtime_start": "2026-11-22", "realtime_end": "2026-11-22", "count": 0, "offset": 0, "seriess": []}
+FOLDERS = {"/fred/series": "series", "/fred/series/observations": "observations", "/fred/series/tags": "tags"}
+
+
+def search_slug(text: str) -> str:
+    """The recording name for a search text (the e2e fake uses the same rule)."""
+    return re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_")
 
 
 class RecordedFred:
@@ -46,7 +58,10 @@ class RecordedFred:
         path = request.url.path
         if self.override and (response := self.override(path, series_id)) is not None:
             return response
-        folder = {"/fred/series": "series", "/fred/series/observations": "observations"}.get(path)
+        if path == "/fred/series/search":
+            file = FIXTURES / "search" / f"{search_slug(request.url.params.get('search_text', ''))}.json"
+            return httpx.Response(200, json=json.loads(file.read_text()) if file.is_file() else NO_RESULTS)
+        folder = FOLDERS.get(path)
         file = FIXTURES / folder / f"{series_id}.json" if folder else None
         if file is None or not file.is_file():
             return httpx.Response(400, json=SERIES_DOES_NOT_EXIST)
