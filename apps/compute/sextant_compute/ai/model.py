@@ -25,9 +25,10 @@ from sextant_compute.data.retry import get_with_retries
 DEFAULT_MODEL = "claude-haiku-5-5"
 DEFAULT_BASE_URL = "https://api.anthropic.com"
 API_VERSION = "2023-06-01"
-# A real portfolio explanation runs to about 650 output tokens; leave headroom.
-MAX_OUTPUT_TOKENS = 1200
-ANALYST_MAX_OUTPUT_TOKENS = 1500
+# A real portfolio explanation runs to about 650 output tokens. Calls are few (the
+# daily quota is small), so each gets plenty of room.
+MAX_OUTPUT_TOKENS = 2000
+ANALYST_MAX_OUTPUT_TOKENS = 3000
 # claude-haiku-5-5 thinks by default, and thinking counts against max_tokens: on a
 # real portfolio prompt it used the whole budget and left no answer (seen live
 # 2026-11-23). Neither feature needs it, and the Analyst would otherwise have to
