@@ -8,6 +8,8 @@ Add each tool as its own ``APIRouter`` and include it in ``create_app``.
 from fastapi import APIRouter, FastAPI
 
 from sextant_compute import SERVICE_NAME, __version__
+from sextant_compute.errors import install_error_handlers
+from sextant_compute.options.api import router as options_router
 
 API_PREFIX = "/api/compute"
 
@@ -26,5 +28,7 @@ def create_app() -> FastAPI:
         docs_url=f"{API_PREFIX}/docs",
         openapi_url=f"{API_PREFIX}/openapi.json",
     )
+    install_error_handlers(app)
     app.include_router(health_router, prefix=API_PREFIX)
+    app.include_router(options_router, prefix=f"{API_PREFIX}/options")
     return app
