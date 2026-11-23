@@ -1,12 +1,15 @@
 """My Portfolio (P4) endpoints.
 
-A portfolio is a list of holdings (ticker + weight). Its daily return series is
-built with ``analytics.portfolio`` and then scored with the same metric set as
-Risk & Performance (``risk.metrics.risk_metric_set``).
+A portfolio is a list of holdings. The demo portfolio (this module) holds
+ticker + weight and is rebalanced daily; a saved portfolio (``saved.py``) holds
+quantities and is bought and held. Either way its daily return series is built
+with ``analytics.portfolio`` and then scored with the same metric set as Risk &
+Performance (``risk.metrics.risk_metric_set``), via ``score``.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Annotated, Literal
 
@@ -16,8 +19,9 @@ from pydantic import BaseModel, ValidationInfo, field_validator
 from pydantic_core import PydanticCustomError
 
 from sextant_compute.analytics import performance, portfolio
+from sextant_compute.data.context import RequestContext
 from sextant_compute.data.errors import NoSuchData
-from sextant_compute.data.service import Ctx, Data
+from sextant_compute.data.service import Ctx, Data, DataService, PriceHistory
 from sextant_compute.envelope import MetricResult, ResultEnvelope, SeriesResult, envelope
 from sextant_compute.errors import INPUT_ERROR, ApiError, check
 from sextant_compute.risk.api import Ticker
@@ -45,13 +49,9 @@ def _percent(x: float) -> str:
     return f"{x * 100:.2f}".rstrip("0").rstrip(".") + "%"
 
 
-class PortfolioRequest(BaseModel):
-    holdings: Annotated[
-        list[Holding],
-        check(lambda v: len(v) >= 1, "Add at least one holding."),
-        check(lambda v: len(v) <= MAX_HOLDINGS, f"Enter at most {MAX_HOLDINGS} holdings."),
-        check(lambda v: len({h.ticker for h in v}) == len(v), "Each ticker can only be listed once."),
-    ]
+class AnalysisSettings(BaseModel):
+    """How a portfolio is scored: benchmark, date range, VaR confidence, risk-free rate, data source."""
+
     benchmark: Ticker = "DEMO-MKT"
     start: date
     end: date
@@ -63,6 +63,23 @@ class PortfolioRequest(BaseModel):
     ] = 0.0
     source: Literal["synthetic"] = "synthetic"
 
+    @field_validator("end")
+    @classmethod
+    def _end_after_start(cls, end: date, info: ValidationInfo) -> date:
+        start = info.data.get("start")
+        if start is not None and end <= start:
+            raise PydanticCustomError(INPUT_ERROR, "End date must be after the start date.")
+        return end
+
+
+class PortfolioRequest(AnalysisSettings):
+    holdings: Annotated[
+        list[Holding],
+        check(lambda v: len(v) >= 1, "Add at least one holding."),
+        check(lambda v: len(v) <= MAX_HOLDINGS, f"Enter at most {MAX_HOLDINGS} holdings."),
+        check(lambda v: len({h.ticker for h in v}) == len(v), "Each ticker can only be listed once."),
+    ]
+
     @field_validator("holdings")
     @classmethod
     def _weights_sum_to_one(cls, holdings: list[Holding]) -> list[Holding]:
@@ -73,61 +90,69 @@ class PortfolioRequest(BaseModel):
             )
         return holdings
 
-    @field_validator("end")
-    @classmethod
-    def _end_after_start(cls, end: date, info: ValidationInfo) -> date:
-        start = info.data.get("start")
-        if start is not None and end <= start:
-            raise PydanticCustomError(INPUT_ERROR, "End date must be after the start date.")
-        return end
 
-
-def _fields_for(exc: NoSuchData, req: PortfolioRequest) -> dict[str, str]:
+def _fields_for(exc: NoSuchData, tickers: Sequence[str], benchmark: str) -> dict[str, str]:
     """Attach each missing ticker's message to the holding row (or benchmark) that named it."""
-    fields = {f"holdings.{i}.ticker": exc.missing[h.ticker] for i, h in enumerate(req.holdings) if h.ticker in exc.missing}
-    if req.benchmark in exc.missing:
-        fields["benchmark"] = exc.missing[req.benchmark]
+    fields = {f"holdings.{i}.ticker": exc.missing[t] for i, t in enumerate(tickers) if t in exc.missing}
+    if benchmark in exc.missing:
+        fields["benchmark"] = exc.missing[benchmark]
     if not fields:  # nothing named a ticker, so the date range is what has no data
         fields["start"] = exc.message
     return fields
 
 
-@router.post("/metrics")
-def portfolio_metrics(req: PortfolioRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
-    weights = {h.ticker: h.weight for h in req.holdings}
-    symbols = list(dict.fromkeys([*weights, req.benchmark]))
-    try:
-        prices = data.daily_prices(ctx, symbols, req.start, req.end, source=req.source)
-    except NoSuchData as exc:
-        raise ApiError(422, "no_such_data", exc.message, _fields_for(exc, req)) from exc
+def load_prices(
+    data: DataService, ctx: RequestContext, tickers: Sequence[str], settings: AnalysisSettings
+) -> tuple[PriceHistory, dict[str, pd.DataFrame]]:
+    """Prices for the holdings and the benchmark, restricted to the trading days every symbol has.
 
-    # Score portfolio and benchmark on the same trading days: those every symbol has a price for.
+    Scoring portfolio and benchmark on the same days keeps them comparable.
+    Unknown tickers come back as field errors on their holding row.
+    """
+    symbols = list(dict.fromkeys([*tickers, settings.benchmark]))
+    try:
+        prices = data.daily_prices(ctx, symbols, settings.start, settings.end, source=settings.source)
+    except NoSuchData as exc:
+        raise ApiError(422, "no_such_data", exc.message, _fields_for(exc, tickers, settings.benchmark)) from exc
     common = prices.frames[symbols[0]].index
     for symbol in symbols[1:]:
         common = common.intersection(prices.frames[symbol].index)
     if len(common) < 2:
         message = "The holdings and the benchmark share fewer than 2 trading days in this range."
         raise ApiError(422, "no_such_data", message, {"start": message})
+    return prices, {s: prices.frames[s].loc[common] for s in symbols}
 
-    def returns_of(ticker: str) -> pd.Series:
-        frame = prices.frames[ticker].loc[common]
-        return performance.total_returns(frame["close"], frame["dividend"])
 
-    benchmark_returns = returns_of(req.benchmark)
-    returns = {
-        PORTFOLIO: portfolio.weighted_returns({t: returns_of(t) for t in weights}, weights),
-        BENCHMARK: benchmark_returns,
+def returns_of(frame: pd.DataFrame) -> pd.Series:
+    return performance.total_returns(frame["close"], frame["dividend"])
+
+
+def score(
+    req: BaseModel,
+    settings: AnalysisSettings,
+    prices: PriceHistory,
+    frames: Mapping[str, pd.DataFrame],
+    portfolio_wealth: pd.Series,
+    extra_metrics: Mapping[str, MetricResult] | None = None,
+) -> ResultEnvelope:
+    """The portfolio envelope: P3 metrics and cumulative return for the portfolio and the benchmark.
+
+    ``portfolio_wealth`` is the portfolio's wealth on the common dates (1.0 on the first).
+    """
+    benchmark_returns = returns_of(frames[settings.benchmark])
+    wealths = {
+        PORTFOLIO: portfolio_wealth,
+        BENCHMARK: portfolio.wealth_index(benchmark_returns, portfolio_wealth.index[0]),
     }
-
-    metrics: dict[str, MetricResult] = {}
+    metrics: dict[str, MetricResult] = dict(extra_metrics or {})
     charts: dict[str, SeriesResult] = {}
-    for name, r in returns.items():
-        wealth = portfolio.wealth_index(r, common[0])
+    for name, wealth in wealths.items():
+        r = wealth.pct_change().iloc[1:]
         scored = risk_metric_set(
-            r, wealth, benchmark_returns, confidence=req.confidence, risk_free_rate=req.risk_free_rate
+            r, wealth, benchmark_returns, confidence=settings.confidence, risk_free_rate=settings.risk_free_rate
         )
         metrics.update({f"{metric_name}:{name}": result for metric_name, result in scored.items()})
-        charts[f"cumulative_return:{name}"] = date_series(lambda: wealth - 1)
+        charts[f"cumulative_return:{name}"] = date_series(lambda w=wealth: w - 1)
     return envelope(
         tool=TOOL,
         request=req,
@@ -136,3 +161,12 @@ def portfolio_metrics(req: PortfolioRequest, data: Data, ctx: Ctx) -> ResultEnve
         source=prices.source,
         data_cutoff=prices.last_date,
     )
+
+
+@router.post("/metrics")
+def portfolio_metrics(req: PortfolioRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
+    weights = {h.ticker: h.weight for h in req.holdings}
+    prices, frames = load_prices(data, ctx, list(weights), req)
+    returns = portfolio.weighted_returns({t: returns_of(frames[t]) for t in weights}, weights)
+    wealth = portfolio.wealth_index(returns, frames[req.benchmark].index[0])
+    return score(req, req, prices, frames, wealth)

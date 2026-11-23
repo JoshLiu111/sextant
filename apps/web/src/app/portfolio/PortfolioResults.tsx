@@ -30,11 +30,17 @@ function chartPoints(series: SeriesResult | undefined) {
 }
 
 /**
- * The performance and risk view of one portfolio result from `POST /portfolio/metrics`:
+ * The performance and risk view of one portfolio result from `POST /portfolio/metrics` or `POST /portfolios/{id}/metrics`:
  * cumulative return vs the benchmark and the risk metric cards. Shared by the demo
- * portfolio and (later) saved portfolios.
+ * portfolio and saved portfolios; `metricsNote` says how the return series was built.
  */
-export function PortfolioResults({ result }: { result: PortfolioEnvelope | null }) {
+export function PortfolioResults({
+  result,
+  metricsNote,
+}: {
+  result: PortfolioEnvelope | null;
+  metricsNote?: string;
+}) {
   const t = getMessages();
   const p = t.portfolio;
   const benchmark = (result?.meta.parameters as { benchmark?: string } | undefined)?.benchmark ?? "";
@@ -75,7 +81,7 @@ export function PortfolioResults({ result }: { result: PortfolioEnvelope | null 
       </div>
       <div>
         <h2 className="text-lg font-semibold">{p.sections.metrics}</h2>
-        <p className="mt-1 text-sm text-black/70 dark:text-white/70">{p.sections.metricsNote}</p>
+        <p className="mt-1 text-sm text-black/70 dark:text-white/70">{metricsNote ?? p.sections.metricsNote}</p>
         <div className="mt-2 grid gap-4 xl:grid-cols-3">
           {METRICS.map((id) => (
             <MetricCard
