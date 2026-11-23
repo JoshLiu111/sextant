@@ -200,6 +200,7 @@ def test_answers_that_touch_on_buying_or_selling_carry_the_not_advice_notice(cli
 
 def test_without_an_api_key_ai_explain_is_unavailable(client, monkeypatch):
     # The real Claude client, as configured from an environment with no key.
+    monkeypatch.delenv("AI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     client.app.state.ai_model = AnthropicModel.from_env()
     token = sign_in(client)
