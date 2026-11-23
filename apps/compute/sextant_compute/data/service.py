@@ -61,6 +61,7 @@ from sextant_compute.data.filings import FilingList
 from sextant_compute.data.fmp import FmpAdapter
 from sextant_compute.data.frankfurter import FrankfurterAdapter
 from sextant_compute.data.fred import FredAdapter
+from sextant_compute.data.splits import Split
 from sextant_compute.data.statements import FinancialStatements, Frequency
 from sextant_compute.data.synthetic import SyntheticAdapter
 from sextant_compute.data.tiingo import TiingoAdapter
@@ -260,13 +261,12 @@ class DataService:
             _decode_frames,
         )
 
-    def splits(self, ctx: RequestContext, ticker: str, start: date, *, source: str) -> list[tuple[date, float]]:
+    def splits(self, ctx: RequestContext, ticker: str, start: date, *, source: str) -> list[Split]:
         """One ticker's stock splits from ``start`` up to today; see ``SplitsAdapter``.
         A source without split data (the synthetic demo) has no splits."""
-        adapter = self._adapter(source)
-        if not hasattr(adapter, "splits"):
+        splits = _serving(self._adapter(source), "splits", SplitsAdapter)
+        if splits is None:
             return []
-        splits = cast(SplitsAdapter, adapter)
         return self._cached(
             ctx,
             splits,
@@ -274,7 +274,7 @@ class DataService:
             {"ticker": ticker, "start": start.isoformat()},
             lambda: splits.splits(ctx, ticker, start),
             lambda found: [[d.isoformat(), ratio] for d, ratio in found],
-            lambda raw: [(date.fromisoformat(d), float(ratio)) for d, ratio in raw],
+            lambda raw: [Split(date.fromisoformat(d), float(ratio)) for d, ratio in raw],
         )
 
     def latest_close(self, ctx: RequestContext, ticker: str, *, source: str) -> LatestClose:
@@ -297,9 +297,9 @@ class DataService:
         ``NoSuchData`` when ``source`` serves no factors (every source but the
         synthetic demo one, ADR 0003)."""
         adapter = self._adapter(source)
-        if not hasattr(adapter, "daily_factors"):
+        factors = _serving(adapter, "daily_factors", DailyFactorsAdapter)
+        if factors is None:
             raise NoSuchData(adapter.source.id, f"There is no factor data for {adapter.source.name}.")
-        factors = cast(DailyFactorsAdapter, adapter)
         frames = self._cached(
             ctx,
             factors,
@@ -604,6 +604,15 @@ def _decode_curves(raw: Mapping[str, Any]) -> YieldCurves:
         meta=SeriesMeta(**raw["meta"]),
         curves=[(date.fromisoformat(when), {float(m): v for m, v in pairs}) for when, pairs in raw["curves"]],
     )
+
+
+A = TypeVar("A", bound=Adapter)
+
+
+def _serving(adapter: Adapter, dataset: str, protocol: type[A]) -> A | None:
+    """``adapter`` as ``protocol`` when it serves the optional ``dataset`` (implements
+    the method of that name, e.g. ``splits``), else None."""
+    return cast(A, adapter) if callable(getattr(adapter, dataset, None)) else None
 
 
 def _encode_fx(rates: FxRates) -> dict[str, Any]:

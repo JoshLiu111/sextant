@@ -61,8 +61,9 @@ import pandas as pd
 
 from sextant_compute.data.adapters import PRICE_COLUMNS
 from sextant_compute.data.context import RequestContext
-from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
+from sextant_compute.data.errors import KeyRequired, SourceUnavailable
 from sextant_compute.data.sources import TIINGO
+from sextant_compute.data.splits import Split
 from sextant_compute.data.user_key_http import UserKeyHttpAdapter
 
 BASE_URL = "https://api.tiingo.com"
@@ -78,9 +79,8 @@ RECENT_LIMIT = 64
 Rows = list[dict[str, Any]]
 
 
-def _no_ticker(ticker: str) -> NoSuchData:
-    message = f"Tiingo has no ticker {ticker}."
-    return NoSuchData(TIINGO.id, message, {ticker: message})
+def _no_ticker(ticker: str) -> str:
+    return f"Tiingo has no ticker {ticker}."
 
 
 class TiingoAdapter(UserKeyHttpAdapter):
@@ -140,7 +140,7 @@ class TiingoAdapter(UserKeyHttpAdapter):
             # Up to today, not just ``end``: a split after ``end`` still changes the share count.
             rows = self._rows_to_today(key, ticker, start)
             if rows is None:
-                return _no_ticker(ticker).message
+                return _no_ticker(ticker)
             frame = _frame(rows).loc[: pd.Timestamp(end)] if rows else None
             if frame is None or frame.empty:
                 return f"No Tiingo prices for {ticker} between {start} and {end}."
@@ -148,22 +148,21 @@ class TiingoAdapter(UserKeyHttpAdapter):
 
         return self._per_ticker(tickers, fetch)
 
-    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[tuple[date, float]]:
+    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[Split]:
         """See ``SplitsAdapter``. The ``splitFactor`` of every row from ``start`` to the latest day."""
         rows = self._rows_to_today(self._key(ctx), ticker, start)
         if rows is None:
-            raise _no_ticker(ticker)
+            raise self._missing(ticker, _no_ticker(ticker))
         split = _raw(rows)["split"] if rows else pd.Series(dtype=float)
-        return [(d.date(), float(ratio)) for d, ratio in split.items() if ratio != 1.0]
+        return [Split(d.date(), float(ratio)) for d, ratio in split.items() if ratio != 1.0]
 
     def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
         """See ``LatestCloseAdapter``. Tiingo's prices URL without dates answers the latest day."""
         rows = self._prices(self._key(ctx), ticker, None, None)
         if rows is None:
-            raise _no_ticker(ticker)
+            raise self._missing(ticker, _no_ticker(ticker))
         if not rows:
-            message = f"Tiingo has no recent prices for {ticker}."
-            raise NoSuchData(TIINGO.id, message, {ticker: message})
+            raise self._missing(ticker, f"Tiingo has no recent prices for {ticker}.")
         last = _frame(rows[-1:])
         return last.index[-1].date(), float(last["close"].iloc[-1])
 

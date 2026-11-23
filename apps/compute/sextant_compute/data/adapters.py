@@ -29,6 +29,7 @@ from sextant_compute.data.context import RequestContext
 from sextant_compute.data.cross_section import CrossSection
 from sextant_compute.data.dividends import DividendHistory
 from sextant_compute.data.filings import FilingList
+from sextant_compute.data.splits import Split
 from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.envelope import DataSource
 
@@ -68,10 +69,9 @@ class LatestCloseAdapter(Adapter, Protocol):
 
 
 class SplitsAdapter(Adapter, Protocol):
-    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[tuple[date, float]]:
-        """The stock splits with an ex-date from ``start`` up to today, oldest first:
-        ``(ex-date, new shares per old share)``, so 4.0 for a 4:1 split and 0.1 for a
-        1:10 reverse split. ``daily_prices`` are split-adjusted by these, so a past
+    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[Split]:
+        """The stock splits with an ex-date from ``start`` up to today, oldest first.
+        ``daily_prices`` are split-adjusted by these, so a past
         trade's quantity times every later ratio is in today's share count. Raises
         ``NoSuchData`` (``missing`` keyed by ticker) for an unknown ticker."""
         ...

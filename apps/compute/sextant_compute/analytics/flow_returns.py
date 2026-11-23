@@ -36,6 +36,7 @@ import numpy as np
 import pandas as pd
 
 from sextant_compute.analytics.errors import MissingData
+from sextant_compute.data.splits import Split
 
 DAYS_PER_YEAR = 365
 _DUST = 1e-9
@@ -69,7 +70,7 @@ def daily_book(
     prices: Mapping[str, pd.DataFrame],
     holdings: Mapping[str, float],
     trades: Sequence[Trade],
-    splits: Mapping[str, Sequence[tuple[date, float]]] | None = None,
+    splits: Mapping[str, Sequence[Split]] | None = None,
 ) -> Book:
     """Rebuild each day's holdings from today's ``holdings`` by undoing ``trades`` backwards.
 
@@ -78,8 +79,8 @@ def daily_book(
     first day's value; trades after the last date are undone and ignored.
 
     ``holdings`` and ``prices`` are in today's share count; a trade's quantity is in
-    the share count of its date. ``splits`` (ticker -> ``(ex-date, new shares per
-    old share)``) turns each trade into today's share count: its quantity times
+    the share count of its date. ``splits`` (ticker -> its splits) turns each
+    trade into today's share count: its quantity times
     every split after its date. A trade's cash does not change.
     """
     trades = [_in_todays_shares(t, (splits or {}).get(t.ticker, ())) for t in trades]
@@ -115,9 +116,9 @@ def daily_book(
     return Book(pd.Series(value, index=dates), pd.Series(cash_in, index=dates), pd.Series(cash_out, index=dates))
 
 
-def _in_todays_shares(trade: Trade, splits: Sequence[tuple[date, float]]) -> Trade:
+def _in_todays_shares(trade: Trade, splits: Sequence[Split]) -> Trade:
     # A trade on the ex-date is already at the new share count.
-    factor = math.prod(ratio for ex_date, ratio in splits if ex_date > trade.date)
+    factor = math.prod(s.ratio for s in splits if s.ex_date > trade.date)
     return trade if factor == 1 else replace(trade, quantity=trade.quantity * factor)
 
 
