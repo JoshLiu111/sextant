@@ -511,6 +511,55 @@ export const en = {
       },
     },
   },
+  // Risk & Performance model checks (VaR backtest, GARCH); see src/app/risk/ModelChecks.tsx.
+  riskChecks: {
+    heading: "Model checks: VaR backtest and GARCH volatility",
+    select: "Model checks for",
+    backtest: {
+      caption: "VaR backtest",
+      columns: {
+        method: "VaR method",
+        breaches: "Breaches",
+        expected: "Expected",
+        statistic: "Kupiec LR",
+        pValue: "p-value",
+        reading: "Reading",
+      },
+      methods: {
+        backtest_var: "Historical",
+        backtest_parametric_var: "Parametric (normal)",
+        backtest_cornish_fisher_var: "Cornish-Fisher",
+      },
+      accept: "Accept",
+      reject: "Reject",
+      at: "at",
+      explainer: {
+        name: "the VaR backtest",
+        what: "A check of whether each one-day VaR method would have held up: how often the actual loss exceeded the VaR forecast for that day, compared with how often it should have.",
+        how: "Each day after the first 250 returns gets a VaR forecast from the 250 returns before it (no look-ahead), with the same historical, parametric and Cornish-Fisher formulas as the tail-risk cards. A breach is a day whose loss exceeded its forecast. Expected breaches = tested days × (1 − confidence). Kupiec's proportion-of-failures test: LR = −2 ln[(1 − p)^(n − x) p^x / (1 − x/n)^(n − x) (x/n)^x], with n tested days, x breaches and p = 1 − confidence; the p-value comes from a chi-squared distribution with 1 degree of freedom.",
+        read: "Accept means the breach count is consistent with the confidence level; Reject means the p-value is below 1 − confidence (below 5% at 95%), so the method breached too often (it understates risk) or too rarely (it is too conservative). Kupiec only checks the count, not whether breaches cluster together.",
+      },
+    },
+    garch: {
+      heading: "GARCH(1,1) conditional volatility",
+      chartLabel: "GARCH(1,1) conditional volatility over time, annualized, for the selected ticker",
+      x: "Date",
+      params: {
+        omega: "ω (daily)",
+        alpha: "α",
+        beta: "β",
+        persistence: "α + β",
+        longRun: "Long-run volatility",
+        nextDay: "Next-day volatility",
+      },
+      explainer: {
+        name: "GARCH(1,1)",
+        what: "A model of volatility that changes over time: a big move today raises the expected size of tomorrow's move, and calm periods let it decay. It shows volatility clustering.",
+        how: "Daily variance h_t = ω + α × e²(t−1) + β × h(t−1), where e is the daily total return minus its mean. ω, α and β are fitted by maximum likelihood (normal shocks) with α + β < 1. The chart shows √(252 × h_t); long-run volatility is √(252 × ω / (1 − α − β)); next-day volatility is the forecast for the day after the range. It needs at least 250 daily returns.",
+        read: "α is how strongly volatility reacts to a shock; β is how long it remembers. α + β close to 1 means shocks fade slowly (a half-life of ln 0.5 / ln(α + β) days). The chart peaks in turbulent periods and sinks toward the long-run level in calm ones.",
+      },
+    },
+  },
   portfolio: {
     intro:
       "Build a demo portfolio from tickers and weights, or load a classic allocation, and compare its cumulative return and risk with a benchmark. Change any input and the results update.",
