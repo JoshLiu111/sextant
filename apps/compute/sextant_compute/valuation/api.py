@@ -24,6 +24,7 @@ from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
 from sextant_compute.data.statements import FinancialStatements, Missing
 from sextant_compute.envelope import (
+    DataSource,
     Detailed,
     MetricError,
     MetricResult,
@@ -48,6 +49,9 @@ DISCOUNT_STEPS = (-0.01, -0.005, 0.0, 0.005, 0.01)
 DEFAULT_RISK_FREE_RATE = 0.045  # about the 10-year US Treasury yield in 2025-26 (FRED DGS10)
 DEFAULT_BETA = 1.0  # the market average
 DEFAULT_EQUITY_RISK_PREMIUM = 0.05  # Damodaran's implied US ERP has been about 4-6% since 2010
+
+NO_PRICE_MESSAGE = "Enter a share price to compare the market value with the intrinsic value."
+
 
 def _normalize_ticker(value: object) -> object:
     return value.strip().upper() if isinstance(value, str) else value
@@ -114,6 +118,8 @@ class SensitivityOut(BaseModel):
 
 class ValuationEnvelope(ResultEnvelope):
     company: CompanyOut
+    price_source: DataSource | None = None
+    """The provider the share price came from (My data); null when it was typed in or there is none."""
     base_period: BasePeriodOut
     sensitivity: SensitivityOut
 
@@ -180,9 +186,16 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
             )
         return fcf()
 
+    price, price_source = _share_price(req)
+
+    def share_price() -> Detailed:
+        if isinstance(price, MissingData):
+            raise price
+        return price
+
     def equity_for_weights() -> float:
-        if req.share_price is not None:
-            return req.share_price * st.value("shares_outstanding", pid)
+        if not isinstance(price, MissingData):
+            return price.value * st.value("shares_outstanding", pid)
         return st.value("total_equity", pid)
 
     re_ = _Result(
@@ -235,6 +248,7 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
     equity = _Result(
         lambda: v.equity_value(base.get().enterprise_value, cash=cash_and_investments(), total_debt=total_debt())
     )
+    intrinsic = _Result(lambda: v.per_share(equity.get(), st.value("shares_outstanding", pid)))
 
     def sourced(compute: Callable[[], float]) -> Callable[[], Detailed]:
         """Statement-derived value with the base period's 10-K as its source."""
@@ -266,8 +280,12 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
         "pv_terminal_value": metric(lambda: base.get().pv_terminal, unit="currency"),
         "enterprise_value": metric(lambda: base.get().enterprise_value, unit="currency"),
         "equity_value": metric(equity.get, unit="currency"),
-        "intrinsic_value_per_share": metric(
-            lambda: v.per_share(equity.get(), st.value("shares_outstanding", pid)), unit="per_share"
+        "intrinsic_value_per_share": metric(intrinsic.get, unit="per_share"),
+        # Market comparison (needs a share price)
+        "share_price": metric(share_price, unit="per_share"),
+        "market_cap": metric(lambda: share_price().value * st.value("shares_outstanding", pid), unit="currency"),
+        "margin_of_safety": metric(
+            lambda: v.margin_of_safety(intrinsic_value=intrinsic.get(), price=share_price().value), unit="decimal"
         ),
     }
 
@@ -291,10 +309,18 @@ def dcf(req: DcfRequest, data: Data, ctx: Ctx) -> ValuationEnvelope:
     )
     return ValuationEnvelope(
         **env.model_dump(),
+        price_source=price_source,
         company=CompanyOut(ticker=st.company.ticker, cik=st.company.cik, name=st.company.name),
         base_period=BasePeriodOut(id=pid, label=period.label, filed=period.filed.isoformat(), url=period.filing.url),
         sensitivity=SensitivityOut(growth_rates=growth_rates, discount_rates=discount_rates),
     )
+
+
+def _share_price(req: DcfRequest) -> tuple[Detailed | MissingData, DataSource | None]:
+    """The share price to compare with (and to weight equity at), and the provider it came from."""
+    if req.share_price is not None:
+        return Detailed(req.share_price, {"basis": "entered"}), None
+    return MissingData(NO_PRICE_MESSAGE), None
 
 
 def _fcf_history(st: FinancialStatements) -> list[tuple[str, float | None]]:
