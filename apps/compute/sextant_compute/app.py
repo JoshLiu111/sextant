@@ -14,6 +14,7 @@ from sextant_compute import SERVICE_NAME, __version__
 from sextant_compute.auth.api import router as auth_router
 from sextant_compute.db import Database
 from sextant_compute.errors import install_error_handlers
+from sextant_compute.macro.api import router as macro_router
 from sextant_compute.options.api import router as options_router
 from sextant_compute.portfolio.api import router as portfolio_router
 from sextant_compute.risk.api import router as risk_router
@@ -49,5 +50,6 @@ def create_app() -> FastAPI:
     app.include_router(options_router, prefix=f"{API_PREFIX}/options")
     app.include_router(risk_router, prefix=f"{API_PREFIX}/risk")
     app.include_router(portfolio_router, prefix=f"{API_PREFIX}/portfolio")
+    app.include_router(macro_router, prefix=f"{API_PREFIX}/macro")
     app.include_router(auth_router, prefix=API_PREFIX)
     return app

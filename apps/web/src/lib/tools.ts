@@ -26,7 +26,7 @@ export const TOOLS: readonly Tool[] = [
   { slug: "portfolio", href: "/portfolio", status: "live", attributions: ["demo"] },
   { slug: "company", href: "/company", status: "coming-soon", attributions: [] },
   { slug: "valuation", href: "/valuation", status: "coming-soon", attributions: [] },
-  { slug: "macro", href: "/macro", status: "coming-soon", attributions: [] },
+  { slug: "macro", href: "/macro", status: "live", attributions: ["fred"] },
   { slug: "screener", href: "/screener", status: "coming-soon", attributions: [] },
   { slug: "ai-analyst", href: "/ai-analyst", status: "coming-soon", attributions: [] },
 ];
