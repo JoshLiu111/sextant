@@ -4,12 +4,14 @@ import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { LineChart, type ChartMarker, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
+import { csvFilename } from "@/lib/csv";
 import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
@@ -25,6 +27,7 @@ const METRIC_GROUPS = {
 } as const;
 
 type MetricId = (typeof METRIC_GROUPS)[keyof typeof METRIC_GROUPS][number];
+const ALL_METRICS: MetricId[] = Object.values(METRIC_GROUPS).flat();
 
 // confidence and risk_free_rate are kept in percent; the API takes decimals.
 type Form = {
@@ -195,6 +198,19 @@ export function RiskTool() {
             title={Object.keys(fieldErrors).length ? t.common.errors.invalidHeading : t.common.errors.heading}
             message={error}
           />
+        )}
+        {result && params && (
+          <div className="flex justify-end">
+            <ExportCsvButton
+              label={r.csvLabel}
+              filename={csvFilename("risk", "metrics", params.tickers.join("_"))}
+              demo={result.source.is_demo}
+              table={{
+                columns: [t.common.csv.ticker, ...ALL_METRICS.map((id) => r.metrics[id].name)],
+                rows: symbols.map((ticker) => [ticker, ...ALL_METRICS.map((id) => result.metrics[`${id}:${ticker}`])]),
+              }}
+            />
+          </div>
         )}
         {(Object.keys(METRIC_GROUPS) as (keyof typeof METRIC_GROUPS)[]).map((group) => (
           <div key={group}>
