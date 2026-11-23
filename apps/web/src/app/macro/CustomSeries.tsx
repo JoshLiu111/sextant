@@ -17,6 +17,7 @@ import {
 } from "@/lib/format";
 import { useUrlInputs, writeUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { useReportSources } from "@/components/PageSources";
 import { SeriesMeta } from "./MacroDashboard";
 
 // POST /macro/search -> `results`; POST /macro/series -> metric `latest:<ID>`
@@ -53,7 +54,7 @@ const URL_CODEC: UrlCodec<string[]> = {
 type SearchState =
   | { kind: "idle" }
   | { kind: "pending" }
-  | { kind: "done"; query: string; results: SeriesHit[] }
+  | { kind: "done"; query: string; results: SeriesHit[]; sourceId: string }
   | { kind: "invalid"; message: string }
   | { kind: "failed"; message: string };
 
@@ -65,6 +66,8 @@ export function CustomSeries({ start }: { start: string | undefined }) {
   const [ids, setIds] = useState<string[]>(initial);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState<SearchState>({ kind: "idle" });
+  // Search hits on screen credit their source (FRED) in the footer.
+  useReportSources(search.kind === "done" && search.results.length > 0 ? [search.sourceId] : []);
 
   function update(next: string[]) {
     setIds(next);
@@ -77,7 +80,7 @@ export function CustomSeries({ start }: { start: string | undefined }) {
     const outcome = await postCompute("/macro/search", { query });
     if (outcome.kind === "ok") {
       const body = outcome.result as SearchEnvelope;
-      setSearch({ kind: "done", query: body.query, results: body.results });
+      setSearch({ kind: "done", query: body.query, results: body.results, sourceId: body.source.id });
     } else if (outcome.kind === "invalid") {
       setSearch({ kind: "invalid", message: outcome.fields.query ?? outcome.message });
     } else setSearch({ kind: "failed", message: outcome.message });

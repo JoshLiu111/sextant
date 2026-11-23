@@ -4,12 +4,13 @@ Like Tiingo, FMP's free terms don't allow showing its data to anyone but the key
 holder, so the adapter's scope is ``"user"``: ``DataService`` caches what it
 fetches under that user only, and only while the user has an FMP key.
 
-Two jobs:
+Its jobs:
 
 - ``verify_key``: Settings checks a key before saving it.
 - ``daily_prices``: end-of-day prices for the My data tools, with
   ``ctx.key_for("fmp")``.
 - ``latest_close``: the newest close (the Valuation Calculator's share price).
+- ``splits``: the stock splits since a date.
 
 All calls go to the "stable" API with the key in the ``apikey`` header (never
 in the URL, so it can't leak into a logged URL):
@@ -25,6 +26,11 @@ in the URL, so it can't leak into a logged URL):
 - Dividends: ``GET /stable/dividends?symbol=``, the whole history newest first;
   ``date`` is the ex-date and ``adjDividend`` the split-adjusted cash amount
   (on the same scale as the prices). Filtered to the range here.
+- Splits: ``GET /stable/splits?symbol=``, the whole history newest first,
+  ``{symbol, date, numerator, denominator}`` (documented shape, not yet checked
+  with a real key): ``date`` is the ex-date, ``numerator / denominator`` the new
+  shares per old share (4/1 for a 4:1 split). Portfolio returns use them to put
+  a past trade's quantity in today's share count, like the prices.
 - Latest close: the same prices URL without ``from``/``to`` (FMP then answers
   its default recent range, newest first); the newest row's close. Split-adjusted
   closes are in today's share count, so the newest one is the raw close.
@@ -63,8 +69,9 @@ import pandas as pd
 
 from sextant_compute.data.adapters import PRICE_COLUMNS
 from sextant_compute.data.context import RequestContext
-from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
+from sextant_compute.data.errors import KeyRequired, SourceUnavailable
 from sextant_compute.data.sources import FMP
+from sextant_compute.data.splits import Split
 from sextant_compute.data.user_key_http import UserKeyHttpAdapter
 
 
@@ -87,7 +94,7 @@ class FmpAdapter(UserKeyHttpAdapter):
     source = FMP
     no_key_message = NO_KEY_MESSAGE
     # Same reasoning as Tiingo: end-of-day data, and a free key has a small daily quota.
-    ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600}
+    ttl: dict[str, int] = {"daily_prices": 12 * 3600, "latest_close": 12 * 3600, "splits": 12 * 3600}
     # 2: today's partial bar is dropped (cached series may hold one).
     version = "2"
 
@@ -153,19 +160,32 @@ class FmpAdapter(UserKeyHttpAdapter):
 
         return self._per_ticker(tickers, fetch)
 
+    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[Split]:
+        """See ``SplitsAdapter``. One request: the whole split history, filtered here."""
+        try:
+            rows = self._list("/stable/splits", self._key(ctx), {"symbol": ticker})
+        except _NotInPlan:
+            raise self._missing(ticker, _not_in_plan(ticker)) from None
+        try:
+            found = [
+                Split(date.fromisoformat(str(r["date"])[:10]), float(r["numerator"]) / float(r["denominator"]))
+                for r in rows
+            ]
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            raise SourceUnavailable(FMP.id, "FMP returned splits in an unexpected shape.") from None
+        return sorted(s for s in found if s.ex_date >= start and s.ratio != 1.0)
+
     def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
         """See ``LatestCloseAdapter``. One request: the prices URL without dates."""
         try:
             rows = self._settled(self._list("/stable/historical-price-eod/full", self._key(ctx), {"symbol": ticker}))
         except _NotInPlan:
-            message = _not_in_plan(ticker)
-        else:
-            if rows:
-                newest = max(rows, key=lambda r: str(r.get("date", "")))
-                last = _frame([newest], [])
-                return last.index[-1].date(), float(last["close"].iloc[-1])
-            message = f"FMP has no recent prices for {ticker}."
-        raise NoSuchData(FMP.id, message, {ticker: message})
+            raise self._missing(ticker, _not_in_plan(ticker)) from None
+        if not rows:
+            raise self._missing(ticker, f"FMP has no recent prices for {ticker}.")
+        newest = max(rows, key=lambda r: str(r.get("date", "")))
+        last = _frame([newest], [])
+        return last.index[-1].date(), float(last["close"].iloc[-1])
 
     def _settled(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """``rows`` without any day whose trading hasn't settled yet (New York time)."""

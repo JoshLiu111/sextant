@@ -2,6 +2,7 @@
 // apps/compute/sextant_compute/ai/api.py. The session cookie authenticates the call.
 
 import { getMessages } from "@/i18n";
+import type { AnswerSegment } from "./answer";
 import { computePath } from "./compute";
 import type { ApiErrorBody } from "./envelope";
 
@@ -10,7 +11,10 @@ export type AiQuota = { limit: number; used: number; remaining: number; resets_a
 export type AiExplanation = {
   tool: string;
   calculation_id: string;
+  /** The answer as plain text. */
   explanation: string;
+  /** The answer as text, checked citations and uncited numbers. */
+  answer: AnswerSegment[];
   /** Set when the answer touches on buying or selling. */
   advice_notice: string | null;
   usage: { input_tokens: number; output_tokens: number };

@@ -155,6 +155,10 @@ test("a World Bank outage only affects the comparison", async ({ page }) => {
   await expect(section.getByTestId("error-notice")).toContainText("Data source temporarily unavailable, please retry.");
   const euro = page.getByRole("main").getByTestId("euro-area");
   await expect(value(euro, "latest:deposit_facility_rate")).toHaveAttribute("data-status", "ok", COLD);
+  // The footer credits only the data on screen: the ECB, not the World Bank.
+  const footer = page.getByRole("contentinfo");
+  await expect(footer.locator('[data-attribution="ecb"]')).toBeVisible();
+  await expect(footer.locator('[data-attribution="world_bank"]')).toHaveCount(0);
 });
 
 test.describe("mobile width", () => {

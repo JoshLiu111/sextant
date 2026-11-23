@@ -5,7 +5,12 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 async function openTab(page: Page, tab: string) {
   await page.goto("/options");
   const main = page.getByRole("main");
-  await main.getByRole("tab", { name: tab }).click();
+  // The tabs are server-rendered: a click before hydration is lost, so retry until selected.
+  const tabButton = main.getByRole("tab", { name: tab });
+  await expect(async () => {
+    await tabButton.click();
+    await expect(tabButton).toHaveAttribute("aria-selected", "true", { timeout: 1000 });
+  }).toPass();
   return main;
 }
 

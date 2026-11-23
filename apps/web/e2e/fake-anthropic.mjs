@@ -1,18 +1,22 @@
 // A stand-in for the Claude Messages API (api.anthropic.com/v1/messages), for
 // e2e tests only. Playwright starts it and points the compute service at it with
-// ANTHROPIC_BASE_URL, so the real Claude client runs end to end without the
+// AI_BASE_URL, so the real Claude client runs end to end without the
 // network or a real key.
 //
 // AI Explain (no tools): it answers deterministically from the result JSON in the
-// prompt. For a single-option result it quotes the call price the compute service
-// calculated, and mentions buying so the not-advice notice shows. For any other
-// tool it names the tool, counts the metrics computed, and says so when the result
+// prompt. For a single-option result it cites the call price the compute service
+// calculated as [[value|calculation_id|call_price]], mentions buying so the
+// not-advice notice shows, and writes the strike without a citation (an uncited
+// number). With a spot of 99 it cites 12.00 instead, so the mismatch highlighting
+// can be tested. For any other tool it names the tool, counts the metrics computed, and says so when the result
 // is demo data.
 //
 // AI Analyst (a tool-use conversation): the first turn calls options_price with
 // the default inputs; once the tool result comes back it answers, citing the call
 // price as [[value|calculation_id|call_price]]. A question containing "misquote"
 // makes it cite 12.00 instead, so the UI's mismatch highlighting can be tested.
+// A question mentioning "risk" calls risk_metrics on demo data instead, and the
+// answer just counts the metrics computed.
 
 import { createServer } from "node:http";
 
@@ -22,6 +26,8 @@ function send(res, status, body) {
   res.writeHead(status, { "content-type": "application/json" });
   res.end(JSON.stringify(body));
 }
+
+const DEMO_RISK = { tickers: ["DEMO-A"], start: "2024-01-02", end: "2024-12-31" };
 
 const OPTION = {
   spot: 100,
@@ -55,10 +61,15 @@ function analystTurn(body) {
   const inputLength = JSON.stringify(messages).length;
   const results = Array.isArray(last.content) ? last.content.filter((b) => b.type === "tool_result") : [];
   if (results.length === 0 && body.tools && body.tool_choice?.type !== "none") {
-    const call = { type: "tool_use", id: "toolu_fake_1", name: "options_price", input: OPTION };
+    const call = /risk/i.test(question)
+      ? { type: "tool_use", id: "toolu_fake_1", name: "risk_metrics", input: DEMO_RISK }
+      : { type: "tool_use", id: "toolu_fake_1", name: "options_price", input: OPTION };
     return message(body, [call], "tool_use", inputLength);
   }
   const result = results.length ? JSON.parse(results[results.length - 1].content) : null;
+  if (result && result.tool !== "options") {
+    return message(body, [{ type: "text", text: answer(result) }], "end_turn", inputLength);
+  }
   const value = result?.metrics?.call_price?.value;
   if (value == null) {
     return message(body, [{ type: "text", text: "I could not price the option." }], "end_turn", inputLength);
@@ -79,8 +90,10 @@ function answer(result) {
   if (!result) return "I could not find a result in this prompt.";
   const call = result.metrics?.call_price?.value;
   if (call != null) {
+    const written = result.meta?.parameters?.spot === 99 ? "12.00" : call.toFixed(2);
     return (
-      `With these inputs the call is worth about ${call.toFixed(2)} per share.\n\n` +
+      `With these inputs the call is worth about [[${written}|${result.calculation_id}|call_price]] per share, ` +
+      `for a strike of ${result.meta?.parameters?.strike}.\n\n` +
       "Someone thinking of buying it would compare that with the market price."
     );
   }

@@ -61,7 +61,8 @@ test("the operator sees each user's AI calls, tokens and estimated cost by day",
 
   expect(response?.status()).toBe(200);
   const main = page.getByRole("main");
-  await expect(main.getByRole("heading", { level: 1, name: "AI usage" })).toBeVisible();
+  await expect(main.getByRole("heading", { level: 1, name: "Operator" })).toBeVisible();
+  await expect(main.getByRole("heading", { level: 2, name: "AI usage" })).toBeVisible();
 
   const perUser = main.getByRole("table", { name: "AI usage per user" });
   const userRow = perUser.getByRole("row").filter({ hasText: user });
@@ -75,4 +76,42 @@ test("the operator sees each user's AI calls, tokens and estimated cost by day",
   await expect(dayRow.getByRole("cell").nth(2)).toHaveText("1");
 
   await expect(main.getByTestId("ai-usage-pricing")).toContainText("per million input tokens");
+});
+
+test("the operator sees registered users, today's sign-ups and recent sign-ins", async ({ browser, page }) => {
+  const context = await browser.newContext();
+  await signIn(await context.newPage(), uniqueEmail("new-user"));
+  await context.close();
+  await signIn(page, OPERATOR_EMAIL);
+
+  await page.goto("/operator");
+
+  const users = page.getByRole("main").getByRole("region", { name: "Users" });
+  await expect(users.getByTestId("users-total")).toHaveText(/^[1-9][\d,]*$/);
+  await expect(users.getByText("Signed in within 7 days")).toBeVisible();
+  await expect(users.getByTestId("users-signed-in-7")).toHaveText(/^[1-9][\d,]*$/);
+  await expect(users.getByText("Signed in within 30 days")).toBeVisible();
+
+  const signUps = users.getByRole("table", { name: "Sign-ups per day" });
+  const today = signUps.getByRole("row").filter({ hasText: todayUtc() });
+  await expect(today.getByRole("cell").nth(1)).toHaveText(/^[1-9][\d,]*$/);
+});
+
+test("the operator picks the window the sign-ups and AI usage cover", async ({ page }) => {
+  await signIn(page, OPERATOR_EMAIL);
+  await page.goto("/operator");
+  const main = page.getByRole("main");
+  const window = main.getByRole("navigation", { name: "Window" });
+  await expect(window.getByRole("link", { name: "Last 30 days" })).toHaveAttribute("aria-current", "page");
+  const signUps = main.getByRole("table", { name: "Sign-ups per day" });
+  await expect(signUps.locator("tbody tr")).toHaveCount(30);
+
+  await window.getByRole("link", { name: "Last 7 days" }).click();
+
+  await expect(page).toHaveURL(/\/operator\?days=7$/);
+  await expect(window.getByRole("link", { name: "Last 7 days" })).toHaveAttribute("aria-current", "page");
+  await expect(signUps.locator("tbody tr")).toHaveCount(7);
+  const weekAgo = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+  await expect(main.getByRole("region", { name: "Users" })).toContainText(`${weekAgo} to ${todayUtc()}`);
+  await expect(main.getByRole("region", { name: "AI usage" })).toContainText(`${weekAgo} to ${todayUtc()}`);
 });

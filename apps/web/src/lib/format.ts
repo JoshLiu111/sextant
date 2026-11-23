@@ -100,6 +100,16 @@ export function formatTimestampUtc(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 }
 
+/**
+ * ISO 8601 timestamp to a clock time in the browser's own time zone ("7:00 PM EST").
+ * Call it only on the client: on the server it would use the server's time zone.
+ */
+export function formatLocalTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(d);
+}
+
 /** Percentage points (a spread between two percent values) for charts: "-0.25 pp". */
 export function formatChartPercentPoints(value: number): string {
   return `${TWO.format(value)} pp`;

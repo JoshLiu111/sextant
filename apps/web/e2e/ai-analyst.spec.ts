@@ -60,7 +60,7 @@ test("a question is answered through a tool call, with the number traced to its 
   const cited = answer.getByTestId("citation");
   await expect(cited).toHaveText("10.45");
   await expect(cited).toHaveAttribute("data-matches", "true");
-  await expect(answer.getByTestId("analyst-mismatch-notice")).toHaveCount(0);
+  await expect(answer.getByTestId("mismatch-notice")).toHaveCount(0);
   await expect(main.getByTestId("ai-quota")).toHaveText(
     "2 of 3 AI calls left today",
   );
@@ -94,7 +94,19 @@ test("a number that doesn't match its calculation is flagged in red", async ({
   await expect(cited).toHaveAttribute("data-matches", "false");
   await expect(cited).toHaveClass(/text-red-700/);
   await expect(cited).toHaveAccessibleDescription(/does not match.*10\.45/i);
-  await expect(answer.getByTestId("analyst-mismatch-notice")).toHaveText(
+  await expect(answer.getByTestId("mismatch-notice")).toHaveText(
     "1 number in this answer does not match the calculation it cites. It is highlighted in red.",
   );
+});
+
+test("the footer credits the data the tool calls used", async ({ page }) => {
+  const main = await signInOnAnalyst(page);
+  const footer = page.getByRole("contentinfo");
+  await expect(footer.locator('[data-attribution="demo"]')).toHaveCount(0);
+
+  const answer = await ask(main, "How risky is DEMO-A?");
+
+  await expect(answer.getByTestId("analyst-call")).toContainText("risk_metrics");
+  await expect(answer.getByTestId("analyst-answer")).toContainText("metrics computed");
+  await expect(footer.locator('[data-attribution="demo"]')).toContainText("Demo data");
 });

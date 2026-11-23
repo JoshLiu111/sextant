@@ -67,6 +67,16 @@ export type ResultEnvelope<M extends string = string, S extends string = string>
   };
 };
 
+/**
+ * Every data source a result used: its `source`, plus the `price_source` (share
+ * prices) and `fx_source` (exchange rates) some results add when they used one.
+ */
+export function sourcesOf(result: ResultEnvelope | null | undefined): DataSource[] {
+  if (!result) return [];
+  const extra = result as { price_source?: DataSource | null; fx_source?: DataSource | null };
+  return [result.source, extra.price_source, extra.fx_source].filter((s): s is DataSource => !!s);
+}
+
 /** Body of every non-2xx compute response. */
 export type ApiErrorBody = {
   error: { code: string; message: string; fields: Record<string, string> };

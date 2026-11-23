@@ -27,7 +27,11 @@ test("switching the return period recomputes the period statistics", async ({ pa
 
   await expect(main.getByTestId("period-note")).toContainText("monthly returns");
   await expect(main.getByTestId("period-note")).toContainText("12");
+  await expect(main.getByTestId("period-note")).toContainText("partial first or last period");
   await expect(vol).not.toHaveText(daily ?? "");
+  // The period count used: 2021-01-01 to 2025-12-31 is 60 whole months.
+  await expect(vol).toContainText("60 months");
+  await expect(metric(main, "beta:DEMO-B")).toContainText("60 months");
   await expect(metric(main, "var:DEMO-B")).not.toHaveText(dailyVar ?? "");
   // Annualized return describes the whole path, so it does not depend on the period.
   await expect(metric(main, "annualized_return:DEMO-B")).toHaveText(dailyReturn ?? "");

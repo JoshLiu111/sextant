@@ -13,6 +13,7 @@ from main import app
 from sextant_compute.data.adapters import Adapter
 from sextant_compute.data.errors import NoSuchData, SourceUnavailable
 from sextant_compute.data.service import DataService, get_data_service
+from sextant_compute.data.splits import Split
 from sextant_compute.envelope import DataSource
 
 FIXTURE = DataSource(id="fixture", name="Test fixture", is_demo=False)
@@ -35,8 +36,17 @@ class FixtureAdapter:
 
     version = "1"
 
-    def __init__(self, frames: dict[str, pd.DataFrame], source: DataSource = FIXTURE, scope: str = "shared") -> None:
+    def __init__(
+        self,
+        frames: dict[str, pd.DataFrame],
+        source: DataSource = FIXTURE,
+        scope: str = "shared",
+        splits: dict[str, dict[str, float]] | None = None,
+    ) -> None:
+        """``splits`` maps ticker -> {ex-date: new shares per old share}; ``frames`` are
+        already split-adjusted to today's share count, as every price source's are."""
         self.frames = frames
+        self.split_dates = splits or {}
         self.source = source
         self.scope = scope
         self.ttl = {"daily_prices": 3600}
@@ -48,6 +58,10 @@ class FixtureAdapter:
         if missing:
             raise NoSuchData(self.source.id, "Unknown ticker.", missing)
         return {t: self.frames[t].loc[pd.Timestamp(start) : pd.Timestamp(end)] for t in tickers}
+
+    def splits(self, ctx, ticker: str, start: date) -> list[Split]:
+        found = (Split(date.fromisoformat(d), r) for d, r in self.split_dates.get(ticker, {}).items())
+        return sorted(s for s in found if s.ex_date >= start)
 
 
 class FactorFixtureAdapter(FixtureAdapter):

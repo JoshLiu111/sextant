@@ -35,8 +35,15 @@ for (const { path, tool } of [
 for (const tab of ["Strategy builder", "American (binomial)"]) {
   test(`options, ${tab}: the tab's result gets its own explanation`, async ({ page }) => {
     await signInOn(page, "/options");
-    await page.getByRole("main").getByRole("tab", { name: tab }).click();
-    const ai = page.getByRole("main").getByRole("region", { name: "AI Explain" });
+    const main = page.getByRole("main");
+    // The tabs are server-rendered, so a click before hydration is lost and the
+    // single-option tab stays open: retry until the tab is really selected.
+    const tabButton = main.getByRole("tab", { name: tab });
+    await expect(async () => {
+      await tabButton.click();
+      await expect(tabButton).toHaveAttribute("aria-selected", "true", { timeout: 1000 });
+    }).toPass();
+    const ai = main.getByRole("tabpanel", { name: tab }).getByRole("region", { name: "AI Explain" });
 
     await ai.getByRole("button", { name: "AI Explain" }).click();
 
