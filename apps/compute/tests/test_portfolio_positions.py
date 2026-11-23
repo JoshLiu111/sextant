@@ -104,3 +104,82 @@ def test_a_hand_edited_holding_starts_again_as_one_lot_and_keeps_its_booked_real
     assert realized == [pytest.approx(455.6), pytest.approx(-21.0), pytest.approx(150.0)]
     aaa = holding(client, alice, portfolio_id, "AAA")
     assert (aaa["quantity"], aaa["cost_price"]) == (5, pytest.approx(110.0))
+
+
+def metrics(client, headers, portfolio_id, frames, benchmark):
+    with serving(FixtureAdapter(frames), on=client.app):
+        response = client.post(
+            f"{BASE}/{portfolio_id}/metrics",
+            json={"benchmark": benchmark, "start": "2024-03-01", "end": "2024-03-31"},
+            headers=headers,
+        )
+    assert response.status_code == 200, response.text
+    return response.json()["metrics"]
+
+
+POSITION_METRICS = ["quantity", "cost_basis", "market_value", "weight", "unrealized_pnl", "realized_pnl"]
+
+
+def positions(body):
+    """``{ticker: (quantity, cost basis, market value, weight, unrealized, realized)}`` in the envelope's order."""
+    tickers = [key.split(":", 1)[1] for key in body if key.startswith("quantity:")]
+    out = {}
+    for ticker in tickers:
+        results = [body[f"{name}:{ticker}"] for name in POSITION_METRICS]
+        assert all(r["status"] == "ok" for r in results), results
+        out[ticker] = tuple(r["value"] for r in results)
+    return out
+
+
+def test_each_position_shows_value_weight_and_unrealized_and_realized_pnl(client, alice):
+    portfolio_id = create(client, alice, OPENING)
+    importing(client, alice, portfolio_id, FIRST_IMPORT)
+    importing(client, alice, portfolio_id, SECOND_IMPORT)
+    frames = {"AAA": price_frame("2024-03-01", [140.0, 150.0]), "CCC": price_frame("2024-03-01", [380.0, 400.0])}
+
+    body = metrics(client, alice, portfolio_id, frames, benchmark="CCC")
+
+    # AAA: 8 left @ 120 = 960, worth 8 x 150 = 1,200; realized 455.6 + 159.4 = 615.
+    # CCC: 2 @ 50 = 100, worth 2 x 400 = 800. BBB: sold out, realized -21. Total value 2,000.
+    got = positions(body)
+    assert list(got) == ["AAA", "CCC", "BBB"]
+    assert got["AAA"] == pytest.approx((8, 960, 1200, 0.6, 240, 615))
+    assert got["CCC"] == pytest.approx((2, 100, 800, 0.4, 700, 0))
+    assert got["BBB"] == pytest.approx((0, 0, 0, 0, 0, -21))
+    assert sum(body[f"weight:{t}"]["value"] for t in got) == pytest.approx(1.0)
+    for name in ["cost_basis", "market_value", "unrealized_pnl", "realized_pnl"]:
+        total = body[f"{name}:portfolio"]["value"]
+        assert total == pytest.approx(sum(body[f"{name}:{t}"]["value"] for t in got)), name
+    assert body["realized_pnl:portfolio"]["value"] == pytest.approx(594.0)
+    assert body["realized_pnl:portfolio"]["details"] == {"currency": "USD"}
+    assert body["weight:AAA"]["unit"] == "decimal"
+    assert body["market_value:AAA"]["unit"] == "money"
+
+
+def test_without_imported_sells_realized_pnl_is_zero(client, alice):
+    portfolio_id = create(client, alice, OPENING)
+    frames = {"AAA": price_frame("2024-03-01", [100.0, 100.0]), "CCC": price_frame("2024-03-01", [50.0, 50.0])}
+
+    body = metrics(client, alice, portfolio_id, frames, benchmark="CCC")
+
+    assert body["realized_pnl:portfolio"]["value"] == 0
+    assert positions(body)["AAA"] == pytest.approx((5, 400, 500, 500 / 600, 100, 0))
+
+
+def test_realized_pnl_in_another_currency_is_not_added_to_the_total(client, alice):
+    portfolio_id = create(client, alice, OPENING)
+    importing(
+        client,
+        alice,
+        portfolio_id,
+        "Date,Ticker,Side,Quantity,Price,Currency\n2024-01-02,EEE,buy,1,10,EUR\n2024-01-03,EEE,sell,1,12,EUR\n",
+    )
+    frames = {"AAA": price_frame("2024-03-01", [100.0, 100.0]), "CCC": price_frame("2024-03-01", [50.0, 50.0])}
+
+    body = metrics(client, alice, portfolio_id, frames, benchmark="CCC")
+
+    assert body["realized_pnl:EEE"]["value"] == pytest.approx(2.0)
+    assert body["realized_pnl:EEE"]["details"] == {"currency": "EUR"}
+    assert body["realized_pnl:portfolio"]["status"] == "missing_data"
+    assert "EUR" in body["realized_pnl:portfolio"]["reason"]
+    assert body["market_value:portfolio"]["status"] == "ok"

@@ -84,8 +84,7 @@ def replace(
         return False
     before = {h["ticker"]: h for h in _holdings_with_lots(conn, portfolio_id)}
     kept = [
-        {**h, "lots": before[h["ticker"]]["lots"]} if h["ticker"] in before and _same(h, before[h["ticker"]]) else
-        {**h, "lots": None}
+        {**h, "lots": before[h["ticker"]]["lots"] if h["ticker"] in before and _same(h, before[h["ticker"]]) else None}
         for h in holdings
     ]
     conn.execute("DELETE FROM portfolio_holdings WHERE portfolio_id = %s", (portfolio_id,))
@@ -159,5 +158,20 @@ def list_transactions(conn: psycopg.Connection, user_id: UUID, portfolio_id: UUI
         "SELECT import_id, line, trade_date AS date, ticker, side, quantity::float8 AS quantity,"
         " price::float8 AS price, fees::float8 AS fees, currency, realized_pnl::float8 AS realized_pnl"
         " FROM portfolio_transactions WHERE portfolio_id = %s ORDER BY trade_date, id",
+        (portfolio_id,),
+    ).fetchall()
+
+
+def realized_by_ticker(conn: psycopg.Connection, portfolio_id: UUID) -> list[dict[str, Any]]:
+    """Realized P&L booked per ticker and currency, first-traded ticker first.
+
+    ``{"ticker", "currency", "realized_pnl", "unbooked"}``; ``unbooked`` counts sells
+    stored before realized P&L was booked (their P&L is unknown).
+    """
+    return conn.execute(
+        "SELECT ticker, currency, COALESCE(sum(realized_pnl), 0)::float8 AS realized_pnl,"
+        " count(*) FILTER (WHERE side = 'sell' AND realized_pnl IS NULL) AS unbooked"
+        " FROM portfolio_transactions WHERE portfolio_id = %s"
+        " GROUP BY ticker, currency ORDER BY min(trade_date), min(id)",
         (portfolio_id,),
     ).fetchall()
