@@ -33,6 +33,7 @@ from sextant_compute.data.adapters import (
     CountryIndicatorAdapter,
     CountrySeries,
     CrossSectionsAdapter,
+    DailyFactorsAdapter,
     DailyPricesAdapter,
     EconomicSeries,
     EconomicSeriesAdapter,
@@ -80,6 +81,14 @@ class PriceHistory:
     def last_date(self) -> date | None:
         ends = [f.index[-1].date() for f in self.frames.values() if not f.empty]
         return max(ends) if ends else None
+
+
+@dataclass(frozen=True)
+class FactorHistory:
+    """Daily factor returns (``FACTOR_COLUMNS``, decimals) and the source they came from."""
+
+    source: DataSource
+    frame: pd.DataFrame
 
 
 class DataService:
@@ -222,6 +231,25 @@ class DataService:
             _encode_frames,
             _decode_frames,
         )
+
+    def daily_factors(self, ctx: RequestContext, start: date, end: date, *, source: str) -> FactorHistory:
+        """Daily factor returns in [start, end]; see ``DailyFactorsAdapter``. Raises
+        ``NoSuchData`` when ``source`` serves no factors (every source but the
+        synthetic demo one, ADR 0003)."""
+        adapter = self._adapter(source)
+        if not hasattr(adapter, "daily_factors"):
+            raise NoSuchData(adapter.source.id, f"There is no factor data for {adapter.source.name}.")
+        factors = cast(DailyFactorsAdapter, adapter)
+        frames = self._cached(
+            ctx,
+            factors,
+            "daily_factors",
+            {"start": start.isoformat(), "end": end.isoformat()},
+            lambda: {"factors": factors.daily_factors(ctx, start, end)},
+            _encode_frames,
+            _decode_frames,
+        )
+        return FactorHistory(source=adapter.source, frame=frames["factors"])
 
     def financial_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
         """Standardized annual statements for one company; see ``FinancialStatementsAdapter``.

@@ -17,6 +17,7 @@ from sextant_compute.data.synthetic.generator import (
     HISTORY_END,
     HISTORY_START,
     PERSONALITIES,
+    generate_factors,
     generate_universe,
 )
 from sextant_compute.envelope import DataSource
@@ -31,11 +32,16 @@ def _universe(seed: int) -> dict[str, pd.DataFrame]:
     return generate_universe(seed)
 
 
+@cache
+def _factors(seed: int) -> pd.DataFrame:
+    return generate_factors(seed, universe=_universe(seed))
+
+
 class SyntheticAdapter:
     source = SYNTHETIC
     scope: Scope = "shared"
     # Deterministic data never goes stale; the TTL only bounds cache residency.
-    ttl = {"daily_prices": 7 * 24 * 3600}
+    ttl = {"daily_prices": 7 * 24 * 3600, "daily_factors": 7 * 24 * 3600}
 
     def __init__(self, seed: int = DEFAULT_SEED) -> None:
         self.seed = seed
@@ -57,3 +63,10 @@ class SyntheticAdapter:
             message = f"No demo data between {start} and {end}. Demo data covers {HISTORY_START} to {HISTORY_END}."
             raise NoSuchData(self.source.id, message)
         return out
+
+    def daily_factors(self, ctx: RequestContext, start: date, end: date) -> pd.DataFrame:
+        frame = _factors(self.seed).loc[pd.Timestamp(start) : pd.Timestamp(end)]
+        if frame.empty:
+            message = f"No demo factor data between {start} and {end}. Demo data covers {HISTORY_START} to {HISTORY_END}."
+            raise NoSuchData(self.source.id, message)
+        return frame.copy()
