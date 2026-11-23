@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 
 import jwt
 from fastapi.testclient import TestClient
@@ -18,8 +19,12 @@ def login_assertion(
     secret: str = TEST_SESSION_SECRET,
     expires_in: int = 60,
     audience: str = "sextant-compute",
+    jti: str | None = "new",
 ) -> str:
-    """What apps/web signs after it has verified a Google ID token."""
+    """What apps/web signs after it has verified a Google ID token.
+
+    Each call gets a fresh ``jti`` unless one is given; ``jti=None`` leaves it out.
+    """
     now = int(time.time())
     claims = {
         "iss": "sextant-web",
@@ -30,6 +35,8 @@ def login_assertion(
         "iat": now,
         "exp": now + expires_in,
     }
+    if jti is not None:
+        claims["jti"] = uuid.uuid4().hex if jti == "new" else jti
     return jwt.encode(claims, secret, algorithm="HS256")
 
 

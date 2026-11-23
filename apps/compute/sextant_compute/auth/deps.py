@@ -4,10 +4,11 @@ from dataclasses import dataclass
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Request
 
 from sextant_compute.auth import sessions
 from sextant_compute.db import Database, DatabaseNotConfigured
+from sextant_compute.errors import ApiError
 
 SESSION_COOKIE = "sextant_session"
 
@@ -45,7 +46,7 @@ def _optional_user(request: Request, db: Annotated[Database, Depends(get_db)]) -
 
 def _required_user(user: Annotated[User | None, Depends(_optional_user)]) -> User:
     if user is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sign in required")
+        raise ApiError(401, "unauthorized", "Sign in required.")
     return user
 
 

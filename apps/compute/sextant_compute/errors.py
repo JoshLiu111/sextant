@@ -18,6 +18,10 @@ Codes in use:
   "data source temporarily unavailable, please retry".
 - 403 ``key_required``: a source that runs on the visitor's own key (Tiingo, FMP) was
   asked for without a working key (``KeyRequired``). The message points to Settings.
+- 401 ``unauthorized``: the endpoint needs a signed-in user and there is none, or
+  a login assertion was rejected (bad signature, expired, too long-lived, replayed).
+- 503 ``accounts_unavailable``: accounts are misconfigured (no database, weak
+  ``SESSION_SECRET``). The detail goes to the server log, never to the client.
 
 Validation messages are written for people: attach them to request-model
 fields with ``check(...)`` so pydantic reports them verbatim.
