@@ -9,7 +9,8 @@
 //
 // GET /tiingo/daily/<ticker>/prices serves the recorded responses the compute
 // tests use (apps/compute/tests/fixtures/tiingo/daily: aapl, msft, spy; 30
-// trading days from 2024-01-02), filtered by startDate/endDate, with the same
+// trading days from 2024-01-02), filtered by startDate/endDate (neither: the
+// last day only, as real Tiingo answers the latest price), with the same
 // rules as FakeTiingo in apps/compute/tests/tiingo_fixtures.py: 403 "Invalid
 // token." for a token that isn't "good…", 404 for any other ticker.
 
@@ -29,9 +30,11 @@ function send(res, status, body) {
 async function prices(res, url, token, ticker) {
   if (!token.startsWith("good")) return send(res, 403, { detail: "Invalid token." });
   if (!KNOWN.has(ticker)) return send(res, 404, { detail: `Error: Ticker '${ticker}' not found` });
+  const rows = JSON.parse(await readFile(`${FIXTURES}${ticker}.json`, "utf8"));
+  // No dates: Tiingo answers the latest day only (the Valuation Calculator's latest close).
+  if (!url.searchParams.has("startDate") && !url.searchParams.has("endDate")) return send(res, 200, rows.slice(-1));
   const start = url.searchParams.get("startDate") || "0000";
   const end = url.searchParams.get("endDate") || "9999";
-  const rows = JSON.parse(await readFile(`${FIXTURES}${ticker}.json`, "utf8"));
   send(res, 200, rows.filter((r) => start <= r.date.slice(0, 10) && r.date.slice(0, 10) <= end));
 }
 
