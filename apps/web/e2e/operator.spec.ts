@@ -96,3 +96,22 @@ test("the operator sees registered users, today's sign-ups and recent sign-ins",
   const today = signUps.getByRole("row").filter({ hasText: todayUtc() });
   await expect(today.getByRole("cell").nth(1)).toHaveText(/^[1-9][\d,]*$/);
 });
+
+test("the operator picks the window the sign-ups and AI usage cover", async ({ page }) => {
+  await signIn(page, OPERATOR_EMAIL);
+  await page.goto("/operator");
+  const main = page.getByRole("main");
+  const window = main.getByRole("navigation", { name: "Window" });
+  await expect(window.getByRole("link", { name: "Last 30 days" })).toHaveAttribute("aria-current", "page");
+  const signUps = main.getByRole("table", { name: "Sign-ups per day" });
+  await expect(signUps.locator("tbody tr")).toHaveCount(30);
+
+  await window.getByRole("link", { name: "Last 7 days" }).click();
+
+  await expect(page).toHaveURL(/\/operator\?days=7$/);
+  await expect(window.getByRole("link", { name: "Last 7 days" })).toHaveAttribute("aria-current", "page");
+  await expect(signUps.locator("tbody tr")).toHaveCount(7);
+  const weekAgo = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+  await expect(main.getByRole("region", { name: "Users" })).toContainText(`${weekAgo} to ${todayUtc()}`);
+  await expect(main.getByRole("region", { name: "AI usage" })).toContainText(`${weekAgo} to ${todayUtc()}`);
+});

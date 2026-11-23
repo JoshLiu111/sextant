@@ -39,6 +39,17 @@ export async function isOperator(token: string | null): Promise<boolean> {
 
 export type OperatorResult<T> = { kind: "ok"; report: T } | { kind: "not_found" } | { kind: "failed" };
 
+/** The windows the operator can pick, in UTC days (today included). */
+export const WINDOW_DAYS = [7, 30, 90] as const;
+export type WindowDays = (typeof WINDOW_DAYS)[number];
+export const DEFAULT_WINDOW_DAYS: WindowDays = 30;
+
+/** The window a `?days=` search param asks for; anything else is the default. */
+export function windowDays(param: string | string[] | undefined): WindowDays {
+  const days = Number(param);
+  return WINDOW_DAYS.find((d) => d === days) ?? DEFAULT_WINDOW_DAYS;
+}
+
 async function fetchReport<T>(token: string | null, path: `/${string}`): Promise<OperatorResult<T>> {
   if (!token) return { kind: "not_found" };
   try {
@@ -51,10 +62,8 @@ async function fetchReport<T>(token: string | null, path: `/${string}`): Promise
   }
 }
 
-export type AiUsageResult = OperatorResult<AiUsageReport>;
-
-export function fetchAiUsage(token: string | null): Promise<AiUsageResult> {
-  return fetchReport(token, "/operator/ai-usage");
+export function fetchAiUsage(token: string | null, days: WindowDays): Promise<OperatorResult<AiUsageReport>> {
+  return fetchReport(token, `/operator/ai-usage?days=${days}`);
 }
 
 export type UsersReport = {
@@ -67,6 +76,6 @@ export type UsersReport = {
   signed_in_within: { days: number; users: number }[];
 };
 
-export function fetchUsers(token: string | null): Promise<OperatorResult<UsersReport>> {
-  return fetchReport(token, "/operator/users");
+export function fetchUsers(token: string | null, days: WindowDays): Promise<OperatorResult<UsersReport>> {
+  return fetchReport(token, `/operator/users?days=${days}`);
 }

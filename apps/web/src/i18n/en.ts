@@ -2155,6 +2155,7 @@ export const en = {
   },
   operator: {
     heading: "Operator",
+    window: { label: "Window", option: (days: number) => `Last ${days} days` },
     aiUsageHeading: "AI usage",
     intro: (since: string, until: string) =>
       `AI calls, tokens and estimated cost per user, ${since} to ${until} (UTC days). Operator only.`,
