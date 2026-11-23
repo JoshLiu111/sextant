@@ -12,7 +12,13 @@ const TOOLS = [
 ];
 
 // Tools that are built; every other tool page still says "Coming soon".
-const LIVE_TOOLS = new Set(["Options Calculator", "Risk & Performance", "Macro Dashboard"]);
+const LIVE_TOOLS = new Set([
+  "Options Calculator",
+  "Risk & Performance",
+  "My Portfolio",
+  "Company Health Check",
+  "Macro Dashboard",
+]);
 
 test("home page lists all eight tools with a description", async ({ page }) => {
   await page.goto("/");

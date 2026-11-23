@@ -90,6 +90,8 @@ export const en = {
       per_vol_point: "per 1 volatility point",
       per_day: "per calendar day",
       per_rate_point: "per 1 percentage point",
+      per_share: "per share",
+      shares: "shares",
       percent: "",
       percentage_points: "percentage points",
       ratio: "",
@@ -275,6 +277,59 @@ export const en = {
       },
     },
   },
+  portfolio: {
+    intro:
+      "Build a demo portfolio from tickers and weights, or load a classic allocation, and compare its cumulative return and risk with a benchmark. Change any input and the results update.",
+    inputsHeading: "Inputs",
+    submit: "Calculate",
+    presets: {
+      heading: "Presets",
+      hint: "Classic allocations mapped onto demo tickers.",
+      items: {
+        sixtyForty: {
+          name: "60/40",
+          description: "60% stocks (DEMO-C, an index tracker), 40% bonds (DEMO-E, defensive and low beta).",
+        },
+        allWeather: {
+          name: "All Weather",
+          description:
+            "30% stocks (DEMO-C), 55% long and intermediate bonds (DEMO-E), 7.5% gold (DEMO-A, low volatility), 7.5% commodities (DEMO-F, speculative).",
+        },
+      },
+    },
+    holdings: {
+      heading: "Holdings",
+      hint: "Demo tickers: DEMO-A to DEMO-F. Weights are a share of the portfolio and must add up to 100%. The portfolio is rebalanced to these weights every day.",
+      ticker: "Ticker",
+      weight: "Weight",
+      weightUnit: "(%)",
+      add: "Add holding",
+      remove: "Remove holding",
+      total: "Total",
+    },
+    inputs: {
+      benchmark: { label: "Benchmark", hint: "Demo benchmark: DEMO-MKT." },
+      start: { label: "Start date", hint: "Demo data covers 2016-01-04 to 2025-12-31." },
+      end: { label: "End date", hint: "Must be after the start date." },
+      confidence: { label: "VaR confidence level (%)", hint: "For VaR and CVaR. 50 to 99.9; 95 is common." },
+      risk_free_rate: {
+        label: "Risk-free rate (%)",
+        hint: "Annual, effective. For Sharpe and Sortino.",
+      },
+    },
+    portfolioLabel: "Portfolio",
+    benchmarkSuffix: "(benchmark)",
+    sections: {
+      chart: "Cumulative return",
+      metrics: "Portfolio risk",
+      metricsNote:
+        "The portfolio's daily return is the weighted sum of its holdings' daily total returns. These metrics are computed on that series with the same formulas as Risk & Performance.",
+    },
+    chart: {
+      label: "Cumulative return of the portfolio and the benchmark over time, with dividends reinvested",
+      x: "Date",
+    },
+  },
   macro: {
     intro:
       "The latest reading and history of four headline US indicators, from public-domain series on FRED, and the US Treasury yield curve and 10Y–2Y spread, from the Treasury's daily par yield curve. Hover a chart to see exact values.",
@@ -344,6 +399,34 @@ export const en = {
         how: "Monthly average of the daily effective federal funds rate published by the Federal Reserve Board (H.15); FRED series FEDFUNDS.",
         read: "Shown in percent per year. The Fed raises it to cool inflation and cuts it to support growth and jobs.",
       },
+    },
+  },
+  company: {
+    intro:
+      "Standardized income statement, balance sheet and cash flow statement for a US-listed company, from its annual reports (10-K) filed with the SEC. Every number links to the filing it came from.",
+    inputsHeading: "Company",
+    submit: "Show statements",
+    inputs: {
+      ticker: { label: "Ticker", hint: "A US-listed company that files with the SEC, e.g. AAPL, MSFT, WMT." },
+    },
+    statements: {
+      income: "Income statement",
+      balance: "Balance sheet",
+      cash_flow: "Cash flow statement",
+    },
+    lineItem: "Line item",
+    yearEnded: "Year ended",
+    filed: "filed",
+    sourceFiling: "Source",
+    derived: "derived",
+    notReported: "Not reported by this company",
+    unitsNote: "USD millions, except per-share amounts (USD) and share counts (millions).",
+    loading: "Loading statements…",
+    explainer: {
+      name: "standardized statements",
+      what: "Each company tags its financial statements in XBRL, the SEC's machine-readable format, often with different tags for the same thing. Sextant maps them onto one set of line items (Revenue, Total Assets, Operating Cash Flow, …) so companies and years line up.",
+      how: "For each line item and fiscal year, Sextant tries a list of candidate XBRL tags in priority order and takes the first one the company reported for that year, from its annual report (10-K). A value is shown as first reported: a later restatement doesn't replace it. A few items (for example Gross Profit = Revenue − Cost of Revenue) are derived when the company doesn't tag them directly. Hover or follow any value to see the filing it came from.",
+      read: "\"Not reported by this company\" means none of the candidate tags appears in the company's filings for that year. Banks, for example, don't report cost of revenue or current assets. It doesn't mean the value is zero.",
     },
   },
   comingSoon: {
