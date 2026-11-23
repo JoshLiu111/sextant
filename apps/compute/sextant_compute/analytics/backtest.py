@@ -30,7 +30,7 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-from numpy.lib.stride_tricks import sliding_window_view
+from pandas.api.typing import Rolling
 
 from sextant_compute.analytics.errors import MissingData
 
@@ -85,39 +85,49 @@ class Backtest:
         return self.p_value < self.significance
 
 
-def _windows(returns: pd.Series, window: int) -> tuple[np.ndarray, np.ndarray]:
-    """(estimation windows, the return each one forecasts): row i is r[i:i+window], forecasting r[i+window]."""
-    r = returns.dropna().to_numpy(dtype=float)
+def _rolling(returns: pd.Series, window: int) -> tuple[Rolling, np.ndarray]:
+    """Rolling windows over the returns, and the returns they forecast.
+
+    The statistic at position j covers r[j - window + 1 .. j] and forecasts r[j + 1],
+    so ``stat[window - 1 : -1]`` lines up with the returned ``r[window:]``.
+    """
+    r = returns.dropna().reset_index(drop=True).astype(float)
     if len(r) < window + 1:
         raise MissingData(
             f"needs at least {window + 1} daily returns to backtest a {window}-day VaR, got {len(r)}"
         )
-    return sliding_window_view(r[:-1], window), r[window:]
+    return r.rolling(window), r.to_numpy()[window:]
 
 
-def _forecasts(windows: np.ndarray, method: VarMethod, confidence: float) -> np.ndarray:
+def _forecasts(rolling: Rolling, method: VarMethod, confidence: float, window: int) -> np.ndarray:
+    """One VaR per window, aligned with the returns they forecast (see ``_rolling``)."""
     alpha = 1 - confidence
-    size = windows.shape[1]
+
+    def aligned(stat: pd.Series) -> np.ndarray:
+        return stat.to_numpy()[window - 1 : -1]
+
     if method == "historical":
         needed = math.ceil(round(1 / alpha, 9))
-        if size < needed:
+        if window < needed:
             raise MissingData(
-                f"a {confidence:.1%} historical VaR needs at least {needed} returns per window; the window is {size}"
+                f"a {confidence:.1%} historical VaR needs at least {needed} returns per window; the window is {window}"
             )
-        k = math.ceil(round(size * alpha, 9))
-        return -np.partition(windows, k - 1, axis=1)[:, k - 1]
-    mean = windows.mean(axis=1)
-    std = windows.std(axis=1, ddof=1)
+        k = math.ceil(round(window * alpha, 9))
+        # 'lower' takes sorted index floor((window - 1) * q); aiming at k - 1/2 makes that exactly k - 1.
+        return -aligned(rolling.quantile((k - 0.5) / (window - 1), interpolation="lower"))
+    mean = aligned(rolling.mean())
+    std = aligned(rolling.std(ddof=1))
     z = NormalDist().inv_cdf(alpha)
     if method == "parametric":
         return -(mean + z * std)
-    centered = windows - mean[:, None]
-    m2 = (centered**2).mean(axis=1)
-    if np.any(m2 == 0):
+    # pandas gives the bias-adjusted sample skewness G1 and excess kurtosis G2; convert them to
+    # the population moments g1 = m3 / m2^1.5 and g2 = m4 / m2^2 - 3 that analytics.risk uses.
+    n = window
+    g1 = aligned(rolling.skew()) * (n - 2) / math.sqrt(n * (n - 1))
+    g2 = (aligned(rolling.kurt()) * (n - 2) * (n - 3) / (n - 1) - 6) / (n + 1)
+    if np.isnan(g1).any() or np.isnan(g2).any():
         raise MissingData("returns do not vary within an estimation window, so skewness and kurtosis are undefined")
-    s = (centered**3).mean(axis=1) / m2**1.5
-    k = (centered**4).mean(axis=1) / m2**2 - 3
-    z_cf = z + (z**2 - 1) * s / 6 + (z**3 - 3 * z) * k / 24 - (2 * z**3 - 5 * z) * s**2 / 36
+    z_cf = z + (z**2 - 1) * g1 / 6 + (z**3 - 3 * z) * g2 / 24 - (2 * z**3 - 5 * z) * g1**2 / 36
     return -(mean + z_cf * std)
 
 
@@ -125,8 +135,8 @@ def backtest_var(returns: pd.Series, method: VarMethod, confidence: float = 0.95
     """Rolling one-day VaR backtest of ``method`` (see the module docstring)."""
     if not 0 < confidence < 1:
         raise ValueError(f"confidence must be between 0 and 1, got {confidence}")
-    windows, realized = _windows(returns, window)
-    var = _forecasts(windows, method, confidence)
+    rolling, realized = _rolling(returns, window)
+    var = _forecasts(rolling, method, confidence, window)
     return Backtest(
         method=method,
         window=window,
