@@ -9,6 +9,7 @@ import { NumberField } from "@/components/NumberField";
 import { getMessages } from "@/i18n";
 import type { SeriesResult } from "@/lib/envelope";
 import { formatChartNumber } from "@/lib/format";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
 type MetricId =
@@ -50,6 +51,9 @@ const DEFAULTS: Form = {
   market_price: "",
 };
 
+// Shareable links: `/options?spot=110&volatility=30`, one param per field.
+const URL_CODEC = fieldsCodec(DEFAULTS);
+
 const PERCENT_FIELDS = new Set<NumericField>(["volatility", "risk_free_rate", "dividend_yield"]);
 const NUMERIC_FIELDS: NumericField[] = [
   "spot",
@@ -83,13 +87,15 @@ function chartPoints(series: SeriesResult | undefined) {
 export function OptionsCalculator() {
   const t = getMessages();
   const o = t.options;
-  const [form, setForm] = useState<Form>(DEFAULTS);
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [form, setForm] = useState<Form>(initial);
   const { result, fieldErrors, error, run } = useCompute<MetricId, SeriesId>("/options/price", toRequest(form));
   const m = result?.metrics;
   const set = (field: keyof Form) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    share(form);
     run();
   }
 
