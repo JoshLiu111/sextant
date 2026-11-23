@@ -11,17 +11,13 @@ from fastapi.testclient import TestClient
 from pytest import approx
 
 from main import app
-from sextant_compute.analytics.ratios import RATIOS, Year
-from sextant_compute.data.context import RequestContext
-from sextant_compute.envelope import metric
 from tests.data_fixtures import serving
-from tests.edgar_fixtures import edgar_adapter, edgar_transport, load_facts, without_tags
+from tests.edgar_fixtures import edgar_adapter, edgar_transport, load_facts, only_period_ending, without_tags
 
 client = TestClient(app)
 PATH = "/api/compute/company/ratios"
 AAPL_FY26 = "2026-09-26"
 AAPL_FY25 = "2025-09-27"
-RATIOS_BY_ID = {r.id: r for r in RATIOS}
 
 
 def post(body: dict | None = None, adapter=None):
@@ -144,15 +140,16 @@ def test_the_earliest_displayed_year_averages_with_the_year_before_it() -> None:
 
 
 def test_without_a_prior_year_only_the_averaged_ratios_are_missing() -> None:
-    statements = edgar_adapter().financial_statements(RequestContext(user_id=None, keys={}), "AAPL").last(1)
-    year = Year(statements, 0)
+    facts = only_period_ending(load_facts("AAPL"), AAPL_FY26)
+    body = post(adapter=edgar_adapter(edgar_transport(facts_override={"AAPL": facts}))).json()
 
-    turnover = metric(lambda: RATIOS_BY_ID["asset_turnover"].compute(year))
-    assert turnover.status == "missing_data"
-    assert turnover.reason == (
+    assert [p["label"] for p in body["companies"][0]["periods"]] == ["FY2026"]
+    turnover = m(body, "asset_turnover", "AAPL", AAPL_FY26)
+    assert turnover["status"] == "missing_data"
+    assert turnover["reason"] == (
         "Needs the prior year's Total Assets for the average balance, and FY2026 is the earliest year in the data."
     )
-    assert metric(lambda: RATIOS_BY_ID["net_margin"].compute(year)).status == "ok"
+    assert m(body, "net_margin", "AAPL", AAPL_FY26)["status"] == "ok"
 
 
 def test_valuation_multiples_need_a_price() -> None:
@@ -178,7 +175,7 @@ def test_a_user_supplied_price_values_the_latest_fiscal_year() -> None:
     assert "latest fiscal year" in earlier["reason"]
 
 
-def test_input_validation() -> None:
+def test_blank_tickers_bad_prices_too_many_and_duplicate_companies_are_field_errors() -> None:
     res = post({"companies": [{"ticker": " ", "price": -1}], "years": 0})
 
     assert res.status_code == 422

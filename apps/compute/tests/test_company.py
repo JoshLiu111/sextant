@@ -89,7 +89,7 @@ def test_an_unknown_ticker_is_an_inline_error_on_the_ticker_field() -> None:
     assert "Unknown ticker ZZZZ" in error["fields"]["ticker"]
 
 
-def test_input_validation() -> None:
+def test_a_blank_ticker_and_out_of_range_years_are_field_errors() -> None:
     with serving(edgar_adapter(), "sec_edgar"):
         res = post({"ticker": "  ", "years": 0})
 
