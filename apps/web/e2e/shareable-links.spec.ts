@@ -41,6 +41,34 @@ test.describe("Options Calculator", () => {
   });
 });
 
+test.describe("Valuation Calculator", () => {
+  test("a link with non-default inputs shows results computed from them", async ({ page }) => {
+    // MSFT with 8% growth (other assumptions default): $178.68 per share.
+    const main = await open(page, "/valuation?ticker=msft&growth_rate=8", "Valuation Calculator");
+    await expect(main.getByLabel("Ticker")).toHaveValue("MSFT");
+    await expect(main.getByLabel("Growth rate (%)")).toHaveValue("8");
+    await expect(metric(main, "intrinsic_value_per_share")).toContainText("$178.68");
+  });
+
+  test("submitting writes the ticker and every assumption to the URL", async ({ page }) => {
+    const main = await open(page, "/valuation", "Valuation Calculator");
+    await expect(metric(main, "intrinsic_value_per_share")).toContainText("$158.11");
+    await main.getByLabel("Growth rate (%)").fill("8");
+    await main.getByRole("button", { name: "Value company" }).click();
+    await expect(page).toHaveURL(/[?&]ticker=MSFT(&|$)/);
+    await expect(page).toHaveURL(/[?&]growth_rate=8(&|$)/);
+    await expect(page).toHaveURL(/[?&]terminal_growth=2\.5(&|$)/);
+
+    await page.reload();
+    await expect(metric(main, "intrinsic_value_per_share")).toContainText("$178.68");
+  });
+
+  test("an out-of-range value shows the normal validation error", async ({ page }) => {
+    const main = await open(page, "/valuation?forecast_years=50", "Valuation Calculator");
+    await expect(main.getByTestId("field-error-forecast_years")).toBeVisible();
+  });
+});
+
 test.describe("Risk & Performance", () => {
   test("a link with non-default inputs shows results computed from them", async ({ page }) => {
     // DEMO-D's injected crash: exactly 45% from 2022-02-28 to the 2022-04-11 bottom.
