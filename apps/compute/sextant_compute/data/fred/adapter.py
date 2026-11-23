@@ -125,11 +125,15 @@ class FredAdapter:
 
     @classmethod
     def from_env(cls) -> FredAdapter:
-        """``FRED_API_KEY`` (required to fetch; the app starts without it) and
-        ``FRED_API_BASE_URL`` (optional; e2e tests point it at a fake)."""
+        """``FRED_API_KEY`` (required to fetch; the app starts without it),
+        ``FRED_API_BASE_URL`` (optional; e2e tests point it at a fake) and
+        ``FRED_MIN_INTERVAL_SECONDS`` (optional; only for a fake FRED, which has
+        no rate limit: real FRED needs the default 0.5 s)."""
+        interval = os.environ.get("FRED_MIN_INTERVAL_SECONDS")
         return cls(
             api_key=os.environ.get("FRED_API_KEY") or None,
             base_url=os.environ.get("FRED_API_BASE_URL") or BASE_URL,
+            throttle=Throttle(float(interval)) if interval else _PROCESS_THROTTLE,
         )
 
     def economic_series(
