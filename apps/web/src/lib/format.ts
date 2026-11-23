@@ -4,6 +4,7 @@ const fixed = (digits: number) =>
   new Intl.NumberFormat("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 const FOUR = fixed(4);
+const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const TWO = fixed(2);
 const PERCENT = new Intl.NumberFormat("en-US", {
   style: "percent",
@@ -18,10 +19,9 @@ export function formatValue(value: number, unit: Unit | null): string {
   if (unit === "percentage_points") return `${TWO.format(value)} pp`;
   if (unit === "ratio") return TWO.format(value);
   if (unit === "money") return TWO.format(value);
+  if (unit === "count") return WHOLE.format(value);
   return FOUR.format(value);
 }
-
-const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
 /**
  * Financial-statement cell: `currency` and `shares` in millions (no decimals),
