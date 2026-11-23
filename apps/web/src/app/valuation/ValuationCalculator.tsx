@@ -3,12 +3,14 @@
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { MetricCard, type MetricCardValue } from "@/components/MetricCard";
 import { MetricExplainer, type Explainer } from "@/components/MetricExplainer";
 import { NumberField } from "@/components/NumberField";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
+import { csvFilename } from "@/lib/csv";
 import { formatMoneyValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
 
@@ -109,9 +111,21 @@ function SensitivityTable({ result }: { result: ValuationResult }) {
   const columns = discount_rates.length ? discount_rates : [null, null, null, null, null];
   return (
     <section data-testid="sensitivity" aria-labelledby="sensitivity-heading">
-      <h2 id="sensitivity-heading" className="text-lg font-semibold">
-        {v.sections.sensitivity}
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="sensitivity-heading" className="text-lg font-semibold">
+          {v.sections.sensitivity}
+        </h2>
+        <ExportCsvButton
+          label={v.sections.sensitivity}
+          filename={csvFilename("valuation", "sensitivity", result.company.ticker)}
+          demo={result.source.is_demo}
+          table={{
+            // Rates as decimals (0.05 = 5%), like the request model.
+            columns: [`${v.growthAxis} \\ ${v.discountAxis}`, ...discount_rates.map(String)],
+            rows: growth_rates.map((g, i) => [g, ...discount_rates.map((_, j) => result.metrics[`sensitivity:${i}:${j}`])]),
+          }}
+        />
+      </div>
       <p className="mt-1 text-sm text-black/60 dark:text-white/60">{v.sensitivityCaption}</p>
       <div className="mt-2 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
         <table aria-labelledby="sensitivity-heading" className="w-full min-w-[28rem] border-collapse text-sm">
@@ -172,9 +186,17 @@ function FcfTable({ result }: { result: ValuationResult }) {
   ];
   return (
     <section data-testid="fcf" aria-labelledby="fcf-heading">
-      <h2 id="fcf-heading" className="text-lg font-semibold">
-        {v.sections.fcf}
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="fcf-heading" className="text-lg font-semibold">
+          {v.sections.fcf}
+        </h2>
+        <ExportCsvButton
+          label={v.sections.fcf}
+          filename={csvFilename("valuation", "free-cash-flow", result.company.ticker)}
+          demo={result.source.is_demo}
+          table={{ columns: [v.fcfTable.year, v.fcfTable.value], rows: rows.map((row) => [row.year, row.y]) }}
+        />
+      </div>
       <div className="mt-2 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
         <table aria-labelledby="fcf-heading" className="w-full border-collapse text-sm">
           <thead>

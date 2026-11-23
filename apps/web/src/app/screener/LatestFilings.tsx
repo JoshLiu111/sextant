@@ -3,8 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { csvFilename } from "@/lib/csv";
 import type { ResultEnvelope } from "@/lib/envelope";
 import { useCompute } from "@/lib/useCompute";
 
@@ -101,9 +103,26 @@ export function LatestFilings() {
         )}
         {list ? (
           <>
-            <h3 data-testid="filings-heading" className="text-base font-semibold">
-              {list.scope === "company" && list.company ? f.companyHeading(list.company) : f.marketHeading}
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 data-testid="filings-heading" className="text-base font-semibold">
+                {list.scope === "company" && list.company ? f.companyHeading(list.company) : f.marketHeading}
+              </h3>
+              {list.filings.length > 0 && (
+                <ExportCsvButton
+                  label={f.tableLabel}
+                  filename={csvFilename(
+                    "screener",
+                    "filings",
+                    [query.ticker || "market", query.form].filter(Boolean).join("_"),
+                  )}
+                  demo={list.source.is_demo}
+                  table={{
+                    columns: [f.formColumn, f.title, f.companyColumn, f.filed],
+                    rows: list.filings.map((row) => [row.form, row.title, row.company, row.filed]),
+                  }}
+                />
+              )}
+            </div>
             {list.filings.length === 0 ? (
               <p className="text-sm text-black/60 dark:text-white/60">{f.none}</p>
             ) : (

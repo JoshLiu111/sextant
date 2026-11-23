@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { MetricExplainer } from "@/components/MetricExplainer";
 import { getMessages } from "@/i18n";
+import { csvFilename } from "@/lib/csv";
 import type { ResultEnvelope } from "@/lib/envelope";
 import { useCompute } from "@/lib/useCompute";
 
@@ -327,6 +329,24 @@ export function Screener() {
             {screen.rows.length === 0 ? (
               <p className="text-sm text-black/60 dark:text-white/60">{s.noMatches}</p>
             ) : (
+              <div className="flex justify-end">
+                <ExportCsvButton
+                  label={s.resultsLabel}
+                  filename={csvFilename("screener", "results", String(screen.year))}
+                  demo={screen.source.is_demo}
+                  table={{
+                    columns: [s.ticker, s.company, ...screen.columns.map((c) => c.label), s.fiscalYearEnd],
+                    rows: screen.rows.map((r) => [
+                      r.ticker,
+                      r.name,
+                      ...screen.columns.map((c) => r.values[c.id]),
+                      r.period_end,
+                    ]),
+                  }}
+                />
+              </div>
+            )}
+            {screen.rows.length > 0 && (
               <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
                 <table aria-label={s.resultsLabel} className="w-full min-w-[40rem] border-collapse text-sm">
                   <thead>
