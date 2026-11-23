@@ -46,6 +46,7 @@ from sextant_compute.data.adapters import (
     SeriesMeta,
     SeriesSearchAdapter,
     SeriesSummary,
+    SplitsAdapter,
     YieldCurveAdapter,
     YieldCurves,
 )
@@ -257,6 +258,23 @@ class DataService:
             lambda: adapter.daily_prices(ctx, wanted, start, end),
             _encode_frames,
             _decode_frames,
+        )
+
+    def splits(self, ctx: RequestContext, ticker: str, start: date, *, source: str) -> list[tuple[date, float]]:
+        """One ticker's stock splits from ``start`` up to today; see ``SplitsAdapter``.
+        A source without split data (the synthetic demo) has no splits."""
+        adapter = self._adapter(source)
+        if not hasattr(adapter, "splits"):
+            return []
+        splits = cast(SplitsAdapter, adapter)
+        return self._cached(
+            ctx,
+            splits,
+            "splits",
+            {"ticker": ticker, "start": start.isoformat()},
+            lambda: splits.splits(ctx, ticker, start),
+            lambda found: [[d.isoformat(), ratio] for d, ratio in found],
+            lambda raw: [(date.fromisoformat(d), float(ratio)) for d, ratio in raw],
         )
 
     def latest_close(self, ctx: RequestContext, ticker: str, *, source: str) -> LatestClose:
