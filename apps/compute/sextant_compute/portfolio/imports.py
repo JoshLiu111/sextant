@@ -28,7 +28,7 @@ from sextant_compute.db import Database
 from sextant_compute.errors import ApiError
 from sextant_compute.portfolio import store
 from sextant_compute.portfolio.api import MAX_HOLDINGS
-from sextant_compute.portfolio.ledger import Position, apply_transactions
+from sextant_compute.portfolio.ledger import Applied, Position, apply_transactions
 from sextant_compute.portfolio.saved import PortfolioOut, SavedHolding, load
 from sextant_compute.portfolio.transactions_csv import (
     FIELDS,
@@ -114,6 +114,8 @@ class ImportResult(BaseModel):
 
 class StoredTransaction(TransactionOut):
     import_id: UUID
+    realized_pnl: float | None
+    """For a sell, the P&L booked when it was imported (FIFO, docs/adr/0004), in ``currency``. None for buys."""
 
 
 def _not_found() -> ApiError:
@@ -143,15 +145,23 @@ def _mapping(body: ImportIn, table: Table) -> dict[Field, str | None]:
 
 def _plan(
     holdings: list[dict], table: Table, mapping: dict[Field, str | None]
-) -> tuple[list[Position], list[Transaction], list[RowError]]:
+) -> tuple[list[Position], list[Applied], list[RowError]]:
     parsed, parse_errors = parse_rows(table, mapping, datetime.now(UTC).date())
-    after, applied, ledger_errors = apply_transactions([Position(**h) for h in holdings], parsed)
-    applied.sort(key=lambda t: t.line)
+    positions = [
+        Position(h["ticker"], h["quantity"], h["cost_price"], h["currency"], h.get("lots") or []) for h in holdings
+    ]
+    after, applied, ledger_errors = apply_transactions(positions, parsed)
+    applied.sort(key=lambda a: a.transaction.line)
     return after, applied, sorted(parse_errors + ledger_errors, key=lambda e: e.line)
 
 
 def _holding(p: Position) -> SavedHolding:
     return SavedHolding(ticker=p.ticker, quantity=p.quantity, cost_price=p.cost_price, currency=p.currency)
+
+
+def _stored_holding(p: Position) -> dict:
+    lots = [{"quantity": lot.quantity, "cost_price": lot.cost_price} for lot in p.lots]
+    return {**_holding(p).model_dump(), "lots": lots}
 
 
 def _transaction(t: Transaction) -> TransactionOut:
@@ -176,7 +186,7 @@ def preview_import(portfolio_id: UUID, body: ImportIn, user: CurrentUser, db: Db
     return Preview(
         **base,
         missing_fields=[],
-        transactions=[_transaction(t) for t in applied],
+        transactions=[_transaction(a.transaction) for a in applied],
         errors=[_error(e) for e in errors],
         holdings_after=[_holding(p) for p in after],
     )
@@ -211,8 +221,8 @@ def import_transactions(portfolio_id: UUID, body: ImportIn, user: CurrentUser, d
         import_id = store.record_import(
             conn,
             portfolio_id,
-            [_holding(p).model_dump() for p in after],
-            [_transaction(t).model_dump() for t in applied],
+            [_stored_holding(p) for p in after],
+            [{**_transaction(a.transaction).model_dump(), "realized_pnl": a.realized_pnl} for a in applied],
         )
     return ImportResult(
         import_id=import_id,
