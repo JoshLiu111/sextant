@@ -60,11 +60,12 @@ class AnthropicModel:
         self._sleep = sleep
 
     @classmethod
-    def from_env(cls) -> AnthropicModel:
+    def from_env(cls, *, transport: httpx.BaseTransport | None = None) -> AnthropicModel:
         return cls(
             api_key=os.environ.get("ANTHROPIC_API_KEY") or None,
             model=os.environ.get("AI_MODEL") or DEFAULT_MODEL,
             base_url=os.environ.get("ANTHROPIC_BASE_URL") or DEFAULT_BASE_URL,
+            transport=transport,
         )
 
     def complete(self, system: str, prompt: str) -> Completion:
