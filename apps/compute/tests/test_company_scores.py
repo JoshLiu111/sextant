@@ -137,3 +137,24 @@ def test_beneish_m_matches_a_hand_computation_and_names_its_zone() -> None:
         "lvgi": 0.866763,
     }.items():
         assert details[index] == approx(expected, abs=1e-5), index
+
+
+def test_dupont_components_multiply_back_to_roe_every_year() -> None:
+    body = post({"companies": [{"ticker": "AAPL"}, {"ticker": "MSFT"}], "years": 5})
+
+    # FY2026: tax burden = 132,175 / 159,237; interest burden = 159,237 / 158,063 (EBIT).
+    assert m(body, "dupont_tax_burden", "AAPL", AAPL_FY26)["value"] == approx(0.830052, rel=1e-6)
+    assert m(body, "dupont_interest_burden", "AAPL", AAPL_FY26)["value"] == approx(1.007427, rel=1e-6)
+    assert m(body, "dupont_tax_burden", "AAPL", AAPL_FY26)["unit"] == "ratio"
+    for company in body["companies"]:
+        for p in company["periods"]:
+            v = {k: m(body, k, company["ticker"], p["id"])["value"] for k in (
+                "return_on_equity", "net_margin", "asset_turnover", "equity_multiplier",
+                "dupont_tax_burden", "dupont_interest_burden", "operating_margin",
+            )}
+            assert v["net_margin"] * v["asset_turnover"] * v["equity_multiplier"] == approx(v["return_on_equity"])
+            five = (
+                v["dupont_tax_burden"] * v["dupont_interest_burden"] * v["operating_margin"]
+                * v["asset_turnover"] * v["equity_multiplier"]
+            )
+            assert five == approx(v["return_on_equity"])

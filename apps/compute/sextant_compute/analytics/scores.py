@@ -186,6 +186,12 @@ MODELS: tuple[Ratio, ...] = (
     Ratio("piotroski_f", "scores", "score", piotroski_f),
     Ratio("beneish_m", "scores", "score", beneish_m),
     *PIOTROSKI_SIGNALS,
+    # DuPont five-step: net margin = tax burden x interest burden x operating margin.
+    Ratio("dupont_tax_burden", "dupont", "ratio", lambda y: div(y("net_income"), y("pretax_income"), "Pretax Income")),
+    Ratio(
+        "dupont_interest_burden", "dupont", "ratio",
+        lambda y: div(y("pretax_income"), y("operating_income"), "Operating Income"),
+    ),
 )
 """Every model, in display order: the scores, then the Piotroski signals, then
 the DuPont burdens."""
