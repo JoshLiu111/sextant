@@ -6,9 +6,14 @@ Imported by ``ai/api.py`` (last line), so the routes exist before the router is 
 
 from __future__ import annotations
 
-from sextant_compute.ai.api import add_explainer
+from uuid import UUID
+
+from sextant_compute.ai.api import ToolInputs, add_explainer
+from sextant_compute.envelope import ResultEnvelope
 from sextant_compute.options.api import OptionsRequest
 from sextant_compute.options.api import price as options_price
+from sextant_compute.portfolio.api import AnalysisSettings, PortfolioRequest, portfolio_metrics
+from sextant_compute.portfolio.saved import saved_portfolio_metrics
 from sextant_compute.risk.api import RiskRequest, risk_metrics
 
 OPTIONS_GUIDE = """
@@ -46,3 +51,38 @@ Series: drawdown:<ticker> is the fall below the running peak on each date (0 = a
 add_explainer("options", OptionsRequest, lambda req, _: options_price(req), OPTIONS_GUIDE)
 add_explainer("risk", RiskRequest, lambda req, i: risk_metrics(req, i.data, i.ctx), RISK_GUIDE)
 
+
+PORTFOLIO_GUIDE = f"""
+My Portfolio: one portfolio (meta.parameters.holdings: tickers with weights as
+decimals, 0.6 = 60%, rebalanced daily) against meta.parameters.benchmark over start to
+end. Metric ids are "<metric>:portfolio" and "<metric>:benchmark".
+{RISK_METRICS.strip()}
+Series: cumulative_return:portfolio and cumulative_return:benchmark (0.25 = up 25% since the start).
+"""
+
+SAVED_PORTFOLIO_GUIDE = f"""
+My Portfolio, a saved portfolio: the user's holdings (meta.parameters.holdings: ticker,
+quantity, cost_price per unit, currency) held at those quantities (buy and hold) against
+meta.parameters.benchmark over start to end. Metric ids are "<metric>:portfolio" and
+"<metric>:benchmark". market_value:portfolio, cost_basis:portfolio and
+unrealized_pnl:portfolio are money in the holdings' currency (valued at the last close
+in the range); unrealized_return:portfolio is a decimal.
+{RISK_METRICS.strip()}
+Series: cumulative_return:portfolio and cumulative_return:benchmark (0.25 = up 25% since the start).
+"""
+
+
+class SavedPortfolioRequest(AnalysisSettings):
+    """A saved portfolio's result is asked for by its id (the rest of its
+    ``meta.parameters``, name and holdings, is reloaded from the database)."""
+
+    portfolio_id: UUID
+
+
+def _saved_portfolio(req: SavedPortfolioRequest, i: ToolInputs) -> ResultEnvelope:
+    settings = AnalysisSettings(**req.model_dump(exclude={"portfolio_id"}))
+    return saved_portfolio_metrics(req.portfolio_id, settings, i.user, i.db, i.data, i.ctx)
+
+
+add_explainer("portfolio", PortfolioRequest, lambda req, i: portfolio_metrics(req, i.data, i.ctx), PORTFOLIO_GUIDE)
+add_explainer("portfolio-saved", SavedPortfolioRequest, _saved_portfolio, SAVED_PORTFOLIO_GUIDE)

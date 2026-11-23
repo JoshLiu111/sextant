@@ -63,3 +63,46 @@ def test_risk_explains_the_demo_result_as_demo_data(client, model):
     assert var["status"] == "missing_data"
     assert "needs at least 1000 daily returns" in var["reason"]
     assert_demo_framing(model, prompt)
+
+
+def test_my_portfolio_explains_the_demo_portfolio(client, model):
+    holdings = [{"ticker": "DEMO-A", "weight": 0.6}, {"ticker": "DEMO-B", "weight": 0.4}]
+
+    explain(client, "portfolio", {"holdings": holdings, **SHORT_HISTORY, "confidence": 0.999})
+
+    prompt, result = shown(model)
+    assert result["tool"] == "portfolio"
+    assert result["meta"]["parameters"]["holdings"] == holdings
+    assert result["metrics"]["annualized_volatility:portfolio"]["status"] == "ok"
+    assert result["metrics"]["var:portfolio"]["status"] == "missing_data"
+    assert "needs at least 1000 daily returns" in result["metrics"]["var:portfolio"]["reason"]
+    assert_demo_framing(model, prompt)
+
+
+SAVED = {
+    "name": "Retirement",
+    "holdings": [
+        {"ticker": "DEMO-A", "quantity": 10, "cost_price": 95.5, "currency": "USD"},
+        {"ticker": "DEMO-B", "quantity": 2.5, "cost_price": 40, "currency": "USD"},
+    ],
+}
+
+
+def test_my_portfolio_explains_a_saved_portfolio_of_its_owner_only(client, model):
+    alice = sign_in(client, "sub-alice", email="alice@example.test")
+    bob = sign_in(client, "sub-bob", email="bob@example.test")
+    saved = client.post("/api/compute/portfolios", json=SAVED, headers=bearer(alice)).json()
+    body = {"portfolio_id": saved["id"], **SHORT_HISTORY}
+
+    explain(client, "portfolio-saved", body, token=alice)
+
+    prompt, result = shown(model)
+    assert result["tool"] == "portfolio"
+    assert result["meta"]["parameters"]["name"] == "Retirement"
+    assert result["metrics"]["market_value:portfolio"]["status"] == "ok"
+    assert result["metrics"]["cost_basis:portfolio"]["value"] == pytest.approx(10 * 95.5 + 2.5 * 40)
+    assert_demo_framing(model, prompt)
+    # Someone else's portfolio is not found, and costs nothing.
+    other = client.post("/api/compute/ai/explain/portfolio-saved", json=body, headers=bearer(bob))
+    assert other.status_code == 404
+    assert client.get("/api/compute/ai/quota", headers=bearer(bob)).json()["used"] == 0
