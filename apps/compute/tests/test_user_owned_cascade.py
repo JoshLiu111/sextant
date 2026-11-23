@@ -43,11 +43,20 @@ def _portfolio_holding_row(conn: psycopg.Connection, user_id) -> None:
     )
 
 
+def _provider_key_row(conn: psycopg.Connection, user_id) -> None:
+    conn.execute(
+        "INSERT INTO provider_keys (user_id, provider, nonce, ciphertext, hint)"
+        " VALUES (%s, 'tiingo', %s, %s, 'abcd')",
+        (user_id, os.urandom(12), os.urandom(56)),
+    )
+
+
 # table name -> inserts one row owned by user_id. Order matters: parents first.
 USER_OWNED_ROWS: dict[str, RowFactory] = {
     "sessions": _session_row,
     "portfolios": _portfolio_row,
     "portfolio_holdings": _portfolio_holding_row,
+    "provider_keys": _provider_key_row,
 }
 
 
