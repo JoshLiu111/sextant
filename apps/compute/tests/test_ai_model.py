@@ -127,3 +127,40 @@ def test_a_turn_that_must_answer_keeps_the_tools_declared_but_forbids_calling_th
     assert seen[0]["tool_choice"] == {"type": "none"}
     assert turn.tool_uses == []
     assert turn.text == "The call is worth 10.45."
+
+
+# Seen live on 2026-11-23: claude-haiku-5-5 thinks by default, and on a real
+# portfolio prompt the thinking used the whole output budget, so the reply held
+# only a thinking block and AI Explain showed an empty explanation.
+THINKING_ONLY_REPLY = {
+    **REPLY,
+    "content": [{"type": "thinking", "thinking": "", "signature": "sig"}],
+    "stop_reason": "max_tokens",
+    "usage": {"input_tokens": 2400, "output_tokens": 700},
+}
+
+
+def test_explain_and_analyst_requests_turn_thinking_off():
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json=REPLY)
+
+    model = AnthropicModel("k", transport=fake(handler))
+    model.complete("s", "p")
+    model.converse("s", [{"role": "user", "content": "q"}], [], must_answer=True)
+
+    assert [body["thinking"] for body in seen] == [{"type": "disabled"}] * 2
+
+
+def test_a_reply_without_any_text_is_reported_as_unavailable():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=THINKING_ONLY_REPLY)
+
+    model = AnthropicModel("k", transport=fake(handler))
+
+    with pytest.raises(ModelUnavailable):
+        model.complete("s", "p")
+    with pytest.raises(ModelUnavailable):
+        model.converse("s", [{"role": "user", "content": "q"}], [], must_answer=True)
