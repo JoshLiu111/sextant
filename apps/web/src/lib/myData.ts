@@ -17,6 +17,9 @@ export type MyDataProvider = (typeof MY_DATA_PROVIDERS)[number];
 
 export const DEMO_SOURCE = "synthetic";
 
+/** Demo tickers (DEMO-A, DEMO-MKT, ...) only have Demo data (compute `data/sources.py` `is_demo_ticker`). */
+export const isDemoTicker = (ticker: string) => ticker.trim().toUpperCase().startsWith("DEMO-");
+
 /** What a market-data request's `source` field may say. */
 export type PriceSource = typeof DEMO_SOURCE | MyDataProvider;
 
@@ -28,17 +31,26 @@ export const PROVIDER_NAMES: Record<MyDataProvider, string> = { tiingo: "Tiingo"
  * tool starts (and stays) on demo data until a key is known to exist.
  */
 export function useMyDataProviders(): MyDataProvider[] {
-  const [providers, setProviders] = useState<MyDataProvider[]>([]);
+  return useMyDataProviderList().providers;
+}
+
+/** `useMyDataProviders`, plus whether the key list has answered yet (`loaded`). */
+export function useMyDataProviderList(): { providers: MyDataProvider[]; loaded: boolean } {
+  const [state, setState] = useState<{ providers: MyDataProvider[]; loaded: boolean }>({
+    providers: [],
+    loaded: false,
+  });
   useEffect(() => {
     let live = true;
     providerKeysApi.list().then((outcome) => {
-      if (!live || outcome.kind !== "ok") return; // 401 when signed out
+      if (!live) return;
+      if (outcome.kind !== "ok") return setState({ providers: [], loaded: true }); // 401 when signed out
       const saved = new Set(outcome.value.map((k) => k.provider));
-      setProviders(MY_DATA_PROVIDERS.filter((p) => saved.has(p)));
+      setState({ providers: MY_DATA_PROVIDERS.filter((p) => saved.has(p)), loaded: true });
     });
     return () => {
       live = false;
     };
   }, []);
-  return providers;
+  return state;
 }

@@ -94,13 +94,43 @@ test("a saved portfolio with real tickers is valued at the user's Tiingo closes"
   await expect(saved.getByRole("status").first()).toContainText("Saved");
 
   const results = saved.getByTestId("saved-results");
-  // Demo data has no AAPL, so the demo run fails until the user switches.
-  await expect(results.getByText(/Unknown ticker AAPL/).first()).toBeVisible(COLD);
-  await results.getByTestId("data-mode").getByText("My data").click();
-
+  // Real tickers and a saved key: it opens on My data, with no failed Demo run first.
+  await expect(results.getByTestId("data-mode").getByLabel("My data")).toBeChecked(COLD);
   await expect(results.getByRole("textbox", { name: "Benchmark" })).toHaveValue("SPY");
-  await expect(results.locator('[data-position-value="market_value:AAPL"]')).toHaveText("1,300.00");
+  await expect(results.locator('[data-position-value="market_value:AAPL"]')).toHaveText("1,300.00", COLD);
   await expect(results.locator('[data-metric-value="max_drawdown:portfolio"]')).toContainText("10.00%");
   await expect(results.locator('[data-metric-value="twr:portfolio"]')).toContainText("30.00%");
   await expect(results.getByTestId("demo-badge")).toHaveCount(0);
+  await expect(results.getByText(/Unknown ticker/)).toHaveCount(0);
+});
+
+test("an unknown ticker in a saved portfolio marks only its own position missing", async ({ page }) => {
+  await signIn(page, uniqueEmail("pf-unknown"), { withKey: true });
+  await page.goto("/portfolio");
+  const saved = page.getByRole("main").getByRole("region", { name: "Your portfolios" });
+  await saved.getByLabel("Portfolio name").fill("Mixed");
+  await saved.getByLabel("Ticker 1").fill("AAPL");
+  await saved.getByLabel("Quantity 1").fill("10");
+  await saved.getByLabel("Cost price 1").fill("90");
+  await saved.getByRole("button", { name: "Add holding" }).click();
+  await saved.getByLabel("Ticker 2").fill("ZZZZ");
+  await saved.getByLabel("Quantity 2").fill("3");
+  await saved.getByLabel("Cost price 2").fill("20");
+  await saved.getByRole("button", { name: "Save portfolio" }).click();
+  await expect(saved.getByRole("status").first()).toContainText("Saved");
+
+  const results = saved.getByTestId("saved-results");
+  await expect(results.locator('[data-position-value="market_value:AAPL"]')).toHaveText("1,300.00", COLD);
+  const unknown = results.locator('[data-position-value="market_value:ZZZZ"]');
+  await expect(unknown).toHaveAttribute("data-status", "missing_data");
+  await expect(unknown).toHaveAttribute("title", /Tiingo has no ticker ZZZZ/);
+  await expect(results.locator('[data-position-value="cost_basis:ZZZZ"]')).toHaveText("60.00");
+  const volatility = results.locator('[data-metric-value="annualized_volatility:portfolio"]');
+  await expect(volatility).toHaveAttribute("data-status", "missing_data");
+  await expect(volatility).toContainText("ZZZZ");
+  await expect(results.locator('[data-metric-value="annualized_volatility:benchmark"]')).toHaveAttribute(
+    "data-status",
+    "ok",
+  );
+  await expect(results.getByRole("alert")).toHaveCount(0);
 });

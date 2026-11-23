@@ -818,7 +818,7 @@ export const en = {
     saved: {
       heading: "Your portfolios",
       intro:
-        "Enter your holdings and save them as a named portfolio. Each portfolio is held at its quantities (bought and held, dividends reinvested) and compared with a benchmark. Prices come from demo data, or with My data from your own provider once you save its key in Settings.",
+        "Enter your holdings and save them as a named portfolio. Each portfolio is held at its quantities (bought and held, dividends reinvested) and compared with a benchmark. Prices come from demo data, or with My data from your own provider once you save its key in Settings; a portfolio of real tickers then opens on My data.",
       empty: "You have no saved portfolios yet.",
       switcher: "Saved portfolio",
       newPortfolio: "New portfolio",
