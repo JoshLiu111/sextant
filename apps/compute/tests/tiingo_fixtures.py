@@ -19,7 +19,7 @@ rows, piecewise-linear closes; real Tiingo is daily, the code doesn't care).
 Split-adjusted close on 2025-11-21 -> highest close -> close on 2026-11-20:
 ``nvda`` 100 -> 180 -> 150, ``amzn`` 200 -> 260 -> 240, ``googl`` 150 -> 210 (ends
 on its high), ``meta`` 600 -> 700 -> 540, ``lly`` 800 -> 1000 -> 920, ``nflx``
-1000 -> 1100 -> 900, ``avgo`` 250 -> 320 -> 300 with a 4:1 split on 2026-05-15
+1000 -> 1100 -> 900, ``avgo`` 250 -> 320 -> 300 with a 4:1 split on 2026-05-08
 (raw closes before it are 4x). The 2025-11-14 row differs from the base on
 purpose. ``msft`` has no rows in that window and ``adbe`` has no file.
 
