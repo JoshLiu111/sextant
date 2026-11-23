@@ -1,10 +1,12 @@
 "use client";
 
 import { CalculationInfo } from "@/components/CalculationInfo";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { LineChart, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { getMessages } from "@/i18n";
 import type { ResultEnvelope, SeriesResult } from "@/lib/envelope";
+import { csvFilename } from "@/lib/csv";
 import { formatChartDate, formatChartPercent } from "@/lib/format";
 
 /** The P3 metric set, scored for the portfolio and the benchmark. Explainers are shared with Risk & Performance. */
@@ -23,6 +25,12 @@ const METRICS = [
 const WHO = ["portfolio", "benchmark"] as const;
 
 export type PortfolioEnvelope = ResultEnvelope<string, string>;
+
+/** File-name input for a portfolio export: the saved name, else the holdings' tickers. */
+export function portfolioCsvInput(result: PortfolioEnvelope): string {
+  const params = result.meta.parameters as { name?: string; holdings?: { ticker: string }[] };
+  return params.name ?? (params.holdings ?? []).map((h) => h.ticker).join("_");
+}
 
 function chartPoints(series: SeriesResult | undefined) {
   if (!series || series.status !== "ok") return [];
@@ -80,7 +88,23 @@ export function PortfolioResults({
         </div>
       </div>
       <div>
-        <h2 className="text-lg font-semibold">{p.sections.metrics}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">{p.sections.metrics}</h2>
+          {result && (
+            <ExportCsvButton
+              label={p.sections.metrics}
+              filename={csvFilename("portfolio", "risk", portfolioCsvInput(result))}
+              demo={result.source.is_demo}
+              table={{
+                columns: [t.common.csv.metric, labels.portfolio, labels.benchmark],
+                rows: METRICS.map((id) => [
+                  t.risk.metrics[id].name,
+                  ...WHO.map((who) => result.metrics[`${id}:${who}`]),
+                ]),
+              }}
+            />
+          )}
+        </div>
         <p className="mt-1 text-sm text-black/70 dark:text-white/70">{metricsNote ?? p.sections.metricsNote}</p>
         <div className="mt-2 grid gap-4 xl:grid-cols-3">
           {METRICS.map((id) => (
