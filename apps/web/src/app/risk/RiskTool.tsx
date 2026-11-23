@@ -123,6 +123,19 @@ function factorNote(result: MetricResult | undefined, copy: FactorCopy, periods:
   return copy.exactFit;
 }
 
+/** The line under a period-dependent value: how many returns of the chosen period it
+ * used (`details.observations`, whole periods only), e.g. "60 months". */
+function periodCountNote(
+  result: MetricResult | undefined,
+  period: ReturnPeriod | undefined,
+  copy: FactorCopy,
+  periods: PeriodCopy,
+): string | undefined {
+  if (result?.status !== "ok" || !period) return undefined;
+  const n = result.details.observations;
+  return typeof n === "number" ? copy.observations(formatCount(n), periods[period].noun, n) : undefined;
+}
+
 /** Where the factors came from, from the first factor result that names it. */
 function factorSource(result: { metrics: Record<string, MetricResult> } | null | undefined): string | undefined {
   const named = Object.values(result?.metrics ?? {}).find((m) => typeof m.details.factor_source === "string");
@@ -317,7 +330,9 @@ export function RiskTool() {
                             id: `${id}:${ticker}`,
                             label: label(ticker),
                             result: value,
-                            note: FACTOR_GROUPS.has(group) ? factorNote(value, r.factors, r.timescale.periods) : undefined,
+                            note: FACTOR_GROUPS.has(group)
+                              ? factorNote(value, r.factors, r.timescale.periods)
+                              : periodCountNote(value, params?.period, r.factors, r.timescale.periods),
                           };
                         })
                       : [{ id: `${id}:pending`, result: undefined }]

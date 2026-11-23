@@ -71,6 +71,40 @@ def test_volatility_and_sharpe_use_period_returns_annualized_for_the_period(peri
     assert body["meta"]["parameters"]["period"] == period
 
 
+def stub_edged_frame() -> pd.DataFrame:
+    """Closes from mid-Q1 2024 to mid-Q1 2025: full Q2-Q4 2024 return +10%, -10%, +20%;
+    the partial first and last quarters swing +50% and -60%."""
+    levels = {"2024-02-20": 150.0, "2024-06-28": 165.0, "2024-09-30": 148.5, "2024-12-31": 178.2, "2025-02-03": 71.28}
+    days = pd.bdate_range("2024-02-15", "2025-02-14")
+    closes, level = [], 100.0
+    for day in days:
+        level = levels.get(day.date().isoformat(), level)
+        closes.append(level)
+    return price_frame("2024-02-15", closes)
+
+
+def test_partial_first_and_last_periods_are_left_out_of_the_statistics():
+    with serving(FixtureAdapter({"STUB": stub_edged_frame()})):
+        body = metrics(tickers=["STUB"], benchmark="STUB", start="2024-02-15", end="2025-02-14", period="quarterly")
+
+    volatility = body["metrics"]["annualized_volatility:STUB"]
+    assert value(body, "annualized_volatility:STUB") == pytest.approx(STEP_RETURNS_STD * math.sqrt(4))
+    assert value(body, "sharpe:STUB") == pytest.approx(STEP_RETURNS_MEAN / STEP_RETURNS_STD * math.sqrt(4))
+    assert volatility["details"]["observations"] == 3
+    assert body["metrics"]["beta:STUB"]["details"]["observations"] == 3
+    # Annualized return and max drawdown still use every day.
+    assert body["metrics"]["max_drawdown:STUB"]["details"].get("observations") is None
+
+
+def test_a_period_starting_after_a_holiday_still_counts_as_full():
+    # 2024-01-01 is New Year's Day; the stepped frame starts trading through the first period.
+    code, _ = PERIOD_CODES["monthly"]
+    with serving(FixtureAdapter({"STEP": stepped_frame(code, start="2024-01-02")})):
+        body = metrics(tickers=["STEP"], benchmark="STEP", start="2024-01-01", end="2024-03-31", period="monthly")
+
+    assert body["metrics"]["annualized_volatility:STEP"]["details"]["observations"] == 3
+
+
 @pytest.mark.parametrize("period", ["weekly", "monthly"])
 def test_the_configured_annual_volatility_is_recovered_at_longer_periods(period):
     body = metrics(tickers=["DEMO-A"], period=period)
