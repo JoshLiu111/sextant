@@ -4,6 +4,8 @@
 export type Attribution = {
   text: string;
   href?: string;
+  /** Extra links shown after the text, e.g. terms a provider requires us to link. */
+  links?: readonly { label: string; href: string }[];
 };
 
 export const ATTRIBUTIONS = {
@@ -12,6 +14,7 @@ export const ATTRIBUTIONS = {
   fred: {
     text: "This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.",
     href: "https://fred.stlouisfed.org/",
+    links: [{ label: "FRED API Terms of Use", href: "https://fred.stlouisfed.org/docs/api/terms_of_use.html" }],
   },
 } as const satisfies Record<string, Attribution>;
 

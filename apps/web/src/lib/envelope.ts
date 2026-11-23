@@ -15,6 +15,7 @@ export type Unit =
   | "per_vol_point"
   | "per_day"
   | "per_rate_point"
+  | "percent"
   | "date"
   | (string & {});
 
