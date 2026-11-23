@@ -12,6 +12,8 @@ import { useCompute } from "@/lib/useCompute";
 // Envelope ids: metric "latest:<key>" (details carry the series metadata), series "history:<key>".
 const INDICATORS = ["gdp_growth", "cpi_inflation", "unemployment_rate", "fed_funds_rate"] as const;
 type IndicatorKey = (typeof INDICATORS)[number];
+type MetricId = `latest:${IndicatorKey}`;
+type SeriesId = `history:${IndicatorKey}`;
 
 const COLORS: Record<IndicatorKey, string> = {
   gdp_growth: "#2563eb",
@@ -30,7 +32,7 @@ function chartPoints(series: SeriesResult | undefined) {
 
 export function MacroDashboard() {
   const t = getMessages();
-  const { result, error } = useCompute<string, string>("/macro/indicators", REQUEST);
+  const { result, error } = useCompute<MetricId, SeriesId>("/macro/indicators", REQUEST);
 
   return (
     <section data-testid="results" aria-labelledby="macro-indicators" className="mt-6 space-y-6">

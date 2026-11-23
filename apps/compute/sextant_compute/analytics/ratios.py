@@ -31,6 +31,7 @@ from sextant_compute.analytics.guards import positive
 
 Category = Literal["efficiency", "liquidity", "profitability", "solvency", "valuation", "distress"]
 CATEGORIES: tuple[Category, ...] = ("efficiency", "liquidity", "profitability", "solvency", "valuation", "distress")
+RatioUnit = Literal["ratio", "decimal", "days", "currency", "per_share", "score"]  # envelope units
 DAYS = 365
 
 Detail = str | float | int | None
@@ -129,7 +130,7 @@ def div(numerator: float, denominator: float, what: str) -> float:
 class Ratio:
     id: str
     category: Category
-    unit: str  # envelope unit: ratio | decimal | days | currency | per_share
+    unit: RatioUnit
     compute: Callable[[Year], float | WithDetails]
 
 

@@ -11,18 +11,27 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal, NamedTuple
 
 from sextant_compute.analytics.guards import positive
 
 Get = Callable[[str, int], float]
+Unit = Literal["currency", "decimal", "ratio"]  # envelope units; "decimal" is shown as %
+
+
+class Input(NamedTuple):
+    """A line item a metric reads, and which year: 0 = the screened year, -1 = the one before."""
+
+    item_id: str
+    year_offset: int = 0
 
 
 @dataclass(frozen=True)
 class ScreenMetric:
     id: str
     label: str
-    unit: str  # envelope unit: "currency", "decimal" (shown as %), "ratio"
-    inputs: tuple[tuple[str, int], ...]
+    unit: Unit
+    inputs: tuple[Input, ...]
     compute: Callable[[Get], float]
 
 
@@ -40,48 +49,48 @@ def _growth(get: Get) -> float:
 METRICS: dict[str, ScreenMetric] = {
     m.id: m
     for m in [
-        ScreenMetric("revenue", "Revenue", "currency", (("revenue", 0),), lambda get: get("revenue", 0)),
-        ScreenMetric("revenue_growth", "Revenue growth", "decimal", (("revenue", 0), ("revenue", -1)), _growth),
+        ScreenMetric("revenue", "Revenue", "currency", (Input("revenue"),), lambda get: get("revenue", 0)),
+        ScreenMetric("revenue_growth", "Revenue growth", "decimal", (Input("revenue"), Input("revenue", -1)), _growth),
         ScreenMetric(
             "gross_margin",
             "Gross margin",
             "decimal",
-            (("gross_profit", 0), ("revenue", 0)),
+            (Input("gross_profit"), Input("revenue")),
             _ratio("gross_profit", "revenue", "Revenue"),
         ),
         ScreenMetric(
             "operating_margin",
             "Operating margin",
             "decimal",
-            (("operating_income", 0), ("revenue", 0)),
+            (Input("operating_income"), Input("revenue")),
             _ratio("operating_income", "revenue", "Revenue"),
         ),
         ScreenMetric(
             "net_margin",
             "Net margin",
             "decimal",
-            (("net_income", 0), ("revenue", 0)),
+            (Input("net_income"), Input("revenue")),
             _ratio("net_income", "revenue", "Revenue"),
         ),
         ScreenMetric(
             "roe",
             "Return on equity",
             "decimal",
-            (("net_income", 0), ("total_equity", 0)),
+            (Input("net_income"), Input("total_equity")),
             _ratio("net_income", "total_equity", "Equity"),
         ),
         ScreenMetric(
             "debt_ratio",
             "Debt ratio",
             "decimal",
-            (("total_liabilities", 0), ("total_assets", 0)),
+            (Input("total_liabilities"), Input("total_assets")),
             _ratio("total_liabilities", "total_assets", "Total assets"),
         ),
         ScreenMetric(
             "current_ratio",
             "Current ratio",
             "ratio",
-            (("current_assets", 0), ("current_liabilities", 0)),
+            (Input("current_assets"), Input("current_liabilities")),
             _ratio("current_assets", "current_liabilities", "Current liabilities"),
         ),
     ]
