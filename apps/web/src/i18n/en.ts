@@ -94,7 +94,12 @@ export const en = {
     errors: {
       heading: "Something went wrong",
       computeUnavailable: "The calculation service is unavailable right now. Please try again in a moment.",
+      sourceUnavailable: "Data source temporarily unavailable, please retry.",
       invalidHeading: "Check your inputs",
+    },
+    demo: {
+      badge: "Demo data",
+      body: "These results use synthetic prices for fictional tickers, not real market data.",
     },
     calculation: {
       id: "Calculation",
@@ -180,6 +185,55 @@ export const en = {
         what: "The volatility that makes the Black-Scholes price equal the market price you entered, for the chosen option type.",
         how: "Solved numerically by bisection between 0.0001% and 500%. There is no solution if the price is at or below the discounted intrinsic value, or at or above the no-arbitrage upper bound.",
         read: "Compare it with the volatility you expect: if implied volatility is above your view, the option looks expensive; below it, cheap.",
+      },
+    },
+  },
+  risk: {
+    intro:
+      "Compare the return, volatility and worst fall of a few tickers against a benchmark over a date range. Change any input and the results update.",
+    inputsHeading: "Inputs",
+    submit: "Calculate",
+    inputs: {
+      tickers: { label: "Tickers", hint: "Comma-separated. Demo tickers: DEMO-A to DEMO-F." },
+      benchmark: { label: "Benchmark", hint: "Demo benchmark: DEMO-MKT." },
+      start: { label: "Start date", hint: "Demo data covers 2016-01-04 to 2025-12-31." },
+      end: { label: "End date", hint: "Must be after the start date." },
+    },
+    benchmarkSuffix: "(benchmark)",
+    sections: {
+      metrics: "Return and risk",
+      chart: "Underwater chart",
+    },
+    chart: {
+      select: "Underwater chart for",
+      label: "Underwater chart: the fall from the previous high over time, for the selected ticker and the benchmark",
+      x: "Date",
+      peak: "Max drawdown start",
+      trough: "Max drawdown end",
+      window: "Max drawdown",
+      from: "from",
+      to: "to",
+      recovered: "recovered",
+      notRecovered: "not recovered by the end of the range",
+    },
+    metrics: {
+      annualized_return: {
+        name: "Annualized return",
+        what: "The average yearly growth rate over the date range, with dividends reinvested (compound annual growth rate).",
+        how: "Daily total return r = (close + dividend) / previous close − 1. Annualized return = (∏(1 + r))^(252 / n) − 1, where n is the number of daily returns and 252 trading days make a year.",
+        read: "10% means the investment grew as if it earned 10% every year, compounded. It says nothing about how bumpy the ride was; compare it with volatility and max drawdown.",
+      },
+      annualized_volatility: {
+        name: "Annualized volatility",
+        what: "How much daily returns swing around their average, scaled to a year.",
+        how: "Sample standard deviation of daily total returns (n − 1 in the denominator) × √252.",
+        read: "Higher means a bumpier ride. As a rough guide, broad stock markets run around 15–20% a year; a single growth stock can exceed 40%.",
+      },
+      max_drawdown: {
+        name: "Max drawdown",
+        what: "The largest fall from a previous high to a later low within the date range, with dividends reinvested.",
+        how: "Wealth W starts at 1 and grows by each daily total return. Drawdown = W / running peak of W − 1. Max drawdown is the size of the most negative drawdown, shown as a positive percentage; its start is the last high before the low and its end is the low.",
+        read: "A max drawdown of 45% means that at the worst moment the investment was worth 45% less than at its prior peak. A 45% fall needs an 82% gain to get back. The underwater chart shows when it happened.",
       },
     },
   },

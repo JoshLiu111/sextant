@@ -6,7 +6,8 @@ Shape (JSON)::
       "calculation_id": "calc_<32 hex>",
       "tool": "options",
       "metrics": {"<metric_id>": {"value": 1.23 | null, "status": "ok" | "missing_data" | "error",
-                                  "reason": str | null, "unit": str | null}},
+                                  "reason": str | null, "unit": str | null,
+                                  "details": {"<key>": str | number | null}}},
       "series":  {"<series_id>": {"status": ..., "reason": ..., "x_unit": ..., "y_unit": ...,
                                   "points": [{"x": number | "YYYY-MM-DD", "y": number | null}]}},
       "source":  {"id": "user_input", "name": "User input", "is_demo": false},
@@ -26,7 +27,7 @@ import uuid
 from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, NamedTuple
 
 from pydantic import BaseModel, Field
 
@@ -35,6 +36,7 @@ from sextant_compute.analytics.errors import MetricError, MissingData
 __all__ = [
     "CalculationMeta",
     "DataSource",
+    "Detailed",
     "MetricError",
     "MetricResult",
     "MetricStatus",
@@ -56,11 +58,24 @@ class MetricStatus(StrEnum):
     ERROR = "error"
 
 
+Detail = str | float | int | None
+
+
 class MetricResult(BaseModel):
     value: float | None
     status: MetricStatus
     reason: str | None = None
     unit: str | None = None
+    details: dict[str, Detail] = Field(default_factory=dict)
+    """Extra facts about an ok value, e.g. a max drawdown's ``peak``/``trough`` dates
+    (ISO strings) or a score's zone. Empty unless the metric returns ``Detailed``."""
+
+
+class Detailed(NamedTuple):
+    """Return this from a ``metric`` computation to attach ``details`` to the value."""
+
+    value: float
+    details: dict[str, Detail]
 
 
 class Point(BaseModel):
@@ -100,10 +115,13 @@ class ResultEnvelope(BaseModel):
     meta: CalculationMeta
 
 
-def metric(compute: Callable[[], float], *, unit: str | None = None) -> MetricResult:
+def metric(compute: Callable[[], float | Detailed], *, unit: str | None = None) -> MetricResult:
     """Run one metric's computation, isolating expected failures to this metric."""
     try:
-        return MetricResult(value=float(compute()), status=MetricStatus.OK, unit=unit)
+        out = compute()
+        if isinstance(out, Detailed):
+            return MetricResult(value=float(out.value), status=MetricStatus.OK, unit=unit, details=out.details)
+        return MetricResult(value=float(out), status=MetricStatus.OK, unit=unit)
     except MissingData as exc:
         return MetricResult(value=None, status=MetricStatus.MISSING_DATA, reason=str(exc), unit=unit)
     except MetricError as exc:
