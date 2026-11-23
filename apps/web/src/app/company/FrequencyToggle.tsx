@@ -12,17 +12,18 @@ export function useFrequency(): Frequency {
   return useSearchParams().get("frequency") === "quarterly" ? "quarterly" : "annual";
 }
 
-/** Annual / quarterly switch for the whole page (ratios and statements), kept in the URL. */
+/** Annual / quarterly switch for the whole page (ratios and statements), kept in the
+ * URL as `?frequency=quarterly` alongside the forms' own params. */
 export function FrequencyToggle() {
   const c = getMessages().company.frequency;
   // The URL updates asynchronously; show the choice at once.
   const [frequency, setFrequency] = useOptimistic(useFrequency());
-  const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
 
   function choose(next: Frequency) {
-    const query = new URLSearchParams(params.toString());
+    // The forms write their inputs straight to the address bar (lib/urlInputs), so start from it.
+    const query = new URLSearchParams(window.location.search);
     if (next === "annual") query.delete("frequency");
     else query.set("frequency", next);
     const qs = query.toString();

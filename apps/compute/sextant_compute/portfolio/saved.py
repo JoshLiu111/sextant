@@ -24,6 +24,7 @@ from sextant_compute.envelope import Detailed, MetricResult, ResultEnvelope, met
 from sextant_compute.errors import ApiError, check
 from sextant_compute.portfolio import store
 from sextant_compute.portfolio.api import MAX_HOLDINGS, AnalysisSettings, load_prices, score
+from sextant_compute.portfolio.positions import position_metrics
 from sextant_compute.risk.api import Ticker
 
 router = APIRouter(tags=["portfolios"])
@@ -137,34 +138,18 @@ class ScoredPortfolio(AnalysisSettings):
     holdings: list[SavedHolding]
 
 
-def _value_metrics(holdings: list[SavedHolding], last_close: dict[str, float], currency: str) -> dict[str, MetricResult]:
-    """Today's value and unrealized P&L versus cost, in the holdings' currency (unit ``money``)."""
-    details: dict[str, str | float | None] = {"currency": currency}
-    market_value = sum(h.quantity * last_close[h.ticker] for h in holdings)
-    cost_basis = sum(h.quantity * h.cost_price for h in holdings)
-
-    def unrealized_return() -> float:
-        if cost_basis == 0:
-            raise MissingData("needs a cost basis above 0")
-        return (market_value - cost_basis) / cost_basis
-
-    return {
-        "market_value:portfolio": metric(lambda: Detailed(market_value, details), unit="money"),
-        "cost_basis:portfolio": metric(lambda: Detailed(cost_basis, details), unit="money"),
-        "unrealized_pnl:portfolio": metric(lambda: Detailed(market_value - cost_basis, details), unit="money"),
-        "unrealized_return:portfolio": metric(unrealized_return, unit="decimal"),
-    }
-
-
 @router.post("/{portfolio_id}/metrics")
 def saved_portfolio_metrics(
     portfolio_id: UUID, settings: AnalysisSettings, user: CurrentUser, db: Db, data: Data, ctx: Ctx
 ) -> ResultEnvelope:
-    """Performance and risk of the user's saved portfolio, held at its quantities (buy and hold).
+    """Performance and risk of the user's saved portfolio, held at its quantities (buy and hold),
+    plus each position's value, weight and P&L (``portfolio.positions``).
 
     Prices come from ``settings.source`` (demo data until bring-your-own-key lands).
     """
     saved = load(db, user.id, portfolio_id)
+    with db.connection() as conn:
+        realized = store.realized_by_ticker(conn, saved.id)
     currencies = sorted({h.currency for h in saved.holdings})
     if len(currencies) > 1:
         raise ApiError(
@@ -178,6 +163,5 @@ def saved_portfolio_metrics(
     value = portfolio_analytics.buy_and_hold_value(frames, quantities)
     last_close = {t: float(frames[t]["close"].iloc[-1]) for t in quantities}
     req = ScoredPortfolio(**settings.model_dump(), portfolio_id=saved.id, name=saved.name, holdings=saved.holdings)
-    return score(
-        req, settings, prices, frames, value / value.iloc[0], _value_metrics(saved.holdings, last_close, currencies[0])
-    )
+    extra = position_metrics(saved.holdings, last_close, realized, currencies[0])
+    return score(req, settings, prices, frames, value / value.iloc[0], extra)

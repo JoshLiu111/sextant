@@ -11,6 +11,7 @@ import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
 // Metric ids are "<metric>:<ticker>", series ids "drawdown:<ticker>".
@@ -42,6 +43,9 @@ const DEFAULTS: Form = {
   confidence: "95",
   risk_free_rate: "0",
 };
+
+// Shareable links: `/risk?tickers=DEMO-A,DEMO-D&start=2022-01-01`, one param per field.
+const URL_CODEC = fieldsCodec(DEFAULTS);
 
 function percentToDecimal(raw: string): number | null {
   if (raw.trim() === "") return null;
@@ -77,13 +81,15 @@ function dateMarker(result: MetricResult | undefined, key: string, label: string
 export function RiskTool() {
   const t = getMessages();
   const r = t.risk;
-  const [form, setForm] = useState<Form>(DEFAULTS);
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [form, setForm] = useState<Form>(initial);
   const [chartTicker, setChartTicker] = useState<string | null>(null);
   const { result, fieldErrors, error, run } = useCompute<string, string>("/risk/metrics", toRequest(form));
   const set = (field: keyof Form) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    share(form);
     run();
   }
 

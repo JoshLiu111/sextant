@@ -65,7 +65,7 @@ export const en = {
   tools: {
     options: {
       name: "Options Calculator",
-      description: "Price European options with Black-Scholes, see the Greeks, implied volatility and payoff.",
+      description: "Price options with Black-Scholes and binomial trees, see the Greeks, implied volatility and multi-leg payoffs.",
     },
     risk: {
       name: "Risk & Performance",
@@ -140,7 +140,7 @@ export const en = {
   },
   options: {
     intro:
-      "European options priced with Black-Scholes(-Merton). Change any input and the results update.",
+      "Price European options with Black-Scholes(-Merton), build multi-leg strategies, and price American options on a binomial tree. Change any input and the results update.",
     inputsHeading: "Inputs",
     submit: "Calculate",
     inputs: {
@@ -216,6 +216,154 @@ export const en = {
         what: "The volatility that makes the Black-Scholes price equal the market price you entered, for the chosen option type.",
         how: "Solved numerically by bisection between 0.0001% and 500%. There is no solution if the price is at or below the discounted intrinsic value, or at or above the no-arbitrage upper bound.",
         read: "Compare it with the volatility you expect: if implied volatility is above your view, the option looks expensive; below it, cheap.",
+      },
+    },
+    tabs: {
+      label: "Options Calculator views",
+      single: "Single option",
+      strategy: "Strategy builder",
+      american: "American (binomial)",
+    },
+    strategy: {
+      intro:
+        "Combine calls, puts and the underlying into one strategy. All legs share the market inputs and expiry; quantities are in units of the underlying.",
+      marketHeading: "Market",
+      presets: {
+        heading: "Presets",
+        hint: "Strikes are set around the current spot price.",
+        items: {
+          bullCallSpread: { name: "Bull call spread", description: "Long a lower-strike call, short a higher-strike call." },
+          straddle: { name: "Straddle", description: "Long a call and a put at the same strike." },
+          strangle: { name: "Strangle", description: "Long an out-of-the-money put and an out-of-the-money call." },
+          ironCondor: {
+            name: "Iron condor",
+            description: "Short a put spread and a call spread around the spot: a capped gain if the price stays in range.",
+          },
+        },
+      },
+      legs: {
+        heading: "Legs",
+        instrument: "Instrument",
+        position: "Position",
+        quantity: "Quantity",
+        strike: "Strike",
+        add: "Add leg",
+        remove: "Remove leg",
+        instruments: { call: "Call", put: "Put", underlying: "Underlying" },
+        positions: { long: "Long", short: "Short" },
+      },
+      sections: {
+        summary: "Cost and payoff",
+        greeks: "Strategy Greeks",
+        payoff: "Profit at expiry and today",
+        curves: "Greek curves",
+      },
+      chart: {
+        label: "Chart of the strategy's profit at expiry and today across underlying prices",
+        x: "Underlying price",
+        atExpiry: "Profit at expiry",
+        today: "Profit today",
+        spot: "Spot",
+      },
+      curves: {
+        label: "Chart of the selected Greek of the strategy",
+        greek: "Greek",
+        against: "Plot against",
+        spot: "Underlying price",
+        time: "Time to expiry (years)",
+        now: "Now",
+      },
+      metrics: {
+        net_cost: {
+          name: "Net cost",
+          what: "What it costs to open the strategy today at Black-Scholes prices. Negative means you collect a net credit.",
+          how: "The sum over legs of quantity × price, with long legs added and short legs subtracted. The underlying is priced at the spot.",
+          read: "A debit of 5.33 means you pay $5.33 per unit to open; a credit of −4.42 means you receive $4.42.",
+        },
+        max_profit: {
+          name: "Max profit at expiry",
+          what: "The most the strategy can make at expiry, after its opening cost, over every underlying price.",
+          how: "The payoff at expiry is a straight line between strikes, so its highest value sits at zero, at a strike, or rises without limit above the highest strike.",
+          read: "Unlimited means the profit keeps growing as the underlying rises (for example a long call or straddle).",
+        },
+        max_loss: {
+          name: "Max loss at expiry",
+          what: "The most the strategy can lose at expiry, including its opening cost, shown as a positive amount.",
+          how: "The lowest profit at expiry, at zero, at a strike, or unlimited if the payoff falls without limit above the highest strike.",
+          read: "For a debit spread the max loss is the debit; for an iron condor it is the wing width less the credit.",
+        },
+        delta: {
+          name: "Delta",
+          what: "How much the strategy's value changes for a $1 move in the underlying.",
+          how: "Sum of each leg's Black-Scholes delta × signed quantity. The underlying has delta 1. Unit: per $1 move in spot.",
+          read: "Near zero means the strategy barely cares about small moves; positive means it gains as the price rises.",
+        },
+        gamma: {
+          name: "Gamma",
+          what: "How fast the strategy's delta changes for a $1 move in the underlying.",
+          how: "Sum of each option leg's gamma × signed quantity (the underlying has none).",
+          read: "Positive gamma (long options) benefits from big moves; negative gamma (short options) prefers a quiet market.",
+        },
+        vega: {
+          name: "Vega",
+          what: "How much the strategy's value changes when volatility moves 1 volatility point.",
+          how: "Sum of each option leg's vega × signed quantity, per 1 volatility point.",
+          read: "Negative vega means the strategy gains if volatility falls, as for an iron condor.",
+        },
+        theta: {
+          name: "Theta",
+          what: "How much the strategy's value changes as one calendar day passes, all else equal.",
+          how: "Sum of each option leg's theta × signed quantity, per calendar day.",
+          read: "Positive theta means time decay works for you, as for strategies that sell options.",
+        },
+        rho: {
+          name: "Rho",
+          what: "How much the strategy's value changes when the risk-free rate moves 1 percentage point.",
+          how: "Sum of each option leg's rho × signed quantity, per 1 percentage point.",
+          read: "Usually small unless the strategy is long-dated or holds many calls or puts on one side.",
+        },
+      },
+    },
+    american: {
+      intro:
+        "American options can be exercised at any time before expiry. They are priced on a Cox-Ross-Rubinstein binomial tree, next to the Black-Scholes price of the European option.",
+      inputs: {
+        steps: { label: "Steps", hint: "Tree steps, 1 to 5,000. More steps are more accurate." },
+      },
+      sections: { prices: "Prices", chart: "Convergence by number of steps" },
+      chart: {
+        select: "Option type",
+        label: "Chart of the tree price by number of steps, against the Black-Scholes price",
+        x: "Steps",
+        american: "American (tree)",
+        europeanTree: "European (tree)",
+        bs: "European (Black-Scholes)",
+      },
+      metrics: {
+        american: {
+          name: "American price",
+          what: "The value of an option that can be exercised at any time up to expiry.",
+          how: "Cox-Ross-Rubinstein tree: u = e^(σ√Δt), d = 1/u, risk-neutral p = (e^((r−q)Δt) − d)/(u − d). Working back from expiry, each node takes the larger of the discounted expected value and exercising now.",
+          read: "Always at least the European price. For a call on a stock without dividends the two are equal: early exercise never pays.",
+        },
+        european: {
+          name: "European price (Black-Scholes)",
+          what: "The Black-Scholes value of the same option if it could only be exercised at expiry.",
+          how: "The Black-Scholes-Merton formula, as on the Single option tab.",
+          read: "The benchmark for the American price: the gap between them is the value of being able to exercise early.",
+        },
+        european_tree: {
+          name: "European price (tree)",
+          what: "The European option priced on the same binomial tree, without early exercise.",
+          how: "The same tree as the American price, holding at every node. It converges to Black-Scholes as the steps increase.",
+          read: "Its distance from the Black-Scholes price shows the tree's discretisation error at this number of steps.",
+        },
+        early_exercise_premium: {
+          name: "Early-exercise premium",
+          what: "How much the right to exercise early is worth.",
+          how: "American tree price − European tree price, both on the same tree so the discretisation error largely cancels.",
+          read: "Puts carry a premium when they are deep in the money and rates are positive; calls only when there is a dividend yield.",
+        },
       },
     },
   },
@@ -443,6 +591,19 @@ export const en = {
       sections: {
         value: "Value and profit",
         valueNote: "Today's value uses each holding's latest close in the date range, in the portfolio's currency.",
+        positions: "Positions",
+        positionsNote:
+          "One row per holding, plus tickers your imports sold out. Realized P&L is booked first in, first out when a sell is imported and covers every sale to date.",
+        total: "Total",
+        columns: {
+          ticker: "Ticker",
+          quantity: "Quantity",
+          cost_basis: "Cost basis",
+          market_value: "Market value",
+          weight: "Weight",
+          unrealized_pnl: "Unrealized P&L",
+          realized_pnl: "Realized P&L",
+        },
         metricsNote:
           "The portfolio holds its quantities from the first day of the range, with dividends reinvested, and is never rebalanced. These metrics are computed on its daily value with the same formulas as Risk & Performance.",
       },
@@ -471,11 +632,17 @@ export const en = {
           how: "(Market value − cost basis) ÷ cost basis.",
           read: "Shown in percent. 10% means the holdings are worth 10% more than they cost.",
         },
+        realized_pnl: {
+          name: "Realized profit or loss",
+          what: "What your imported sells gained or lost versus what those shares cost.",
+          how: "For each sell: quantity × price − fees − the cost of the shares it sold, taking the oldest shares first (FIFO). Shares entered by hand count as the oldest. Summed over every sell to date.",
+          read: "Positive is a gain, negative a loss, in the portfolio's currency. It is booked when the sell is imported, so editing a holding later does not change it.",
+        },
       },
       import: {
         heading: "Import transactions",
         intro:
-          "Upload a CSV of your trades (date, ticker, buy or sell, quantity, price, and optionally fees and currency). You will see a preview and can match your file's columns before anything is imported. Buys add to a holding at their average cost including fees; sells reduce it.",
+          "Upload a CSV of your trades (date, ticker, buy or sell, quantity, price, and optionally fees and currency). You will see a preview and can match your file's columns before anything is imported. Buys add to a holding at their cost including fees; sells take the oldest shares first (FIFO) and book a realized profit or loss.",
         file: "CSV file",
         reading: "Reading file…",
         mappingHeading: "Match your columns",
@@ -507,6 +674,33 @@ export const en = {
         cancel: "Cancel",
         done: (n: number) => `Imported ${n} ${n === 1 ? "transaction" : "transactions"}.`,
       },
+      returns: {
+        heading: "Your return",
+        note: "Rebuilt day by day over the date range from today's holdings and your imported transactions. Buys put money in (price × quantity + fees), sells and dividends take it out, and trades count at the close of their day.",
+        whichHeading: "Which one to use",
+        which:
+          "Use the time-weighted return to judge the holdings themselves, or to compare with a benchmark or a fund: it ignores when you added or took out money. Use the money-weighted return (IRR) to see how your own money did, including the timing of your deposits and withdrawals. They differ most when large amounts go in or out before a big move.",
+        metrics: {
+          twr: {
+            name: "Time-weighted return",
+            what: "How much the holdings grew over the date range, with the effect of money going in and out removed.",
+            how: "Daily returns chained together: each day's (value + money out − money in) ÷ the previous day's value. Over the whole range.",
+            read: "Shown in percent over the whole range. This is the return to compare with a benchmark or a fund.",
+          },
+          twr_annualized: {
+            name: "Time-weighted return per year",
+            what: "The time-weighted return as a yearly rate.",
+            how: "(1 + time-weighted return)^(365 ÷ days) − 1, from the first day with money in to the end of the range.",
+            read: "Shown in percent a year. Over less than a year this extrapolates, so read it with care.",
+          },
+          irr: {
+            name: "Money-weighted return (IRR)",
+            what: "The yearly rate your own money earned, given when you put it in and took it out.",
+            how: "The rate r at which the starting value, every buy, sell and dividend, and the ending value net to zero: Σ cash flow ÷ (1 + r)^(years since the start) = 0.",
+            read: "Shown in percent a year. Higher than the time-weighted return when you added money before gains; lower when you added it before losses. Not shown when no single rate solves the equation.",
+          },
+        },
+      },
     },
     sections: {
       chart: "Cumulative return",
@@ -526,6 +720,14 @@ export const en = {
       indicators: "US headline indicators",
       rates: "US Treasury yields",
     },
+    inputsHeading: "Chart range",
+    inputs: {
+      start: {
+        label: "History from",
+        hint: "Leave blank for the defaults: indicators from 2015, Treasury yields from 2018. Treasury data starts 1990-01-02.",
+      },
+    },
+    submit: "Update charts",
     meta: {
       source: "Source",
       via: "via FRED, series",

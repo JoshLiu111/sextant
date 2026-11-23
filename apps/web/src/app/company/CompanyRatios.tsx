@@ -1,12 +1,12 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
 import { MetricExplainer } from "@/components/MetricExplainer";
 import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
+import { decodeRows, encodeRows, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 import { useFrequency } from "./FrequencyToggle";
 import { RatioInputs, type Selection } from "./RatioInputs";
@@ -53,6 +53,23 @@ const DEFAULT_ROWS: Row[] = [{ ticker: "AAPL", price: "" }];
 type Column = { key: number; label: string };
 const columnKey = (p: Period) => p.fiscal_year * 4 + (p.fiscal_quarter ?? 0);
 const columnLabel = (p: Period) => (p.fiscal_quarter ? p.label : `FY${p.fiscal_year}`);
+
+// Shareable links: `/company?companies=MSFT:400,AAPL` (ticker:price). The
+// screener links with `?ticker=MSFT`, which the statements below share; it is
+// used here only when `companies` is absent.
+const URL_CODEC: UrlCodec<Row[]> = {
+  keys: ["companies"],
+  read(params) {
+    const companies = params.get("companies");
+    if (companies !== null) {
+      const rows = decodeRows(companies, 2).map(([ticker, price]) => ({ ticker: ticker.toUpperCase(), price }));
+      return rows.length ? rows : DEFAULT_ROWS;
+    }
+    const linked = params.get("ticker")?.trim().toUpperCase();
+    return linked ? [{ ticker: linked, price: "" }] : DEFAULT_ROWS;
+  },
+  write: (rows) => ({ companies: encodeRows(rows.map((r) => [r.ticker.toUpperCase(), r.price])) }),
+};
 
 function toRequest(rows: Row[]) {
   return {
@@ -243,9 +260,7 @@ function RatioTable({
 export function CompanyRatios() {
   const t = getMessages();
   const r = t.companyRatios;
-  // `?ticker=MSFT` (links from the screener) prefills and loads that company.
-  const linked = useSearchParams().get("ticker")?.trim().toUpperCase();
-  const initialRows = linked ? [{ ticker: linked, price: "" }] : DEFAULT_ROWS;
+  const { initial: initialRows, share } = useUrlInputs(URL_CODEC);
   const [rows, setRows] = useState<Row[]>(initialRows);
   const frequency = useFrequency();
   // Only submitted inputs are fetched: typing doesn't fire EDGAR requests.
@@ -261,6 +276,7 @@ export function CompanyRatios() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
+    share(rows);
     const next = toRequest(rows);
     if (JSON.stringify(next) === JSON.stringify(query)) run();
     else setQuery(next);
