@@ -12,6 +12,7 @@ from datetime import date
 import pandas as pd
 
 from sextant_compute.analytics import performance, risk
+from sextant_compute.analytics.periods import PERIODS_PER_YEAR, ReturnPeriod, period_returns
 from sextant_compute.envelope import Detailed, MetricResult, SeriesResult, metric, series
 
 METRIC_NAMES = (
@@ -42,21 +43,30 @@ def risk_metric_set(
     *,
     confidence: float,
     risk_free_rate: float,
+    period: ReturnPeriod = "daily",
 ) -> dict[str, MetricResult]:
     """Every P3 metric for one return series, keyed by metric name (see ``METRIC_NAMES``).
 
-    ``returns`` are simple daily returns; ``wealth`` is the matching wealth series
-    (1.0 on the day before the first return).
+    ``returns`` and ``benchmark_returns`` are simple daily returns; ``wealth`` is
+    the matching wealth series (1.0 on the day before the first return).
+
+    ``period`` picks the return period for the period-dependent metrics
+    (volatility, Sharpe, Sortino, VaR, CVaR, beta), annualized with that period's
+    count per year. Annualized return and max drawdown describe the whole wealth
+    path, so they always use the daily data.
     """
+    per_year = PERIODS_PER_YEAR[period]
+    r = period_returns(returns, period)
+    b = period_returns(benchmark_returns, period)
     return {
         "annualized_return": metric(lambda: performance.annualized_return(returns), unit="decimal"),
-        "annualized_volatility": metric(lambda: performance.annualized_volatility(returns), unit="decimal"),
+        "annualized_volatility": metric(lambda: performance.annualized_volatility(r, per_year), unit="decimal"),
         "max_drawdown": metric(lambda: _max_drawdown(wealth), unit="decimal"),
-        "sharpe": metric(lambda: performance.sharpe_ratio(returns, risk_free_rate), unit="ratio"),
-        "sortino": metric(lambda: performance.sortino_ratio(returns, risk_free_rate), unit="ratio"),
-        "var": metric(lambda: risk.historical_var(returns, confidence), unit="decimal"),
-        "cvar": metric(lambda: risk.historical_cvar(returns, confidence), unit="decimal"),
-        "beta": metric(lambda: risk.beta(returns, benchmark_returns), unit="ratio"),
+        "sharpe": metric(lambda: performance.sharpe_ratio(r, risk_free_rate, per_year), unit="ratio"),
+        "sortino": metric(lambda: performance.sortino_ratio(r, risk_free_rate, per_year), unit="ratio"),
+        "var": metric(lambda: risk.historical_var(r, confidence, period=period), unit="decimal"),
+        "cvar": metric(lambda: risk.historical_cvar(r, confidence, period=period), unit="decimal"),
+        "beta": metric(lambda: risk.beta(r, b), unit="ratio"),
     }
 
 

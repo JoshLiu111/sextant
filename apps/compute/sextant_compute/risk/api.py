@@ -11,6 +11,7 @@ from pydantic import BaseModel, BeforeValidator, ValidationInfo, field_validator
 from pydantic_core import PydanticCustomError
 
 from sextant_compute.analytics import performance, risk
+from sextant_compute.analytics.periods import ReturnPeriod
 from sextant_compute.data.errors import NoSuchData
 from sextant_compute.data.service import Ctx, Data
 from sextant_compute.envelope import MetricResult, ResultEnvelope, SeriesResult, envelope
@@ -48,6 +49,8 @@ class RiskRequest(BaseModel):
         float, check(lambda v: -0.05 <= v <= 0.2, "Enter a risk-free rate between -5% and 20%.")
     ] = 0.0
     """Effective annual risk-free rate as a decimal, used by Sharpe and Sortino."""
+    period: ReturnPeriod = "daily"
+    """Return period for the period-dependent statistics (volatility, Sharpe, VaR, ...)."""
     source: Literal["synthetic"] = "synthetic"
     """Which DataService adapter backs the result. Add ids here as adapters arrive."""
 
@@ -97,6 +100,7 @@ def risk_metrics(req: RiskRequest, data: Data, ctx: Ctx) -> ResultEnvelope:
             benchmark_returns,
             confidence=req.confidence,
             risk_free_rate=req.risk_free_rate,
+            period=req.period,
         )
         metrics.update({f"{name}:{ticker}": result for name, result in ticker_metrics.items()})
         charts[f"drawdown:{ticker}"] = date_series(lambda: risk.drawdown(wealth))

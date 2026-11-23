@@ -67,7 +67,7 @@ def beta(returns: pd.Series, benchmark_returns: pd.Series) -> float:
     """
     both = pd.concat([returns, benchmark_returns], axis=1, join="inner").dropna()
     if len(both) < 2:
-        raise MissingData(f"needs at least 2 daily returns on dates shared with the benchmark, got {len(both)}")
+        raise MissingData(f"needs at least 2 returns on dates shared with the benchmark, got {len(both)}")
     r, b = both.iloc[:, 0], both.iloc[:, 1]
     variance = float(b.var(ddof=1))
     if variance == 0:
@@ -75,7 +75,7 @@ def beta(returns: pd.Series, benchmark_returns: pd.Series) -> float:
     return float(r.cov(b, ddof=1)) / variance
 
 
-def _tail(returns: pd.Series, confidence: float) -> pd.Series:
+def _tail(returns: pd.Series, confidence: float, period: str) -> pd.Series:
     """The ``k = ceil(n * (1 - confidence))`` worst returns, worst first."""
     if not 0 < confidence < 1:
         raise ValueError(f"confidence must be between 0 and 1, got {confidence}")
@@ -85,13 +85,13 @@ def _tail(returns: pd.Series, confidence: float) -> pd.Series:
     needed = math.ceil(round(1 / tail_probability, 9))
     if len(clean) < needed:
         raise MissingData(
-            f"needs at least {needed} daily returns for a {confidence:.1%} VaR, got {len(clean)}"
+            f"needs at least {needed} {period} returns for a {confidence:.1%} VaR, got {len(clean)}"
         )
     k = math.ceil(round(len(clean) * tail_probability, 9))
     return clean.sort_values().iloc[:k]
 
 
-def historical_var(returns: pd.Series, confidence: float = 0.95) -> float:
+def historical_var(returns: pd.Series, confidence: float = 0.95, *, period: str = "daily") -> float:
     """Historical Value at Risk over one period, as a positive loss (0.03 = a 3% loss).
 
     The empirical (1 - confidence) quantile without interpolation: with n returns
@@ -99,12 +99,12 @@ def historical_var(returns: pd.Series, confidence: float = 0.95) -> float:
     k >= 1, i.e. at least 1 / (1 - confidence) returns. Negative if even the
     tail return is a gain.
     """
-    return -float(_tail(returns, confidence).iloc[-1])
+    return -float(_tail(returns, confidence, period).iloc[-1])
 
 
-def historical_cvar(returns: pd.Series, confidence: float = 0.95) -> float:
+def historical_cvar(returns: pd.Series, confidence: float = 0.95, *, period: str = "daily") -> float:
     """Historical CVaR (expected shortfall): minus the mean of the k worst returns.
 
     Same k and sign convention as ``historical_var``, so CVaR >= VaR always.
     """
-    return -float(_tail(returns, confidence).mean())
+    return -float(_tail(returns, confidence, period).mean())
