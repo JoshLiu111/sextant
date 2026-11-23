@@ -14,7 +14,9 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import threading
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import Future
 from dataclasses import dataclass
 from datetime import date
 from typing import Annotated, Any, TypeVar, cast
@@ -72,6 +74,10 @@ class DataService:
     ``user_cache`` (or without a signed-in user) they are not cached at all.
     An adapter opts a dataset into caching by listing its TTL in ``adapter.ttl``.
     Errors are never cached.
+
+    Single flight: concurrent misses on the same key share one fetch (the others
+    wait for it and get its result, or its error), so a burst of identical
+    requests on a cold cache doesn't queue duplicate calls behind a rate limit.
     """
 
     def __init__(
@@ -84,6 +90,8 @@ class DataService:
         self._adapters = dict(adapters)
         self.shared_cache = shared_cache if shared_cache is not None else InMemoryCache()
         self.user_cache = user_cache
+        self._lock = threading.Lock()
+        self._in_flight: dict[str, Future[Any]] = {}
 
     def _adapter(self, source: str) -> Adapter:
         try:
@@ -118,9 +126,31 @@ class DataService:
         hit = cache.get(key)
         if hit is not None:
             return decode(hit)
-        value = fetch()
-        cache.set(key, encode(value), ttl=ttl, tags=[*tags, f"source:{adapter.source.id}"])
-        return value
+        with self._lock:
+            pending = self._in_flight.get(key)
+            owner = pending is None
+            if pending is None:
+                pending = self._in_flight[key] = Future()
+        if not owner:
+            # Followers decode their own copy, so callers never share mutable values.
+            return decode(pending.result())
+        try:
+            # A flight that just finished may have filled the cache since the first look.
+            hit = cache.get(key)
+            if hit is not None:
+                pending.set_result(hit)
+                return decode(hit)
+            value = fetch()
+            encoded = encode(value)
+            cache.set(key, encoded, ttl=ttl, tags=[*tags, f"source:{adapter.source.id}"])
+            pending.set_result(encoded)
+            return value
+        except BaseException as exc:
+            pending.set_exception(exc)
+            raise
+        finally:
+            with self._lock:
+                self._in_flight.pop(key, None)
 
     def daily_prices(
         self, ctx: RequestContext, tickers: Sequence[str], start: date, end: date, *, source: str
