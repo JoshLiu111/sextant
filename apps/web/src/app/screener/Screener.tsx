@@ -8,7 +8,8 @@ import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { MetricExplainer } from "@/components/MetricExplainer";
 import { getMessages } from "@/i18n";
 import { csvFilename } from "@/lib/csv";
-import type { ResultEnvelope } from "@/lib/envelope";
+import type { DataSource, ResultEnvelope } from "@/lib/envelope";
+import { PROVIDER_NAMES, useMyDataProviders } from "@/lib/myData";
 import { decodeRows, encodeRows, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
@@ -21,7 +22,9 @@ type MetricId =
   | "net_margin"
   | "roe"
   | "debt_ratio"
-  | "current_ratio";
+  | "current_ratio"
+  | "change_52w"
+  | "from_52w_high";
 type Op = "min" | "max";
 type SortColumn = "ticker" | "name" | MetricId;
 type Direction = "asc" | "desc";
@@ -39,6 +42,8 @@ type ScreenResult = ResultEnvelope & {
   universe: number;
   matched: number;
   excluded: { total: number; by_criterion: Exclusion[] };
+  price_source: DataSource | null;
+  prices_as_of: string | null;
 };
 type Query = { criteria: Criterion[]; year: number | null; sort: SortColumn; direction: Direction };
 
@@ -52,6 +57,9 @@ const METRICS: MetricId[] = [
   "debt_ratio",
   "current_ratio",
 ];
+// My data only: offered to users with a price data key, run on their own provider.
+const PRICE_METRICS: MetricId[] = ["change_52w", "from_52w_high"];
+const MAX_PRICED = 25; // MAX_PRICED in screener/api.py
 // How each metric's value is entered: percent for decimals, USD millions for revenue.
 const UNIT: Record<MetricId, "decimal" | "currency" | "ratio"> = {
   revenue: "currency",
@@ -62,6 +70,8 @@ const UNIT: Record<MetricId, "decimal" | "currency" | "ratio"> = {
   roe: "decimal",
   debt_ratio: "decimal",
   current_ratio: "ratio",
+  change_52w: "decimal",
+  from_52w_high: "decimal",
 };
 const SCALE = { decimal: 100, currency: 1e-6, ratio: 1 } as const;
 
@@ -190,7 +200,13 @@ export function Screener() {
   const [query, setQuery] = useState<Query>(() => toQuery(initial));
   // The form as last submitted: sorting re-shares it, not unsubmitted edits.
   const [submitted, setSubmitted] = useState({ rows: initial.rows, year: initial.year });
-  const { result, fieldErrors, error, pending, run } = useCompute("/screener/screen", query);
+  // Price criteria run on the user's own provider; a link with them opened
+  // without a key gets the API's "needs My data" message on the criterion.
+  const providers = useMyDataProviders();
+  const priceSource = providers[0] ?? null;
+  const hasPriceCriteria = query.criteria.some((c) => PRICE_METRICS.includes(c.metric));
+  const body = hasPriceCriteria && priceSource ? { ...query, price_source: priceSource } : query;
+  const { result, fieldErrors, error, pending, run } = useCompute("/screener/screen", body);
   const screen = result as ScreenResult | null;
 
   function update(key: number, patch: Partial<FormRow>) {
@@ -249,7 +265,7 @@ export function Screener() {
                     onChange={(e) => update(row.key, { metric: e.target.value as MetricId })}
                     className={inputClass}
                   >
-                    {METRICS.map((m) => (
+                    {[...METRICS, ...(priceSource || PRICE_METRICS.includes(row.metric) ? PRICE_METRICS : [])].map((m) => (
                       <option key={m} value={m}>
                         {s.metrics[m]}
                       </option>
@@ -338,7 +354,9 @@ export function Screener() {
             {s.run}
           </button>
         </div>
-        <p className="text-xs text-black/50 dark:text-white/50">{s.noPriceCriteria}</p>
+        <p data-testid="price-criteria-note" className="text-xs text-black/50 dark:text-white/50">
+          {priceSource ? s.priceCriteria.myData(PROVIDER_NAMES[priceSource], MAX_PRICED) : s.priceCriteria.signIn}
+        </p>
       </form>
 
       <div data-testid="results" aria-busy={pending} className="min-w-0 space-y-4">
@@ -370,7 +388,13 @@ export function Screener() {
                     ))}
                 </ul>
               )}
+              {screen.price_source && (
+                <p data-testid="prices-info" className="text-black/70 dark:text-white/70">
+                  {s.pricesInfo(screen.price_source.name, screen.prices_as_of ?? "–")}
+                </p>
+              )}
               <MetricExplainer explainer={s.explainer} />
+              {screen.price_source && <MetricExplainer explainer={s.priceExplainer} />}
             </div>
             {screen.rows.length === 0 ? (
               <p className="text-sm text-black/60 dark:text-white/60">{s.noMatches}</p>

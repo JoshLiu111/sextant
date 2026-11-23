@@ -8,18 +8,18 @@
 // stand in for Tiingo being down. Anything else is rejected.
 //
 // GET /tiingo/daily/<ticker>/prices serves the recorded responses the compute
-// tests use (apps/compute/tests/fixtures/tiingo/daily: aapl, msft, spy; 30
-// trading days from 2024-01-02), filtered by startDate/endDate, with the same
+// tests use (apps/compute/tests/fixtures/tiingo/daily: aapl, msft, spy with 30
+// trading days from 2024-01-02, plus weekly 2025-11..2026-11 rows for the
+// screener's price criteria; see tests/tiingo_fixtures.py), filtered by startDate/endDate, with the same
 // rules as FakeTiingo in apps/compute/tests/tiingo_fixtures.py: 403 "Invalid
 // token." for a token that isn't "good…", 404 for any other ticker.
 
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 
 const PORT = Number(process.env.TIINGO_PORT || 9600);
 const FIXTURES = fileURLToPath(new URL("../../compute/tests/fixtures/tiingo/daily/", import.meta.url));
-const KNOWN = new Set(["aapl", "msft", "spy"]);
 
 function send(res, status, body) {
   res.writeHead(status, { "content-type": "application/json" });
@@ -28,10 +28,12 @@ function send(res, status, body) {
 
 async function prices(res, url, token, ticker) {
   if (!token.startsWith("good")) return send(res, 403, { detail: "Invalid token." });
-  if (!KNOWN.has(ticker)) return send(res, 404, { detail: `Error: Ticker '${ticker}' not found` });
+  const file = `${FIXTURES}${ticker}.json`;
+  const known = /^[a-z0-9.-]+$/.test(ticker) && (await access(file).then(() => true, () => false));
+  if (!known) return send(res, 404, { detail: `Error: Ticker '${ticker}' not found` });
   const start = url.searchParams.get("startDate") || "0000";
   const end = url.searchParams.get("endDate") || "9999";
-  const rows = JSON.parse(await readFile(`${FIXTURES}${ticker}.json`, "utf8"));
+  const rows = JSON.parse(await readFile(file, "utf8"));
   send(res, 200, rows.filter((r) => start <= r.date.slice(0, 10) && r.date.slice(0, 10) <= end));
 }
 
