@@ -40,7 +40,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-GENERATOR_VERSION = 1
+GENERATOR_VERSION = 2
 DEFAULT_SEED = 17
 HISTORY_START = date(2016, 1, 4)
 HISTORY_END = date(2025, 12, 31)
@@ -81,6 +81,16 @@ class Personality:
     jump_mean: float = 0.0
     jump_std: float = 0.0
     crash: Crash | None = None
+
+    @property
+    def alpha(self) -> float:
+        """Expected annualized CAPM alpha against ``DEMO-MKT`` with a zero risk-free rate.
+
+        The model's mean daily *simple* return is about ``(drift + annual_vol^2 / 2) / 252``
+        (a lognormal step), so alpha = ``(drift + vol^2 / 2) - beta * (drift_m + vol_m^2 / 2)``.
+        """
+        market = PERSONALITIES[BENCHMARK]
+        return (self.drift + self.annual_vol**2 / 2) - self.beta * (market.drift + market.annual_vol**2 / 2)
 
 
 PERSONALITIES: dict[str, Personality] = {
@@ -152,10 +162,19 @@ PERSONALITIES: dict[str, Personality] = {
         jump_mean=-0.01,
         jump_std=0.12,
     ),
+    "DEMO-G": Personality(
+        name="Alpha Compounder Inc.",
+        description="Amplified market exposure (beta 1.2) plus a steady edge of about 5% a year, with little stock-specific noise.",
+        start_price=50.0,
+        drift=0.13,
+        annual_vol=0.195,
+        beta=1.2,
+        dividend_yield=0.01,
+    ),
 }
 
 # Generation order is fixed: never reorder, only append (or bump GENERATOR_VERSION).
-_ORDER = ["DEMO-MKT", "DEMO-A", "DEMO-B", "DEMO-C", "DEMO-D", "DEMO-E", "DEMO-F"]
+_ORDER = ["DEMO-MKT", "DEMO-A", "DEMO-B", "DEMO-C", "DEMO-D", "DEMO-E", "DEMO-F", "DEMO-G"]
 
 
 def trading_days() -> pd.DatetimeIndex:
