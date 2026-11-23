@@ -217,3 +217,33 @@ def test_model_checks_run_on_my_data_and_mark_an_unknown_ticker_missing_data(cli
     # ...and the unknown ticker's GARCH curve is marked rather than left out.
     assert body["series"]["garch_volatility:ZZZZ"]["status"] == "missing_data"
     assert "garch_volatility:AAPL" in body["series"]
+
+
+def test_the_correlation_heatmap_runs_on_my_data_and_marks_an_unknown_ticker_missing_data(client, alice):
+    response = client.post(
+        "/api/compute/risk/correlation", json={**BODY, "tickers": ["AAPL", "ZZZZ"]}, headers=alice
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["source"]["is_demo"] is False
+    assert body["metrics"]["correlation:AAPL:AAPL"]["value"] == pytest.approx(1.0)
+    assert body["metrics"]["correlation:AAPL:SPY"]["status"] == "ok"
+    for pair in ("ZZZZ:AAPL", "SPY:ZZZZ", "ZZZZ:ZZZZ"):
+        result = body["metrics"][f"correlation:{pair}"]
+        assert result["status"] == "missing_data"
+        assert result["reason"] == "Tiingo has no ticker ZZZZ."
+
+
+def test_indicators_run_on_my_data(client, alice):
+    response = client.post(
+        "/api/compute/risk/indicators",
+        json={"ticker": "AAPL", "start": "2024-01-01", "end": "2024-12-31", "sma": {"window": 5}, "source": "tiingo"},
+        headers=alice,
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["source"]["is_demo"] is False
+    assert body["series"]["price"]["status"] == "ok"
+    assert body["series"]["sma"]["status"] == "ok"

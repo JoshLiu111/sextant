@@ -1,6 +1,8 @@
 // All user-facing English strings. Keep UI copy here (not inline in components)
 // so a second locale can be added later by providing another object of the
 // same `Messages` shape.
+import { riskTechnical } from "./en-technical";
+
 export const en = {
   site: {
     name: "Sextant",
@@ -728,6 +730,7 @@ export const en = {
       },
     },
   },
+  riskTechnical,
   portfolio: {
     intro:
       "Build a demo portfolio from tickers and weights, or load a classic allocation, and compare its cumulative return and risk with a benchmark. Change any input and the results update.",
