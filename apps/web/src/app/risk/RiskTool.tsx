@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { CalculationInfo } from "@/components/CalculationInfo";
+import { DataModeToggle } from "@/components/DataModeToggle";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
@@ -13,6 +14,7 @@ import { getMessages } from "@/i18n";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
 import { csvFilename } from "@/lib/csv";
 import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
+import { DEMO_SOURCE, useMyDataProviders, type PriceSource } from "@/lib/myData";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 
@@ -38,7 +40,7 @@ type Form = {
   risk_free_rate: string;
 };
 
-const DEFAULTS: Form = {
+const DEMO_DEFAULTS: Form = {
   tickers: "DEMO-A, DEMO-B, DEMO-D",
   benchmark: "DEMO-MKT",
   start: "2021-01-01",
@@ -47,8 +49,14 @@ const DEFAULTS: Form = {
   risk_free_rate: "0",
 };
 
+/** The first switch to My data starts from real tickers; each mode keeps its own inputs. */
+const MY_DATA_DEFAULTS: Form = { ...DEMO_DEFAULTS, tickers: "AAPL, MSFT", benchmark: "SPY" };
+
+const defaultsFor = (source: PriceSource): Form => (source === DEMO_SOURCE ? DEMO_DEFAULTS : MY_DATA_DEFAULTS);
+
 // Shareable links: `/risk?tickers=DEMO-A,DEMO-D&start=2022-01-01`, one param per field.
-const URL_CODEC = fieldsCodec(DEFAULTS);
+// Demo inputs only: My data needs the visitor's own key, so a link never carries it.
+const URL_CODEC = fieldsCodec(DEMO_DEFAULTS);
 
 function percentToDecimal(raw: string): number | null {
   if (raw.trim() === "") return null;
@@ -57,8 +65,9 @@ function percentToDecimal(raw: string): number | null {
 }
 
 /** Empty inputs go to the API as null so it reports the field. */
-function toRequest(form: Form) {
+function toRequest(form: Form, source: PriceSource) {
   return {
+    source,
     tickers: form.tickers
       .split(/[\s,]+/)
       .map((t) => t.trim())
@@ -85,14 +94,21 @@ export function RiskTool() {
   const t = getMessages();
   const r = t.risk;
   const { initial, share } = useUrlInputs(URL_CODEC);
-  const [form, setForm] = useState<Form>(initial);
+  const providers = useMyDataProviders();
+  const [chosen, setChosen] = useState<PriceSource>(DEMO_SOURCE);
+  // A provider whose key is gone falls back to demo data.
+  const source: PriceSource = chosen !== DEMO_SOURCE && !providers.includes(chosen) ? DEMO_SOURCE : chosen;
+  const [forms, setForms] = useState<Partial<Record<PriceSource, Form>>>(() => ({ [DEMO_SOURCE]: initial }));
+  const form = forms[source] ?? defaultsFor(source);
   const [chartTicker, setChartTicker] = useState<string | null>(null);
-  const { result, fieldErrors, error, run } = useCompute<string, string>("/risk/metrics", toRequest(form));
-  const set = (field: keyof Form) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
+  const { result, fieldErrors, error, run } = useCompute<string, string>("/risk/metrics", toRequest(form, source));
+  const set = (field: keyof Form) => (value: string) =>
+    setForms((all) => ({ ...all, [source]: { ...(all[source] ?? defaultsFor(source)), [field]: value } }));
+  const hints = source === DEMO_SOURCE ? r.inputs : { ...r.inputs, ...r.myDataInputs };
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    share(form);
+    if (source === DEMO_SOURCE) share(form);
     run();
   }
 
@@ -128,10 +144,11 @@ export function RiskTool() {
         <h2 id="risk-inputs" className="text-lg font-semibold">
           {r.inputsHeading}
         </h2>
+        <DataModeToggle providers={providers} value={source} onChange={setChosen} />
         <TextField
           name="tickers"
           label={r.inputs.tickers.label}
-          hint={r.inputs.tickers.hint}
+          hint={hints.tickers.hint}
           value={form.tickers}
           onChange={set("tickers")}
           error={fieldErrors.tickers}
@@ -139,7 +156,7 @@ export function RiskTool() {
         <TextField
           name="benchmark"
           label={r.inputs.benchmark.label}
-          hint={r.inputs.benchmark.hint}
+          hint={hints.benchmark.hint}
           value={form.benchmark}
           onChange={set("benchmark")}
           error={fieldErrors.benchmark}
@@ -149,7 +166,7 @@ export function RiskTool() {
             type="date"
             name="start"
             label={r.inputs.start.label}
-            hint={r.inputs.start.hint}
+            hint={hints.start.hint}
             value={form.start}
             onChange={set("start")}
             error={fieldErrors.start}
@@ -158,7 +175,7 @@ export function RiskTool() {
             type="date"
             name="end"
             label={r.inputs.end.label}
-            hint={r.inputs.end.hint}
+            hint={hints.end.hint}
             value={form.end}
             onChange={set("end")}
             error={fieldErrors.end}
@@ -168,7 +185,7 @@ export function RiskTool() {
           <NumberField
             name="confidence"
             label={r.inputs.confidence.label}
-            hint={r.inputs.confidence.hint}
+            hint={hints.confidence.hint}
             value={form.confidence}
             onChange={set("confidence")}
             error={fieldErrors.confidence}
@@ -176,7 +193,7 @@ export function RiskTool() {
           <NumberField
             name="risk_free_rate"
             label={r.inputs.risk_free_rate.label}
-            hint={r.inputs.risk_free_rate.hint}
+            hint={hints.risk_free_rate.hint}
             value={form.risk_free_rate}
             onChange={set("risk_free_rate")}
             error={fieldErrors.risk_free_rate}
