@@ -173,7 +173,8 @@ def ai_usage(_operator: Operator, db: Db, days: Annotated[int, Query(ge=1, le=36
     )
 
 
-SIGNED_IN_WITHIN_DAYS = (7, 30)
+SIGNED_IN_RECENTLY_DAYS = 7
+SIGNED_IN_THIS_MONTH_DAYS = 30
 
 
 class DaySignUps(BaseModel):
@@ -200,8 +201,8 @@ class UsersReport(BaseModel):
 
 _USER_COUNTS = """
 SELECT count(*)::int AS total_users,
-       count(*) FILTER (WHERE last_login_at >= now() - make_interval(days => %s))::int AS within_short,
-       count(*) FILTER (WHERE last_login_at >= now() - make_interval(days => %s))::int AS within_long
+       count(*) FILTER (WHERE last_login_at >= now() - make_interval(days => %s))::int AS within_recently,
+       count(*) FILTER (WHERE last_login_at >= now() - make_interval(days => %s))::int AS within_this_month
 FROM users
 """
 
@@ -217,9 +218,8 @@ GROUP BY 1
 def users(_operator: Operator, db: Db, days: Annotated[int, Query(ge=1, le=366)] = 30) -> UsersReport:
     until = datetime.now(UTC).date()
     since = until - timedelta(days=days - 1)
-    short, long = SIGNED_IN_WITHIN_DAYS
     with db.connection() as conn:
-        counts = conn.execute(_USER_COUNTS, (short, long)).fetchone()
+        counts = conn.execute(_USER_COUNTS, (SIGNED_IN_RECENTLY_DAYS, SIGNED_IN_THIS_MONTH_DAYS)).fetchone()
         rows = conn.execute(_SIGN_UPS_PER_DAY, (datetime.combine(since, time(), tzinfo=UTC),)).fetchall()
 
     per_day = {r["day"]: r["users"] for r in rows}
@@ -232,7 +232,7 @@ def users(_operator: Operator, db: Db, days: Annotated[int, Query(ge=1, le=366)]
             for day in (until - timedelta(days=i) for i in range(days))
         ],
         signed_in_within=[
-            SignedInWithin(days=short, users=counts["within_short"]),
-            SignedInWithin(days=long, users=counts["within_long"]),
+            SignedInWithin(days=SIGNED_IN_RECENTLY_DAYS, users=counts["within_recently"]),
+            SignedInWithin(days=SIGNED_IN_THIS_MONTH_DAYS, users=counts["within_this_month"]),
         ],
     )

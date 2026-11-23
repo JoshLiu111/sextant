@@ -82,6 +82,10 @@ class UserKeyHttpAdapter:
         except ValueError:
             raise SourceUnavailable(self.source.id, f"{self._name} returned a response that is not JSON.") from None
 
+    def _missing(self, ticker: str, message: str) -> NoSuchData:
+        """``NoSuchData`` for one ticker, with ``message`` keyed by it."""
+        return NoSuchData(self.source.id, message, {ticker: message})
+
     def _per_ticker(
         self, tickers: Sequence[str], fetch: Callable[[str], pd.DataFrame | str]
     ) -> dict[str, pd.DataFrame]:

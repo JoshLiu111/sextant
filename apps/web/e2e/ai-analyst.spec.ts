@@ -98,3 +98,15 @@ test("a number that doesn't match its calculation is flagged in red", async ({
     "1 number in this answer does not match the calculation it cites. It is highlighted in red.",
   );
 });
+
+test("the footer credits the data the tool calls used", async ({ page }) => {
+  const main = await signInOnAnalyst(page);
+  const footer = page.getByRole("contentinfo");
+  await expect(footer.locator('[data-attribution="demo"]')).toHaveCount(0);
+
+  const answer = await ask(main, "How risky is DEMO-A?");
+
+  await expect(answer.getByTestId("analyst-call")).toContainText("risk_metrics");
+  await expect(answer.getByTestId("analyst-answer")).toContainText("metrics computed");
+  await expect(footer.locator('[data-attribution="demo"]')).toContainText("Demo data");
+});

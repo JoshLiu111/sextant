@@ -13,6 +13,7 @@ from main import app
 from sextant_compute.data.adapters import Adapter
 from sextant_compute.data.errors import NoSuchData, SourceUnavailable
 from sextant_compute.data.service import DataService, get_data_service
+from sextant_compute.data.splits import Split
 from sextant_compute.envelope import DataSource
 
 FIXTURE = DataSource(id="fixture", name="Test fixture", is_demo=False)
@@ -58,9 +59,9 @@ class FixtureAdapter:
             raise NoSuchData(self.source.id, "Unknown ticker.", missing)
         return {t: self.frames[t].loc[pd.Timestamp(start) : pd.Timestamp(end)] for t in tickers}
 
-    def splits(self, ctx, ticker: str, start: date) -> list[tuple[date, float]]:
-        found = self.split_dates.get(ticker, {})
-        return sorted((d, r) for d, r in ((date.fromisoformat(k), v) for k, v in found.items()) if d >= start)
+    def splits(self, ctx, ticker: str, start: date) -> list[Split]:
+        found = (Split(date.fromisoformat(d), r) for d, r in self.split_dates.get(ticker, {}).items())
+        return sorted(s for s in found if s.ex_date >= start)
 
 
 class FactorFixtureAdapter(FixtureAdapter):

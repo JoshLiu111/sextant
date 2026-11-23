@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useReportSources } from "@/components/PageSources";
-import { postCompute, type DataSource, type ResultEnvelope } from "./envelope";
+import { postCompute, sourcesOf, type ResultEnvelope } from "./envelope";
 
 export type ComputeState<M extends string, S extends string> = {
   /** Last successful envelope. Kept while a newer request is invalid or failed. */
@@ -18,8 +18,8 @@ export type ComputeState<M extends string, S extends string> = {
  * Keep a compute result in sync with a request body.
  * Runs immediately on mount (so pages show results on load), then re-runs,
  * debounced, whenever `body` changes. `run()` re-runs immediately (submit button).
- * While shown, the result credits its `source` (and `price_source`, when it has
- * one) in the footer attribution.
+ * While shown, the result credits every source it used (`sourcesOf`) in the
+ * footer attribution.
  */
 export function useCompute<M extends string, S extends string>(
   path: `/${string}`,
@@ -66,8 +66,7 @@ export function useCompute<M extends string, S extends string>(
     setNonce((n) => n + 1);
   }, []);
 
-  const priceSource = (state.result as { price_source?: DataSource | null } | null)?.price_source;
-  useReportSources([state.result?.source.id, priceSource?.id]);
+  useReportSources(sourcesOf(state.result).map((s) => s.id));
 
   return { ...state, run };
 }

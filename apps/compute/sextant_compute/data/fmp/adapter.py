@@ -69,8 +69,9 @@ import pandas as pd
 
 from sextant_compute.data.adapters import PRICE_COLUMNS
 from sextant_compute.data.context import RequestContext
-from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
+from sextant_compute.data.errors import KeyRequired, SourceUnavailable
 from sextant_compute.data.sources import FMP
+from sextant_compute.data.splits import Split
 from sextant_compute.data.user_key_http import UserKeyHttpAdapter
 
 
@@ -159,35 +160,32 @@ class FmpAdapter(UserKeyHttpAdapter):
 
         return self._per_ticker(tickers, fetch)
 
-    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[tuple[date, float]]:
+    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[Split]:
         """See ``SplitsAdapter``. One request: the whole split history, filtered here."""
         try:
             rows = self._list("/stable/splits", self._key(ctx), {"symbol": ticker})
         except _NotInPlan:
-            message = _not_in_plan(ticker)
-            raise NoSuchData(FMP.id, message, {ticker: message}) from None
+            raise self._missing(ticker, _not_in_plan(ticker)) from None
         try:
             found = [
-                (date.fromisoformat(str(r["date"])[:10]), float(r["numerator"]) / float(r["denominator"]))
+                Split(date.fromisoformat(str(r["date"])[:10]), float(r["numerator"]) / float(r["denominator"]))
                 for r in rows
             ]
         except (KeyError, TypeError, ValueError, ZeroDivisionError):
             raise SourceUnavailable(FMP.id, "FMP returned splits in an unexpected shape.") from None
-        return sorted((d, ratio) for d, ratio in found if d >= start and ratio != 1.0)
+        return sorted(s for s in found if s.ex_date >= start and s.ratio != 1.0)
 
     def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
         """See ``LatestCloseAdapter``. One request: the prices URL without dates."""
         try:
             rows = self._settled(self._list("/stable/historical-price-eod/full", self._key(ctx), {"symbol": ticker}))
         except _NotInPlan:
-            message = _not_in_plan(ticker)
-        else:
-            if rows:
-                newest = max(rows, key=lambda r: str(r.get("date", "")))
-                last = _frame([newest], [])
-                return last.index[-1].date(), float(last["close"].iloc[-1])
-            message = f"FMP has no recent prices for {ticker}."
-        raise NoSuchData(FMP.id, message, {ticker: message})
+            raise self._missing(ticker, _not_in_plan(ticker)) from None
+        if not rows:
+            raise self._missing(ticker, f"FMP has no recent prices for {ticker}.")
+        newest = max(rows, key=lambda r: str(r.get("date", "")))
+        last = _frame([newest], [])
+        return last.index[-1].date(), float(last["close"].iloc[-1])
 
     def _settled(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """``rows`` without any day whose trading hasn't settled yet (New York time)."""

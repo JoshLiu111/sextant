@@ -308,6 +308,7 @@ def test_one_question_uses_one_unit_of_the_shared_daily_quota(client, model, mon
     assert first.json()["quota"]["remaining"] == 0
     assert refused.status_code == 429
     assert refused.json()["error"]["code"] == "quota_exceeded"
+    assert "Your quota resets in" in refused.json()["error"]["message"]
     # AI Explain draws on the same quota.
     explain = client.post("/api/compute/ai/explain/options", json=OPTIONS, headers=bearer(token))
     assert explain.status_code == 429

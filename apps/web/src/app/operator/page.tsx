@@ -1,13 +1,24 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { getMessages } from "@/i18n";
 import { sessionToken } from "@/lib/auth/session";
-import { fetchAiUsage, fetchUsers, type DayUsage, type UsageTotals, type UserUsage } from "@/lib/operator";
+import {
+  fetchAiUsage,
+  fetchUsers,
+  WINDOW_DAYS,
+  windowDays,
+  type DayUsage,
+  type UsageTotals,
+  type UserUsage,
+  type WindowDays,
+} from "@/lib/operator";
 
 // Operator view: users (issue #51) and AI usage (story 95). src/proxy.ts already turned non-operators
-// away with a 404 before rendering; the compute service checks again here.
+// away with a 404 before rendering; the compute service checks again here. `?days=` picks the
+// window (WINDOW_DAYS) the sign-ups and AI usage cover.
 
 const t = getMessages();
 const c = t.operator.columns;
@@ -113,8 +124,8 @@ function PerDayTable({ days }: { days: DayUsage[] }) {
   );
 }
 
-async function AiUsage() {
-  const result = await fetchAiUsage(await sessionToken());
+async function AiUsage({ days }: { days: WindowDays }) {
+  const result = await fetchAiUsage(await sessionToken(), days);
   if (result.kind === "not_found") notFound();
   if (result.kind === "failed") {
     return (
@@ -158,8 +169,8 @@ function Stat({ label, value, testId }: { label: string; value: number; testId: 
   );
 }
 
-async function Users() {
-  const result = await fetchUsers(await sessionToken());
+async function Users({ days }: { days: WindowDays }) {
+  const result = await fetchUsers(await sessionToken(), days);
   if (result.kind === "not_found") notFound();
   if (result.kind === "failed") {
     return (
@@ -207,22 +218,51 @@ async function Users() {
   );
 }
 
-export default function OperatorPage() {
+function WindowPicker({ days }: { days: WindowDays }) {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-10">
-      <h1 className="text-2xl font-semibold">{t.operator.heading}</h1>
+    <nav aria-label={t.operator.window.label} className="mt-3 flex flex-wrap gap-2 text-sm">
+      {WINDOW_DAYS.map((d) => (
+        <Link
+          key={d}
+          href={`/operator?days=${d}`}
+          aria-current={d === days ? "page" : undefined}
+          className="rounded-md border border-black/20 px-3 py-1 hover:bg-black/5 aria-[current=page]:bg-black aria-[current=page]:text-white dark:border-white/25 dark:hover:bg-white/10 dark:aria-[current=page]:bg-white dark:aria-[current=page]:text-black"
+        >
+          {t.operator.window.option(d)}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+async function Report({ searchParams }: { searchParams: PageProps<"/operator">["searchParams"] }) {
+  const days = windowDays((await searchParams).days);
+  return (
+    <>
+      <WindowPicker days={days} />
       <section aria-labelledby="operator-users" className="mt-6">
         <h2 id="operator-users" className="text-xl font-semibold">{u.heading}</h2>
         <Suspense fallback={null}>
-          <Users />
+          <Users days={days} />
         </Suspense>
       </section>
       <section aria-labelledby="operator-ai-usage" className="mt-10">
         <h2 id="operator-ai-usage" className="text-xl font-semibold">{t.operator.aiUsageHeading}</h2>
         <Suspense fallback={null}>
-          <AiUsage />
+          <AiUsage days={days} />
         </Suspense>
       </section>
+    </>
+  );
+}
+
+export default function OperatorPage({ searchParams }: PageProps<"/operator">) {
+  return (
+    <main className="mx-auto w-full max-w-5xl px-4 py-10">
+      <h1 className="text-2xl font-semibold">{t.operator.heading}</h1>
+      <Suspense fallback={null}>
+        <Report searchParams={searchParams} />
+      </Suspense>
     </main>
   );
 }

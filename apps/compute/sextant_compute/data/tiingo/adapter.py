@@ -14,6 +14,9 @@ Its jobs:
   day (checked with a real key on 2026-11-23).
 - ``splits``: the stock splits since a date (Portfolio returns turn a past trade
   into today's share count), from the ``splitFactor`` of the prices up to today.
+  Portfolio returns ask for them right after the prices, so the rows of a
+  price request are remembered for ``RECENT_SECONDS`` (per key and ticker) and a
+  split lookup inside them reuses them instead of fetching the prices again.
 
 Key check: ``GET /api/test``. Checked 2026-11-22: it answers HTTP 200 for every
 token and says in ``message`` whether the token worked:
@@ -44,7 +47,9 @@ The key is never logged or put in an error message.
 
 from __future__ import annotations
 
+import hashlib
 import os
+import threading
 import time
 from collections.abc import Callable, Sequence
 from datetime import date
@@ -56,14 +61,26 @@ import pandas as pd
 
 from sextant_compute.data.adapters import PRICE_COLUMNS
 from sextant_compute.data.context import RequestContext
-from sextant_compute.data.errors import KeyRequired, NoSuchData, SourceUnavailable
+from sextant_compute.data.errors import KeyRequired, SourceUnavailable
 from sextant_compute.data.sources import TIINGO
+from sextant_compute.data.splits import Split
 from sextant_compute.data.user_key_http import UserKeyHttpAdapter
 
 BASE_URL = "https://api.tiingo.com"
 
 NO_KEY_MESSAGE = "My data needs your own Tiingo key. Add one in Settings."
 REJECTED_KEY_MESSAGE = "Tiingo no longer accepts your saved key. Replace it in Settings."
+
+RECENT_SECONDS = 60.0
+"""How long a price request's rows are reused for a split lookup (about one request)."""
+RECENT_LIMIT = 64
+"""At most this many (key, ticker) rows are remembered."""
+
+Rows = list[dict[str, Any]]
+
+
+def _no_ticker(ticker: str) -> str:
+    return f"Tiingo has no ticker {ticker}."
 
 
 class TiingoAdapter(UserKeyHttpAdapter):
@@ -83,6 +100,8 @@ class TiingoAdapter(UserKeyHttpAdapter):
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         super().__init__(base_url=base_url, transport=transport, sleep=sleep)
+        self._recent: dict[tuple[str, str], tuple[float, date, Rows | None]] = {}
+        self._recent_lock = threading.Lock()
 
     @classmethod
     def from_env(cls) -> TiingoAdapter:
@@ -119,9 +138,9 @@ class TiingoAdapter(UserKeyHttpAdapter):
 
         def fetch(ticker: str) -> pd.DataFrame | str:
             # Up to today, not just ``end``: a split after ``end`` still changes the share count.
-            rows = self._prices(key, ticker, start, None)
+            rows = self._rows_to_today(key, ticker, start)
             if rows is None:
-                return f"Tiingo has no ticker {ticker}."
+                return _no_ticker(ticker)
             frame = _frame(rows).loc[: pd.Timestamp(end)] if rows else None
             if frame is None or frame.empty:
                 return f"No Tiingo prices for {ticker} between {start} and {end}."
@@ -129,28 +148,45 @@ class TiingoAdapter(UserKeyHttpAdapter):
 
         return self._per_ticker(tickers, fetch)
 
-    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[tuple[date, float]]:
+    def splits(self, ctx: RequestContext, ticker: str, start: date) -> list[Split]:
         """See ``SplitsAdapter``. The ``splitFactor`` of every row from ``start`` to the latest day."""
-        rows = self._prices(self._key(ctx), ticker, start, None)
+        rows = self._rows_to_today(self._key(ctx), ticker, start)
         if rows is None:
-            message = f"Tiingo has no ticker {ticker}."
-            raise NoSuchData(TIINGO.id, message, {ticker: message})
+            raise self._missing(ticker, _no_ticker(ticker))
         split = _raw(rows)["split"] if rows else pd.Series(dtype=float)
-        return [(d.date(), float(ratio)) for d, ratio in split.items() if ratio != 1.0]
+        return [Split(d.date(), float(ratio)) for d, ratio in split.items() if ratio != 1.0]
 
     def latest_close(self, ctx: RequestContext, ticker: str) -> tuple[date, float]:
         """See ``LatestCloseAdapter``. Tiingo's prices URL without dates answers the latest day."""
         rows = self._prices(self._key(ctx), ticker, None, None)
         if rows is None:
-            message = f"Tiingo has no ticker {ticker}."
-        elif not rows:
-            message = f"Tiingo has no recent prices for {ticker}."
-        else:
-            last = _frame(rows[-1:])
-            return last.index[-1].date(), float(last["close"].iloc[-1])
-        raise NoSuchData(TIINGO.id, message, {ticker: message})
+            raise self._missing(ticker, _no_ticker(ticker))
+        if not rows:
+            raise self._missing(ticker, f"Tiingo has no recent prices for {ticker}.")
+        last = _frame(rows[-1:])
+        return last.index[-1].date(), float(last["close"].iloc[-1])
 
-    def _prices(self, key: str, ticker: str, start: date | None, end: date | None) -> list[dict[str, Any]] | None:
+    def _rows_to_today(self, key: str, ticker: str, start: date) -> Rows | None:
+        """The rows from ``start`` up to the latest day (None: unknown ticker), reusing
+        a request made in the last ``RECENT_SECONDS`` with the same key from an
+        earlier or equal start."""
+        slot = (hashlib.sha256(key.encode()).hexdigest(), ticker.upper())
+        now = time.monotonic()
+        with self._recent_lock:
+            recent = self._recent.get(slot)
+        if recent is not None:
+            fetched_at, fetched_from, rows = recent
+            if now - fetched_at < RECENT_SECONDS and fetched_from <= start:
+                return None if rows is None else [r for r in rows if str(r.get("date", ""))[:10] >= start.isoformat()]
+        rows = self._prices(key, ticker, start, None)
+        with self._recent_lock:
+            self._recent = {k: v for k, v in self._recent.items() if now - v[0] < RECENT_SECONDS}
+            if len(self._recent) >= RECENT_LIMIT:
+                self._recent.pop(next(iter(self._recent)))
+            self._recent[slot] = (now, start, rows)
+        return rows
+
+    def _prices(self, key: str, ticker: str, start: date | None, end: date | None) -> Rows | None:
         """The raw rows, or None for a ticker Tiingo doesn't know. No dates: the latest day;
         a start without an end: up to the latest day."""
         params = {"format": "json"}

@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { getMessages } from "@/i18n";
 import { FooterAttribution } from "./FooterAttribution";
 
@@ -9,9 +8,7 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6">
         <p className="font-medium">{t.footer.disclaimer}</p>
         <p>{t.footer.analytics}</p>
-        <Suspense fallback={<div data-testid="attribution-slot" />}>
-          <FooterAttribution />
-        </Suspense>
+        <FooterAttribution />
       </div>
     </footer>
   );
