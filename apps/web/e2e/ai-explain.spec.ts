@@ -58,16 +58,21 @@ test("the explanation follows the result on screen", async ({ page }) => {
   await expect(ai.getByTestId("ai-explanation")).toContainText("the call is worth about 26.17");
 });
 
-test("calls over the daily quota are refused with a clear message", async ({ page }) => {
-  const ai = await signInOnOptions(page);
-  const button = ai.getByRole("button", { name: "AI Explain" });
-  for (const left of [2, 1, 0]) {
-    await button.click();
-    await expect(ai.getByTestId("ai-quota")).toHaveText(`${left} of 3 AI calls left today`);
-  }
+test.describe("in New York", () => {
+  test.use({ timezoneId: "America/New_York" });
 
-  await expect(button).toBeDisabled();
-  await expect(ai.getByTestId("ai-quota-used-up")).toHaveText(
-    "You have used all of today's AI calls. Your quota resets at 00:00 UTC.",
-  );
+  test("calls over the daily quota are refused, with the reset time in the visitor's time zone", async ({ page }) => {
+    const ai = await signInOnOptions(page);
+    const button = ai.getByRole("button", { name: "AI Explain" });
+    for (const left of [2, 1, 0]) {
+      await button.click();
+      await expect(ai.getByTestId("ai-quota")).toHaveText(`${left} of 3 AI calls left today`);
+    }
+
+    await expect(button).toBeDisabled();
+    // The quota resets at 00:00 UTC: 7 PM in New York in winter, 8 PM in summer.
+    await expect(ai.getByTestId("ai-quota-used-up")).toHaveText(
+      /^You have used all of today's AI calls\. Your quota resets at (7:00 PM EST|8:00 PM EDT)\.$/,
+    );
+  });
 });
