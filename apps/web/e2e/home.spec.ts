@@ -17,6 +17,7 @@ const LIVE_TOOLS = new Set([
   "Risk & Performance",
   "My Portfolio",
   "Company Health Check",
+  "Valuation Calculator",
   "Macro Dashboard",
 ]);
 

@@ -61,6 +61,27 @@ export function formatChartPercentValue(value: number): string {
   return `${CHART_ONE.format(value)}%`;
 }
 
+const USD_COMPACT = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const USD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+const COMPACT = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
+
+/**
+ * Company-scale amounts: `currency` compact ("$66.99B"), `per_share` in dollars
+ * ("$150.58"), `shares` compact ("7.43B"); other units as `formatValue`.
+ */
+export function formatMoneyValue(value: number, unit: Unit | null): string {
+  if (unit === "currency") return USD_COMPACT.format(value);
+  if (unit === "per_share") return USD.format(value);
+  if (unit === "shares") return COMPACT.format(value);
+  return formatValue(value, unit);
+}
+
 /** ISO 8601 timestamp with offset to "YYYY-MM-DD HH:MM UTC". */
 export function formatTimestampUtc(iso: string): string {
   const d = new Date(iso);
