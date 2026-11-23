@@ -17,6 +17,13 @@ export type ChartSeries = {
 /** A labelled vertical reference line, e.g. the strike or a drawdown start. */
 export type ChartMarker = { x: number; label: string };
 
+/**
+ * A shaded x range drawn behind the lines, e.g. a yield-curve inversion period.
+ * `start`..`end` is inclusive (a one-point band still shows as a thin strip);
+ * the tooltip names the band when the hovered x falls inside it.
+ */
+export type ChartBand = { start: number; end: number; label: string; color?: string };
+
 type Props = {
   /** Accessible name of the chart (role="img"). */
   label: string;
@@ -25,6 +32,7 @@ type Props = {
   formatX: (x: number) => string;
   formatY: (y: number) => string;
   markers?: ChartMarker[];
+  bands?: ChartBand[];
   height?: number;
 };
 
@@ -35,7 +43,16 @@ const MARGIN = { top: 12, right: 16, bottom: 36, left: 56 };
  * shows a tooltip with the exact value of every series at the nearest x.
  * For dates, pass x as epoch milliseconds and format it in `formatX`.
  */
-export function LineChart({ label, series, xLabel, formatX, formatY, markers = [], height = 280 }: Props) {
+export function LineChart({
+  label,
+  series,
+  xLabel,
+  formatX,
+  formatY,
+  markers = [],
+  bands = [],
+  height = 280,
+}: Props) {
   const wrapper = useRef<HTMLDivElement>(null);
   // Unknown until measured, so the SVG never renders wider than its container.
   const [measured, setMeasured] = useState<number | null>(null);
@@ -67,6 +84,7 @@ export function LineChart({ label, series, xLabel, formatX, formatY, markers = [
   const sy = (y: number) => MARGIN.top + (1 - (y - y0) / (y1 - y0)) * innerH;
 
   const hoverX = hoverIndex === null ? null : xs[Math.min(hoverIndex, xs.length - 1)];
+  const hoverBands = hoverX === null ? [] : bands.filter((b) => b.start <= hoverX && hoverX <= b.end);
 
   function onPointerMove(e: PointerEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -117,6 +135,26 @@ export function LineChart({ label, series, xLabel, formatX, formatY, markers = [
             {xLabel}
           </text>
         </g>
+        {bands.map((b) => {
+          const left = sx(Math.max(b.start, x0));
+          const right = sx(Math.min(b.end, x1));
+          return (
+            <rect
+              key={`b${b.start}-${b.end}`}
+              data-testid="chart-band"
+              data-band-start={formatX(b.start)}
+              data-band-end={formatX(b.end)}
+              x={left}
+              width={Math.max(right - left, 2)}
+              y={MARGIN.top}
+              height={innerH}
+              fill={b.color ?? "#f59e0b"}
+              fillOpacity={0.18}
+            >
+              <title>{`${b.label}: ${formatX(b.start)} – ${formatX(b.end)}`}</title>
+            </rect>
+          );
+        })}
         {markers.map((m, i) => {
           // Stagger labels so nearby markers don't overlap; flip to the left near the right edge.
           const flip = sx(m.x) > MARGIN.left + innerW * 0.7;
@@ -174,6 +212,12 @@ export function LineChart({ label, series, xLabel, formatX, formatY, markers = [
               </div>
             );
           })}
+          {hoverBands.map((b) => (
+            <div key={`b${b.start}`} data-testid="chart-tooltip-band" className="mt-1 flex items-center gap-2">
+              <span aria-hidden className="inline-block h-2 w-2" style={{ background: b.color ?? "#f59e0b" }} />
+              {b.label}: {formatX(b.start)} – {formatX(b.end)}
+            </div>
+          ))}
         </div>
       )}
       <ul className="mt-2 flex flex-wrap gap-4 text-xs">
@@ -183,6 +227,12 @@ export function LineChart({ label, series, xLabel, formatX, formatY, markers = [
               <line x1={0} x2={20} y1={3} y2={3} stroke={s.color} strokeWidth={2} strokeDasharray={s.dashed ? "6 4" : undefined} />
             </svg>
             {s.label}
+          </li>
+        ))}
+        {[...new Map(bands.map((b) => [b.label, b])).values()].map((b) => (
+          <li key={`b${b.label}`} className="flex items-center gap-2">
+            <span aria-hidden className="inline-block h-3 w-5" style={{ background: b.color ?? "#f59e0b", opacity: 0.35 }} />
+            {b.label}
           </li>
         ))}
       </ul>

@@ -15,9 +15,22 @@ const PERCENT = new Intl.NumberFormat("en-US", {
 export function formatValue(value: number, unit: Unit | null): string {
   if (unit === "decimal") return PERCENT.format(value);
   if (unit === "percent") return `${TWO.format(value)}%`;
+  if (unit === "percentage_points") return `${TWO.format(value)} pp`;
   if (unit === "ratio") return TWO.format(value);
   if (unit === "money") return TWO.format(value);
   return FOUR.format(value);
+}
+
+const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+/**
+ * Financial-statement cell: `currency` and `shares` in millions (no decimals),
+ * `per_share` with two decimals. Units are stated once in the table caption.
+ */
+export function formatStatementValue(value: number, unit: Unit | null): string {
+  if (unit === "per_share") return TWO.format(value);
+  if (unit === "currency" || unit === "shares") return WHOLE.format(value / 1e6);
+  return formatValue(value, unit);
 }
 
 const CHART_PERCENT = new Intl.NumberFormat("en-US", {
@@ -52,4 +65,17 @@ export function formatChartPercentValue(value: number): string {
 export function formatTimestampUtc(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+/** Percentage points (a spread between two percent values) for charts: "-0.25 pp". */
+export function formatChartPercentPoints(value: number): string {
+  return `${TWO.format(value)} pp`;
+}
+
+const MATURITY = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
+
+/** A maturity in years for charts: under a year in months ("1.5 mo"), else years ("10 yr"). */
+export function formatChartMaturity(years: number): string {
+  if (years < 1) return `${MATURITY.format(Math.round(years * 12 * 10) / 10)} mo`;
+  return `${MATURITY.format(years)} yr`;
 }

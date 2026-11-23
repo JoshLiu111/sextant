@@ -26,6 +26,7 @@ from typing import Literal, Protocol
 import pandas as pd
 
 from sextant_compute.data.context import RequestContext
+from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.envelope import DataSource
 
 Scope = Literal["shared", "user"]
@@ -49,6 +50,15 @@ class DailyPricesAdapter(Adapter, Protocol):
         dividend with that ex-date (0 otherwise); ``close`` is not dividend-adjusted.
         Raises ``NoSuchData`` (``missing`` keyed by ticker) for unknown tickers or an
         empty range."""
+        ...
+
+
+class FinancialStatementsAdapter(Adapter, Protocol):
+    def financial_statements(self, ctx: RequestContext, ticker: str) -> FinancialStatements:
+        """Standardized annual statements, every fiscal period available, oldest
+        first (see ``data/statements.py``). Raises ``NoSuchData`` (``missing`` keyed
+        by the ticker as given) for an unknown ticker or a company without
+        financial statements."""
         ...
 
 
@@ -98,4 +108,28 @@ class EconomicSeriesAdapter(Adapter, Protocol):
         transformation (FRED: ``lin`` as published, ``pc1`` percent change from a
         year ago, ...). Raises ``NoSuchData`` (``missing`` keyed by series id) for
         unknown series and for series we may not republish (copyright)."""
+        ...
+
+
+Curve = dict[float, float]
+"""One day's yield curve: maturity in months (1, 1.5, ..., 360) -> yield in percent.
+Maturities not published that day are absent."""
+
+
+@dataclass(frozen=True)
+class YieldCurves:
+    """Daily yield curves, ascending by date, with the metadata a page must show.
+    ``meta.last_updated`` is when the data was fetched (the provider publishes no
+    revision timestamp)."""
+
+    source: DataSource
+    meta: SeriesMeta
+    curves: list[tuple[date, Curve]]
+
+
+class YieldCurveAdapter(Adapter, Protocol):
+    def yield_curves(self, ctx: RequestContext, year: int) -> YieldCurves:
+        """Every curve published in calendar ``year``, ascending (empty for a year
+        with no data yet). Raises ``SourceUnavailable`` when the provider is down
+        or answers something unparseable."""
         ...

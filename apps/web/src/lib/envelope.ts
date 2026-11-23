@@ -15,7 +15,11 @@ export type Unit =
   | "per_vol_point"
   | "per_day"
   | "per_rate_point"
+  | "per_share"
+  | "shares"
   | "percent"
+  | "percentage_points"
+  | "years"
   | "ratio"
   | "money"
   | "date"
@@ -32,12 +36,19 @@ export type MetricResult = {
 
 export type SeriesPoint = { x: number | string; y: number | null };
 
+/** A shaded x range, e.g. an inversion period; `start`/`end` are in the series' x unit. */
+export type SeriesBand = { start: number | string; end: number | string; label: string | null };
+
 export type SeriesResult = {
   status: MetricStatus;
   reason: string | null;
   x_unit: Unit | null;
   y_unit: Unit | null;
   points: SeriesPoint[];
+  /** Extra facts about the series, e.g. the date a yield curve was observed. */
+  details: Record<string, string | number | null>;
+  /** Shaded x ranges to draw with the series, e.g. inversion periods. */
+  bands: SeriesBand[];
 };
 
 export type DataSource = { id: string; name: string; is_demo: boolean };

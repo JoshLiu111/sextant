@@ -23,11 +23,23 @@ import pandas as pd
 from fastapi import Depends
 
 from sextant_compute.auth import OptionalUser
-from sextant_compute.data.adapters import Adapter, DailyPricesAdapter, EconomicSeries, EconomicSeriesAdapter, SeriesMeta
+from sextant_compute.data.adapters import (
+    Adapter,
+    DailyPricesAdapter,
+    EconomicSeries,
+    EconomicSeriesAdapter,
+    FinancialStatementsAdapter,
+    SeriesMeta,
+    YieldCurveAdapter,
+    YieldCurves,
+)
 from sextant_compute.data.cache import CACHE_VERSION, CacheBackend, InMemoryCache, default_shared_cache
 from sextant_compute.data.context import RequestContext
+from sextant_compute.data.edgar import EdgarAdapter
 from sextant_compute.data.fred import FredAdapter
+from sextant_compute.data.statements import FinancialStatements
 from sextant_compute.data.synthetic import SyntheticAdapter
+from sextant_compute.data.treasury import TreasuryAdapter
 from sextant_compute.envelope import DataSource
 
 T = TypeVar("T")
@@ -123,6 +135,20 @@ class DataService:
         )
         return PriceHistory(source=adapter.source, frames={t: frames[t] for t in wanted})
 
+    def financial_statements(self, ctx: RequestContext, ticker: str, *, source: str) -> FinancialStatements:
+        """Standardized annual statements for one company; see ``FinancialStatementsAdapter``.
+        Use ``.last(n)`` for the n most recent fiscal years."""
+        adapter = cast(FinancialStatementsAdapter, self._adapter(source))
+        return self._cached(
+            ctx,
+            adapter,
+            "financial_statements",
+            {"ticker": ticker.strip().upper()},
+            lambda: adapter.financial_statements(ctx, ticker),
+            FinancialStatements.to_json,
+            FinancialStatements.from_json,
+        )
+
     def economic_series(
         self, ctx: RequestContext, series_id: str, *, start: date, units: str = "lin", source: str
     ) -> EconomicSeries:
@@ -136,6 +162,29 @@ class DataService:
             lambda: adapter.economic_series(ctx, series_id, start, units),
             _encode_series,
             _decode_series,
+        )
+
+    def yield_curves(self, ctx: RequestContext, *, start: date, end: date, source: str) -> YieldCurves:
+        """Daily yield curves dated within [start, end], ascending; see ``YieldCurveAdapter``.
+        Fetched and cached one calendar year at a time, so a wider range reuses the
+        years already cached. ``meta`` is the newest year's."""
+        adapter = cast(YieldCurveAdapter, self._adapter(source))
+        years = [
+            self._cached(
+                ctx,
+                adapter,
+                "yield_curves",
+                {"year": year},
+                lambda year=year: adapter.yield_curves(ctx, year),
+                _encode_curves,
+                _decode_curves,
+            )
+            for year in range(start.year, end.year + 1)
+        ]
+        return YieldCurves(
+            source=adapter.source,
+            meta=years[-1].meta,
+            curves=[(when, curve) for y in years for when, curve in y.curves if start <= when <= end],
         )
 
 
@@ -181,10 +230,33 @@ def _decode_series(raw: Mapping[str, Any]) -> EconomicSeries:
     )
 
 
+def _encode_curves(curves: YieldCurves) -> dict[str, Any]:
+    return {
+        "source": curves.source.model_dump(),
+        "meta": dataclasses.asdict(curves.meta),
+        "curves": [[when.isoformat(), [[m, v] for m, v in curve.items()]] for when, curve in curves.curves],
+    }
+
+
+def _decode_curves(raw: Mapping[str, Any]) -> YieldCurves:
+    return YieldCurves(
+        source=DataSource(**raw["source"]),
+        meta=SeriesMeta(**raw["meta"]),
+        curves=[(date.fromisoformat(when), {float(m): v for m, v in pairs}) for when, pairs in raw["curves"]],
+    )
+
+
 def default_adapters() -> dict[str, Adapter]:
     synthetic = SyntheticAdapter()
     fred = FredAdapter.from_env()
-    return {synthetic.source.id: synthetic, fred.source.id: fred}
+    edgar = EdgarAdapter()
+    treasury = TreasuryAdapter.from_env()
+    return {
+        synthetic.source.id: synthetic,
+        fred.source.id: fred,
+        edgar.source.id: edgar,
+        treasury.source.id: treasury,
+    }
 
 
 _service: DataService | None = None
