@@ -13,6 +13,7 @@ export const en = {
   auth: {
     signIn: "Sign in with Google",
     signOut: "Sign out",
+    dashboard: "Dashboard",
     account: "Account",
     settings: "Settings",
   },
@@ -90,6 +91,33 @@ export const en = {
         "Saved portfolios, including ones you import from a CSV file.",
         "AI Explain on results and the AI Analyst, within a daily quota.",
       ],
+    },
+  },
+  dashboard: {
+    title: "Dashboard",
+    greeting: (who: string) => `Welcome, ${who}`,
+    statusLabel: "Your account",
+    loading: "Loading…",
+    unavailable: "Unavailable right now.",
+    key: {
+      heading: "Data key",
+      none: "No key connected. Tools use demo data.",
+      addKey: "Add a key in Settings",
+      connected: (providers: string[]) => `${providers.join(" and ")} connected`,
+      manage: "Manage keys in Settings",
+    },
+    quota: {
+      heading: "AI quota",
+      left: (remaining: number, limit: number) => `${remaining} of ${limit} AI calls left today`,
+      resets: (at: string) => `Resets at ${at}`,
+    },
+    portfolios: {
+      heading: "Saved portfolios",
+      count: (n: number) => `${n} saved portfolio${n === 1 ? "" : "s"}`,
+      open: "Open My Portfolio",
+    },
+    tools: {
+      heading: "Your tools",
     },
   },
   /**
