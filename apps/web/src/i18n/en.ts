@@ -370,6 +370,8 @@ export const en = {
       examplesLabel: "Try these examples",
       signedInExtras: "Signed-in users can also:",
     },
+    /** The row of headline figures at the top of a tool's results. */
+    keyFigures: "Key figures",
     explainer: {
       about: "About",
       what: "What it is",

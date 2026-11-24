@@ -123,3 +123,44 @@ test.describe("mobile width", () => {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 });
+
+// The view tabs (the shared URL-backed tablist, issue #70).
+test.describe("view tabs", () => {
+  test("an unknown tab in the link opens the first tab", async ({ page }) => {
+    await page.goto("/options?tab=nonsense");
+    const main = page.getByRole("main");
+    const tabs = main.getByRole("tablist", { name: "Options Calculator views" });
+    await expect(tabs.getByRole("tab", { name: "Single option" })).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByRole("tabpanel", { name: "Single option" })).toBeVisible();
+  });
+
+  test("arrow keys move between tabs, and the open tab goes into the URL", async ({ page }) => {
+    await page.goto("/options");
+    const main = page.getByRole("main");
+    const single = main.getByRole("tab", { name: "Single option" });
+    const strategy = main.getByRole("tab", { name: "Strategy builder" });
+    const american = main.getByRole("tab", { name: "American (binomial)" });
+    // Only the open tab is in the Tab order.
+    await expect(single).toHaveAttribute("tabindex", "0");
+    await expect(strategy).toHaveAttribute("tabindex", "-1");
+
+    // Server-rendered: a key before hydration is lost, so retry until it lands.
+    await expect(async () => {
+      await single.focus();
+      await page.keyboard.press("ArrowRight");
+      await expect(strategy).toHaveAttribute("aria-selected", "true", { timeout: 1000 });
+    }).toPass();
+    await expect(strategy).toBeFocused();
+    await expect(page).toHaveURL(/[?&]tab=strategy(&|$)/);
+
+    await page.keyboard.press("End");
+    await expect(american).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("ArrowRight");
+    await expect(single).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("ArrowLeft");
+    await expect(american).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("Home");
+    await expect(single).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/[?&]tab=single(&|$)/);
+  });
+});
