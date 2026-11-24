@@ -15,6 +15,8 @@ async function openValuation(page: Page, query = "") {
 
 type Main = Awaited<ReturnType<typeof openValuation>>;
 const value = (main: Main, id: string) => main.locator(`[data-metric-value="${id}"]`);
+// The results are in tabs: Overview (key figures, sensitivity, valuation), WACC, and From the 10-K.
+const openTab = (main: Main, name: "Overview" | "WACC" | "From the 10-K") => main.getByRole("tab", { name }).click();
 
 test("smoke: submit the defaults and see the DCF, WACC breakdown and sensitivity table", async ({ page }) => {
   const main = await openValuation(page);
@@ -26,16 +28,23 @@ test("smoke: submit the defaults and see the DCF, WACC breakdown and sensitivity
   await expect(results.getByRole("heading", { name: "MICROSOFT CORP" })).toBeVisible();
   await expect(value(results, "intrinsic_value_per_share")).toHaveAttribute("data-status", "ok");
   await expect(value(results, "intrinsic_value_per_share")).toContainText("$163.73");
-  await expect(value(results, "free_cash_flow")).toContainText("$69.45B");
-  await expect(value(results, "short_term_investments")).toContainText("$55.91B");
-  for (const id of ["enterprise_value", "equity_value", "cost_of_equity", "cost_of_debt", "tax_rate", "wacc"]) {
+  for (const id of ["enterprise_value", "equity_value"]) {
     await expect(value(results, id)).toHaveAttribute("data-status", "ok");
   }
-  await expect(value(results, "wacc")).toContainText("9.22%");
   const grid = results.getByRole("table", { name: "Sensitivity: value per share" });
   await expect(grid).toBeVisible();
   await expect(grid.locator('[data-metric-value="sensitivity:2:2"]')).toHaveText("$163.73");
   await expect(grid.locator("[data-metric-value^='sensitivity:']")).toHaveCount(25);
+
+  await openTab(results, "WACC");
+  for (const id of ["cost_of_equity", "cost_of_debt", "tax_rate", "wacc"]) {
+    await expect(value(results, id)).toHaveAttribute("data-status", "ok");
+  }
+  await expect(value(results, "wacc")).toContainText("9.22%");
+
+  await openTab(results, "From the 10-K");
+  await expect(value(results, "free_cash_flow")).toContainText("$69.45B");
+  await expect(value(results, "short_term_investments")).toContainText("$55.91B");
 });
 
 test("changing an assumption updates the results", async ({ page }) => {
@@ -49,6 +58,7 @@ test("changing an assumption updates the results", async ({ page }) => {
 
 test("overriding a WACC component updates the WACC", async ({ page }) => {
   const main = await openValuation(page);
+  await openTab(main, "WACC");
   await expect(value(main, "wacc")).toContainText("9.22%");
 
   await main.getByLabel("Cost of equity (%)").fill("12");
@@ -73,10 +83,11 @@ test("terminal growth at or above the discount rate is a clear inline error", as
 test("missing statement inputs show missing data naming the item", async ({ page }) => {
   const main = await openValuation(page, "?ticker=JPM");
   await expect(main.getByLabel("Ticker")).toHaveValue("JPM");
+  await expect(value(main, "intrinsic_value_per_share")).toHaveAttribute("data-status", "missing_data");
 
+  await openTab(main, "From the 10-K");
   await expect(value(main, "free_cash_flow")).toHaveAttribute("data-status", "missing_data");
   await expect(value(main, "free_cash_flow")).toContainText("Capital Expenditure is not reported by this company.");
-  await expect(value(main, "intrinsic_value_per_share")).toHaveAttribute("data-status", "missing_data");
 });
 
 test("the ticker URL parameter picks the company", async ({ page }) => {
@@ -92,11 +103,74 @@ test("every input and output has an explainer, and the footer shows the SEC attr
   for (const label of ["Ticker", "Growth rate (%)", "Beta", "Equity risk premium (%)", "Share price ($)"]) {
     await expect(main.getByText(`About ${label.replace(/ \(.*\)$/, "").toLowerCase()}`, { exact: true })).toHaveCount(1);
   }
-  for (const card of ["intrinsic_value_per_share", "wacc", "cost_of_debt", "capital_structure", "free_cash_flow"]) {
+  await expect(main.locator('[data-metric="intrinsic_value_per_share"]').getByTestId("explainer")).toHaveCount(1);
+  await expect(main.locator('[data-testid="sensitivity"]').getByTestId("explainer")).toHaveCount(1);
+  await openTab(main, "WACC");
+  for (const card of ["wacc", "cost_of_debt", "capital_structure"]) {
     await expect(main.locator(`[data-metric="${card}"]`).getByTestId("explainer")).toHaveCount(1);
   }
-  await expect(main.locator('[data-testid="sensitivity"]').getByTestId("explainer")).toHaveCount(1);
+  await openTab(main, "From the 10-K");
+  await expect(main.locator('[data-metric="free_cash_flow"]').getByTestId("explainer")).toHaveCount(1);
   await expect(page.getByRole("contentinfo").locator('[data-attribution="sec"]')).toBeVisible();
+});
+
+test.describe("results tabs", () => {
+  test("the overview opens first, with the key figures strip and the sensitivity table", async ({ page }) => {
+    const main = await openValuation(page);
+    const results = main.getByTestId("results");
+    const tabs = results.getByRole("tablist", { name: "Valuation results" });
+    await expect(tabs.getByRole("tab")).toHaveText(["Overview", "WACC", "From the 10-K"]);
+    await expect(tabs.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+
+    const strip = results.getByTestId("key-figures");
+    await expect(strip.locator("[data-key-figure]")).toHaveCount(4);
+    await expect(strip.locator('[data-key-figure="intrinsic_value_per_share"]')).toContainText("$163.73");
+    await expect(strip.locator('[data-key-figure="discount_rate"]')).toContainText("9.22%");
+    await expect(strip.locator('[data-key-figure="share_price"]')).toHaveAttribute("data-status", "missing_data");
+    await expect(strip.locator('[data-key-figure="margin_of_safety"]')).toHaveAttribute("data-status", "missing_data");
+    await expect(results.getByRole("table", { name: "Sensitivity: value per share" })).toBeVisible();
+    await expect(value(results, "wacc")).toHaveCount(0);
+    // Calculation info and AI Explain stay below the tab panel.
+    await expect(results.getByRole("tabpanel").getByRole("button", { name: "AI Explain" })).toHaveCount(0);
+  });
+
+  test("opening a tab writes it to the URL, and the link reopens it", async ({ page }) => {
+    const main = await openValuation(page, "?ticker=MSFT&growth_rate=8");
+    await expect(value(main, "intrinsic_value_per_share")).toContainText("$185.06");
+
+    await main.getByRole("tab", { name: "WACC" }).click();
+    await expect(page).toHaveURL(/[?&]tab=wacc(&|$)/);
+    await expect(page).toHaveURL(/[?&]growth_rate=8(&|$)/);
+    await expect(value(main, "wacc")).toContainText("9.22%");
+
+    await page.reload();
+    await expect(main.getByRole("tab", { name: "WACC" })).toHaveAttribute("aria-selected", "true");
+    await expect(value(main, "wacc")).toContainText("9.22%");
+
+    await main.getByRole("tab", { name: "From the 10-K" }).click();
+    await expect(page).toHaveURL(/[?&]tab=statement(&|$)/);
+    await expect(value(main, "free_cash_flow")).toContainText("$69.45B");
+  });
+
+  test("an unknown tab opens the overview", async ({ page }) => {
+    const main = await openValuation(page, "?tab=nope");
+    await expect(main.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+    await expect(value(main, "intrinsic_value_per_share")).toContainText("$163.73");
+  });
+});
+
+test.describe("desktop width", () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test("the inputs stay in view while the results scroll", async ({ page }) => {
+    const main = await openValuation(page);
+    await expect(value(main, "intrinsic_value_per_share")).toHaveAttribute("data-status", "ok");
+
+    await page.evaluate(() => window.scrollTo(0, 1200));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(600);
+
+    await expect(main.getByLabel("Ticker")).toBeInViewport();
+  });
 });
 
 test.describe("mobile width", () => {
