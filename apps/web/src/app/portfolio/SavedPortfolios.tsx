@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
 import { getMessages } from "@/i18n";
@@ -199,7 +200,12 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
             </select>
           </div>
         ) : (
-          <p className="min-w-0 flex-1 text-sm">{s.empty}</p>
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            <div className="art-plate w-32 flex-none">
+              <Image src="/landing/sextant-assets/states/empty.png" width={480} height={300} alt="" sizes="8rem" className="block h-auto w-full" />
+            </div>
+            <p className="min-w-0 text-sm">{s.empty}</p>
+          </div>
         )}
         <button type="button" onClick={() => select(null)} className={buttonClass}>
           {s.newPortfolio}

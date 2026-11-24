@@ -14,12 +14,15 @@ export function ToolCard({
   action,
   personal,
   wide = false,
+  picture,
 }: {
   tool: Tool;
   action: keyof Messages["common"]["toolCard"];
   personal?: ReactNode;
   /** Lay the card out across a wide row: the question beside the highlights. */
   wide?: boolean;
+  /** An illustration set at the top of the card (the landing page's). */
+  picture?: ReactNode;
 }) {
   const t = getMessages();
   const label = t.common.toolCard[action];
@@ -32,13 +35,14 @@ export function ToolCard({
       data-tool={tool.slug}
       className={`card flex h-full flex-col p-5 md:p-6 ${wide ? "md:grid md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:gap-x-10" : ""}`}
     >
+      {picture && <div className="-mx-1 -mt-1 mb-5 md:col-span-2">{picture}</div>}
       <div className="min-w-0">
         <span aria-hidden className="tool-rule mb-4" />
         <h4 id={headingId} className="text-sm font-medium text-ink-2">
           {copy.name}
         </h4>
         {/* The question leads: it is what the visitor came to ask. */}
-        <p data-testid="tool-question" className="mt-2 font-display text-xl leading-snug text-ink md:text-2xl">
+        <p data-testid="tool-question" className={`mt-2 font-display leading-snug text-ink ${picture ? "text-xl" : "text-xl md:text-2xl"}`}>
           {copy.question}
         </p>
       </div>
@@ -52,9 +56,12 @@ export function ToolCard({
         {tool.status === "coming-soon" && (
           <span className="mt-3 self-start text-xs font-medium text-muted">{t.comingSoon.badge}</span>
         )}
-        <Link href={tool.href} aria-label={`${label}: ${copy.name}`} className="mt-auto self-start pt-5">
-          <span className="btn btn-sm">{label}</span>
-        </Link>
+        {/* The link is the button, so its focus ring sits on the button. */}
+        <div className="mt-auto pt-5">
+          <Link href={tool.href} aria-label={`${label}: ${copy.name}`} className="btn btn-tool btn-lg">
+            {label}
+          </Link>
+        </div>
       </div>
     </article>
   );

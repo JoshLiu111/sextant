@@ -95,104 +95,25 @@ export const en = {
         "AI Explain on results and the AI Analyst, within a daily quota.",
       ],
     },
-    // The hero's deck: one screen from each charted tool, turning over on its own.
-    // `short` labels the deck's buttons; `source` and `note` are the orange guides'
-    // readouts around the sheet: where the numbers came from and how they were made.
-    deck: {
-      label: "Screens from the tools",
-      pause: "Pause",
-      play: "Play",
-      show: (name: string) => `Show the ${name} screen`,
-      open: (name: string) => `Open ${name}`,
+    // Privacy, in the visitor's own questions. Every answer is what the code does:
+    // the users table holds the Google account id, email and name; ai_usage holds
+    // counts and tokens only; every user table deletes with the account.
+    trust: {
+      heading: "Safe to sign in, safe to use",
+      intro: "What Sextant keeps about you, and what it never does.",
+      rows: [
+        ["Do I need an account?", "No. Every tool works without signing in, on demo data."],
+        ["What does signing in keep?", "Your Google account's email and name. There is no password to leak."],
+        ["Is my data key safe?", "It is checked with the provider, encrypted with AES-256-GCM and used only for your own requests."],
+        ["Can other users see my data?", "No. Data fetched with your key is cached under your account only."],
+        ["Does Sextant keep my AI questions?", "No. It counts your AI calls and tokens for the daily quota, nothing more."],
+        ["Can I delete everything?", "Yes. Deleting your account removes your portfolios, keys and uploaded files at once."],
+        ["Am I tracked?", "Only by anonymous, cookieless page-view counts."],
+      ] as const,
     },
-    // Captions for the landing page's screenshots of the tools' own results.
-    figures: {
-      yieldCurve: {
-        short: "Macro",
-        caption: "The Treasury yield curve against a month and a year earlier.",
-        alt: "Macro Dashboard: the US Treasury yield curve card, 2-year 4.63% and 10-year 4.92% on 2026-11-23, its source and the curve against one month and one year earlier",
-        source: "U.S. Treasury daily par yield curve",
-        note: "Latest curve 2026-11-23",
-        spread: "10-year minus 2-year: 0.29 pp",
-      },
-      earnings: {
-        short: "Calendar",
-        caption: "Who reported earnings lately, and who reports next.",
-        alt: "Screener & Calendar: earnings releases from 2026-10-25 to 2027-01-23, reported ones linked to their 8-K filings and upcoming dates estimated from a year earlier",
-        source: "8-K filings, Item 2.02, SEC EDGAR",
-        note: "Upcoming dates: 52 weeks after last year's",
-      },
-      profitability: {
-        short: "Company",
-        caption: "NVIDIA's margins and returns, fiscal 2022 to 2026.",
-        alt: "Company Health Check: NVIDIA's profitability ratios for fiscal 2022 to 2026, from gross margin to return on equity, which rose from 17.93% in fiscal 2023 to 119.18% in fiscal 2025",
-        source: "NVIDIA's 10-K filings, SEC EDGAR",
-        note: "Return on equity: 17.93% to 119.18%",
-      },
-      sensitivity: {
-        short: "Valuation",
-        caption: "Microsoft's value per share across growth and discount rates.",
-        alt: "Valuation Calculator: Microsoft's intrinsic value of $163.73 per share at a 9.22% discount rate, and a sensitivity table of value per share by growth rate and discount rate",
-        source: "Microsoft's 10-K, SEC EDGAR",
-        note: "Base case: 5.0% growth at a 9.22% WACC",
-      },
-      frontier: {
-        short: "Portfolio",
-        caption: "The efficient frontier, and where your portfolio sits against it.",
-        alt: "My Portfolio: the efficient frontier of three demo holdings with the maximum Sharpe, minimum variance and current portfolios marked",
-        source: "Sextant demo data, synthetic prices",
-        note: "Long-only mean-variance optimisation",
-      },
-      correlation: {
-        short: "Risk",
-        caption: "How closely five tickers and their benchmark move together.",
-        alt: "Risk & Performance: a correlation heatmap of five demo tickers and their benchmark, from 0.12 between DEMO-B and DEMO-E to 0.93 between DEMO-C and the benchmark",
-        source: "Sextant demo data, synthetic prices",
-        note: "Daily returns, 2021 to 2025",
-      },
-      condor: {
-        short: "Options",
-        caption: "An iron condor's cost, and its profit at expiry and today.",
-        alt: "Options Calculator: an iron condor with strikes 80, 90, 110 and 120, its net cost, maximum profit and loss, and its profit at expiry and today",
-        source: "Your inputs, four legs",
-        note: "Black-Scholes-Merton pricing",
-      },
-      countries: {
-        alt: "Macro Dashboard: annual GDP growth of the United States, Germany, Japan and the United Kingdom since 2000",
-        caption: "GDP growth, four countries, World Bank data",
-      },
-      income: {
-        alt: "Company Health Check: Apple's standardized income statement for fiscal 2022 to 2026, each year linked to the 10-K it was filed in",
-        caption: "Apple's income statement, standardized from five 10-K filings, USD millions",
-      },
-      underwater: {
-        alt: "Risk & Performance: the underwater chart of a demo ticker against its benchmark, its maximum drawdown shaded",
-        caption: "Drawdown against a benchmark, demo prices",
-      },
-    },
-    // The band of methods under the hero, one run per tool. Every name is a
-    // calculation the tool performs.
-    methods: {
-      heading: "The methods behind the numbers",
-      pause: "Pause",
-      play: "Play",
-      groups: {
-        macro: ["Treasury yield curve", "Term spread", "Inflation and unemployment", "GDP growth by country", "Euro area"],
-        screener: ["Fundamental screen", "Earnings calendar", "Dividend history", "Latest SEC filings"],
-        company: ["Standardized statements", "Altman Z-Score", "Piotroski F-Score", "Beneish M-Score", "DuPont analysis"],
-        valuation: ["Discounted cash flow", "WACC", "Terminal value", "Sensitivity table"],
-        portfolio: ["Efficient frontier", "Maximum Sharpe", "Minimum variance", "Rebalancing backtest"],
-        risk: [
-          "Historical, parametric and Cornish-Fisher VaR",
-          "CVaR",
-          "Sharpe, Sortino and Treynor",
-          "Beta and CAPM alpha",
-          "Fama-French and Carhart factors",
-          "GARCH volatility",
-          "Rolling metrics",
-        ],
-        options: ["Black-Scholes-Merton", "Binomial tree", "The Greeks", "Implied volatility", "Multi-leg strategies"],
-      },
+    disclaimer: {
+      heading: "Not investment advice",
+      body: "Sextant is a free platform for learning and experimentation. Nothing on it is investment advice: AI answers are a learning reference, and results may be wrong or out of date.",
     },
   },
   dashboard: {
@@ -949,7 +870,7 @@ export const en = {
         what: "How much daily returns swing around their average, scaled to a year.",
         formula: String.raw`\sigma_{\text{annual}} = s(r) \times \sqrt{252}`,
         how: "s is the sample standard deviation of the daily total returns r, with n − 1 in the denominator.",
-        read: "Higher means a bumpier ride. As a rough guide, broad stock markets run around 15–20% a year; a single growth stock can exceed 40%.",
+        read: "Higher means a bumpier ride. As a rough guide, broad stock markets run around 15 to 20% a year; a single growth stock can exceed 40%.",
       },
       max_drawdown: {
         name: "Max drawdown",
@@ -1873,7 +1794,7 @@ export const en = {
           what: "The rate free cash flow grows at forever after the forecast years, in percent.",
           formula: String.raw`\text{TV} = \dfrac{\text{FCF}_N\,(1 + g_T)}{k - g_T}`,
           how: "FCF_N is the last forecast year's free cash flow, g_T the terminal growth and k the discount rate. The default 2.5% is close to long-run US inflation plus a little real growth.",
-          read: "It must be below the discount rate, or the formula has no finite value. Keep it at or below long-run economic growth (about 2–3%).",
+          read: "It must be below the discount rate, or the formula has no finite value. Keep it at or below long-run economic growth (about 2 to 3%).",
         },
       },
       discount_rate: {
@@ -1893,7 +1814,7 @@ export const en = {
         explainer: {
           name: "risk-free rate",
           what: "The return on a riskless investment, in percent: the starting point of the cost of equity.",
-          how: "Sextant has no live market data here, so it starts at 4.5%, roughly the 10-year US Treasury yield in 2025–26 (FRED series DGS10). Enter today's yield to update it.",
+          how: "Sextant has no live market data here, so it starts at 4.5%, roughly the 10-year US Treasury yield in 2025 and 2026 (FRED series DGS10). Enter today's yield to update it.",
           read: "Used only for the cost of equity (CAPM). Between −5% and 20%.",
         },
       },
@@ -2086,7 +2007,7 @@ export const en = {
         name: "Tax rate",
         what: "The share of pre-tax income paid as income tax, in percent.",
         formula: String.raw`t = \dfrac{\text{Income tax expense}}{\text{Pretax income}}`,
-        how: "From the 10-K, clipped to 0–100%, and 0% when pre-tax income is negative (unless you override it).",
+        how: "From the 10-K, clipped to 0 to 100%, and 0% when pre-tax income is negative (unless you override it).",
         read: "One year's effective rate can be distorted by one-off items.",
       },
       capital_structure: {
@@ -2357,7 +2278,7 @@ export const en = {
         name: "Return on invested capital (ROIC)",
         what: "After-tax operating profit per dollar of capital from shareholders and lenders.",
         formula: String.raw`\text{ROIC} = \dfrac{\text{Operating income} \times (1 - t)}{\text{Average equity} + \text{Average total debt}}`,
-        how: "t is the effective tax rate, clipped to 0–100%. In percent.",
+        how: "t is the effective tax rate, clipped to 0 to 100%. In percent.",
         read: "A ROIC above the cost of capital means the company creates value as it grows.",
       },
       debt_to_assets: {
@@ -2682,7 +2603,7 @@ export const en = {
   },
   footer: {
     disclaimer:
-      "Not investment advice. Sextant is for education and research only; results may be wrong or out of date.",
+      "Not investment advice. Sextant is a free platform for learning and experimentation; AI answers are a learning reference only. Results may be wrong or out of date.",
     analytics: "Sextant uses cookieless, anonymous page-view analytics (Vercel Web Analytics).",
     sourcesLabel: "Data sources",
   },
@@ -2726,6 +2647,13 @@ export const en = {
   },
   notFound: {
     heading: "Page not found",
+    back: "Back to all tools",
+  },
+  // The page-level error boundary (app/error.tsx): a render that threw, not a failed request.
+  pageError: {
+    heading: "Something went wrong on this page",
+    body: "Try again. If it keeps happening, go back to the tools and start over.",
+    retry: "Try again",
     back: "Back to all tools",
   },
 } as const;

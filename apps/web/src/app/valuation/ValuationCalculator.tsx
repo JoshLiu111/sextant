@@ -388,8 +388,11 @@ export function ValuationCalculator() {
           <>
             <div>
               <h2 className="text-2xl">{valuation.company.name}</h2>
-              <p className="mt-1 text-sm text-muted">
-                {valuation.company.ticker} · {v.baseYear} {valuation.base_period.label} ·{" "}
+              <p className="mt-1 flex flex-wrap gap-x-4 text-sm text-muted">
+                <span>{valuation.company.ticker}</span>
+                <span>
+                  {v.baseYear} {valuation.base_period.label}
+                </span>
                 <a href={valuation.base_period.url} target="_blank" rel="noreferrer" className="link text-muted">
                   {v.filed} {valuation.base_period.filed}
                 </a>

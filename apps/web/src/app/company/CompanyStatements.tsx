@@ -59,7 +59,7 @@ function Cell({ id, label, result }: { id: string; label: string; result: Metric
     );
   }
   const d = result.details;
-  const source = `${label} · ${c.sourceFiling}: ${d.form} ${c.filed} ${d.filed}${d.derived_from ? ` (${c.derived}: ${d.derived_from})` : ""}`;
+  const source = `${label}\n${c.sourceFiling}: ${d.form} ${c.filed} ${d.filed}${d.derived_from ? ` (${c.derived}: ${d.derived_from})` : ""}`;
   return (
     <a
       href={String(d.url)}
@@ -207,8 +207,12 @@ export function CompanyStatements() {
           <>
             <div>
               <h2 className="text-2xl">{statements.company.name}</h2>
-              <p className="mt-1 text-sm text-muted">
-                {statements.company.ticker} · CIK <span className="tabular-nums">{statements.company.cik}</span> · {c.unitsNote}
+              <p className="mt-1 flex flex-wrap gap-x-4 text-sm text-muted">
+                <span>{statements.company.ticker}</span>
+                <span>
+                  CIK <span className="tabular-nums">{statements.company.cik}</span>
+                </span>
+                <span>{c.unitsNote}</span>
               </p>
               {statements.periods.some((p) => p.fiscal_quarter) && (
                 <p className="mt-1 max-w-[75ch] text-xs text-muted">{c.quarterlyNote}</p>

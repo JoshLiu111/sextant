@@ -407,7 +407,7 @@ export function Screener() {
             <div data-testid="screen-summary" className="max-w-[75ch] space-y-2 text-sm">
               <p className="font-medium tabular-nums">
                 {s.match(screen.matched, screen.universe)}
-                {screen.rows.length < screen.matched ? s.showing(screen.rows.length) : ""} · {screen.frames.flow}.{" "}
+                {screen.rows.length < screen.matched ? s.showing(screen.rows.length) : ""} ({screen.frames.flow}).{" "}
                 {screen.excluded.total ? `${s.excluded(screen.excluded.total)}:` : s.noneExcluded}
               </p>
               {screen.excluded.total > 0 && (

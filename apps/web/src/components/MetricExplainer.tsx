@@ -64,7 +64,7 @@ export function MetricExplainer({ explainer }: { explainer: Explainer }) {
   const { popoverId, anchorStyle } = useExplainerAnchor();
   return (
     <div data-testid="explainer" className="explainer mt-2 text-sm" style={anchorStyle}>
-      <button type="button" popoverTarget={popoverId} className="explainer-trigger">
+      <button type="button" popoverTarget={popoverId} className="explainer-trigger max-w-full truncate">
         {t.about} {explainer.name}
       </button>
       <ExplainerSheet id={popoverId} explainer={explainer} />

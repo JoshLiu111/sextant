@@ -1,10 +1,15 @@
-/* Hallmark · shape: Conversational FAQ (/), app screen (8 tools, dashboard, settings, account, operator) · genre: editorial · theme: Studio (deal 1/3, seed free-finance-tools-everyday-e225·89730c67·2026-11-24·r0) · redesign: full
- * hero: Stage (/), a deck of seven tool captures turning over with redrawn guides, then a methods tape · nav: floating pill, four tool groups and account · footer: colophon block · imagery: the product · signature: a real chart annotated with orange construction guides naming its source, calculation and date
+/* Hallmark · shape: Index-First, every tool on one four-column grid, then account and privacy side by side and a disclaimer close (/), app screen (8 tools, dashboard, settings, account, operator) · genre: editorial · theme: Studio (deal 1/3, seed free-finance-tools-everyday-e225·89730c67·2026-11-24·r0) · redesign: full, landing simplified 2026-11-24
+ * hero: Split (/), head and actions beside the supplied workspace illustration, short so the tool grid starts on the first screen · nav: floating pill with the supplied sextant mark, four tool groups and account · footer: colophon block · imagery: the user's illustrations (one per tool, the workspace, the waves) · signature: the eight tools, each with its own illustration, readable in one sweep
  * axes: light/roman-serif/warm · posture: restrained · modes: light+dark · contrast: pass · fold: pass · v2.0.0 */
-/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, a finance tool could wear any paper; the construction guides now name the real source and calculation behind each figure */
+/* Hallmark · pre-emit critique: P4 H4 E4 S3 R4 V4 · weakest: S, the illustrations are generic finance art; each card's question in the display face is what tells the tools apart */
 /* Hallmark · finish-review: subagent · 8 findings · 7 resolved (AI Analyst laid wide, close without the orphan chart, Companies table full width, captures at even scale, tabs wrap at 375, fields tightened, demo notice boxed in warning ink, sign-in inline) 1 partial (pinned inputs scroll on tall forms, as before) · gap: the lower captures carry crop marks but no guides */
 /* Hallmark · hero-review: fix · 5 findings · 2 resolved (guides now measure the real 2- and 10-year points and the spread; the card capture fills the visual), 2 partial (the ochre Latest line is the macro tool colour the user chose; 375 spacing fixed, chart text at 375 is the capture's own), 1 to the owner (the headline is the site's copy) */
 /* Hallmark · waive 49b · two lines at most at 320px · the "Try this" example links and the data source credits are the tools' own copy and cannot shorten */
+/* Hallmark · waive 39b · the nav's sign-in is the 32px small button with a 44px hit target · the landing's actions (hero, close, each tool card's "Open demo") stand 48px */
+/* Hallmark · answered F4 · each tool card's "Open demo" is the primary recipe filled in the tool's own colour, by the user's request; the orange stays the site's one action */
+/* Hallmark · waive 44c · hero ends at 551 of 900 · the user asked that every tool be seen at a glance, so the tool grid starts on the first screen */
+/* Hallmark · waive 59 · 81px hero to tools · the tool grid must start on the first screen; a hairline rule marks the turn */
+/* Hallmark · waive 78 · h2 39px under an 84px h1 · the landing is an index, so heads stay at the system's h2 size */
 /* Hallmark · waive 77 · a band of one action and the live compute status, once a page · the close sends the visitor back to the tools and says whether the service is up */
 /* Hallmark · dismissed F25 · every wide table pins its row-naming column; the period columns scroll beside it */
 /* Hallmark · dismissed kept · the missing figures are live data and computed timestamps that changed since the before record */
@@ -71,18 +76,33 @@
     border-radius: 1px;
     pointer-events: none;
   }
-  .btn:hover { background: var(--color-paper-2); }
-  .btn:active { transform: translateY(1px); }
+  /* One hover per style: secondary takes the ink wash, primary darkens its orange. */
+  .btn:hover { background: var(--color-wash); }
+  .btn:active { background: var(--color-wash-2); transform: translateY(1px); }
   .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; transform: none; }
   .btn-primary { background: var(--color-accent); color: var(--color-accent-ink); }
   .btn-primary::after { border-color: color-mix(in oklab, var(--color-accent-ink) 22%, transparent); }
   .btn-primary:hover { background: color-mix(in oklab, var(--color-accent) 86%, var(--color-ink)); }
+  .btn-primary:active { background: color-mix(in oklab, var(--color-accent) 78%, var(--color-ink)); }
+  /* A tool's own action: the primary recipe filled with the tool's colour (set by
+     [data-tool] in tokens.css), stepped toward ink so its label clears 4.5:1 in both modes. */
+  .btn-tool {
+    --tool-fill: color-mix(in oklab, var(--color-tool) 84%, var(--color-ink));
+    border-color: var(--tool-fill);
+    background: var(--tool-fill);
+    color: var(--color-tool-ink);
+  }
+  .btn-tool::after { border-color: color-mix(in oklab, var(--color-tool-ink) 30%, transparent); }
+  .btn-tool:hover { background: color-mix(in oklab, var(--tool-fill) 86%, var(--color-ink)); }
+  .btn-tool:active { background: color-mix(in oklab, var(--tool-fill) 76%, var(--color-ink)); }
   /* Destructive: outlined in the error colour, never a second filled button. */
   .btn-danger { border-color: var(--color-error); color: var(--color-error); }
   .btn-danger::after { border-color: color-mix(in oklab, var(--color-error) 30%, transparent); }
   .btn-danger:hover { background: color-mix(in oklab, var(--color-error) 8%, var(--color-paper-hi)); }
   .btn-sm { min-height: 32px; padding: 0 var(--space-sm); }
   .btn-sm::after { display: none; }
+  /* 32px to see, 44px to hit. */
+  .btn-sm::before { content: ""; position: absolute; inset: -6px 0; }
   .btn-lg { min-height: 48px; padding: 0 var(--space-lg); font-size: var(--text-md); }
 
   /* A text action: ink, an orange underline on hover. */
@@ -129,19 +149,6 @@
   .figure-display { font-family: var(--font-display); font-weight: var(--display-weight); letter-spacing: -0.01em; line-height: 1.05; font-variant-numeric: tabular-nums; }
 
 
-  /* Landing: the hero's proof ground, the dot grid fading out before the next section. */
-  .proof-fade { position: relative; isolation: isolate; }
-  .proof-fade::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background-image: radial-gradient(circle at 1px 1px, var(--color-dot) 1px, transparent 1.4px);
-    background-size: 24px 24px;
-    mask-image: linear-gradient(to bottom, black 55%, transparent);
-    pointer-events: none;
-  }
-
   /* A printed sheet: paper lifted off the page, lit from the top left. */
   .sheet { padding: var(--space-md); border-radius: var(--radius-card); background: var(--color-paper); box-shadow: var(--shadow-sheet); }
   [data-theme="dark"] .sheet { box-shadow: inset 0 0 0 1px var(--color-rule); }
@@ -153,12 +160,8 @@
     transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
   }
   .theme-toggle::after { content: ""; position: absolute; inset: -2px; }
-  .theme-toggle:hover { background: var(--color-paper-2); color: var(--color-ink); }
-  .theme-toggle:active { background: var(--color-paper-3); }
-
-  /* Product captures come in both modes; the page shows the one matching its theme. */
-  .pic-dark, [data-theme="dark"] .pic-light { display: none; }
-  [data-theme="dark"] .pic-dark { display: block; }
+  .theme-toggle:hover { background: var(--color-wash); color: var(--color-ink); }
+  .theme-toggle:active { background: var(--color-wash-2); }
 
   /* A metric's explainer: a dotted-underline trigger and a sheet anchored to it, so
      opening one never reflows the table or card around it. Without anchor positioning
@@ -291,123 +294,16 @@
       var(--m) calc(100% - var(--o)) 100% / 1px var(--l) no-repeat;
   }
 
-  /* Orange construction guides with their readouts, drawn in once along their length. */
-  .guide { position: absolute; display: block; background: var(--color-accent); }
-  .guide-x { left: 0; right: 0; height: 1px; transform-origin: left center; animation: guide-x var(--dur-long) var(--ease-out) 200ms both; }
-  .guide-y { top: 0; bottom: 0; width: 1px; transform-origin: center top; animation: guide-y var(--dur-long) var(--ease-out) 450ms both; }
-  .guide-label { position: absolute; font-size: var(--text-xs); font-weight: 500; line-height: 1.2; color: var(--color-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-
-  .guide-chip { padding: var(--space-3xs) var(--space-2xs); background: var(--color-paper); }
-
   /* The thin rule by a tool's title, in the tool's own colour. */
   .tool-rule { display: block; width: var(--space-xl); height: 2px; background: var(--color-tool); }
 
-  /* Landing hero: the deck of proofs. One stage at 4:3; each capture is fitted inside it
-     at its own ratio (container units), so its overlay stays in % of the capture. */
-  .deck-sheet { position: relative; }
-  .deck-sheet::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: var(--radius-card);
-    background: var(--color-paper-2);
-    box-shadow: var(--shadow-sheet);
-    transform: translate(var(--space-sm), var(--space-sm));
-  }
-  .deck-stage { position: relative; aspect-ratio: 4 / 3; container-type: size; }
-  /* The server marks the first sheet active, so it shows without scripting; until the
-     script marks the deck ready the others are out of the flow, then they wait beneath it. */
-  .deck-frame {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    transition: opacity var(--dur-long) var(--ease-out), transform var(--dur-long) var(--ease-out);
-  }
-  .deck-frame[data-active] { transition-delay: 120ms; }
-  .deck:not([data-js]) .deck-frame:not([data-active]) { display: none; }
-  .deck[data-js] .deck-frame:not([data-active]) { opacity: 0; transform: translateY(var(--space-xs)) scale(0.985); }
-  .deck-fit { position: relative; width: min(100cqw, calc(100cqh * var(--ratio))); aspect-ratio: var(--ratio); background: none; }
-
-  /* The deck's buttons: a hairline track over each label, the active one filling in its tool's colour. */
-  .deck-tab {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-    min-height: 44px;
-    padding: 0 0 var(--space-xs);
-    border: 0;
-    background: none;
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-    text-align: left;
-    cursor: pointer;
-    transition: color var(--dur-short) var(--ease-out);
-  }
-  .deck-tab:hover, .deck-tab[aria-current] { color: var(--color-ink); }
-  .deck-tab:active { color: var(--color-ink-2); }
-  .deck-track { position: relative; display: block; height: 2px; overflow: hidden; background: var(--color-rule); }
-  .deck-tab:hover .deck-track { background: color-mix(in oklab, var(--color-tool) 35%, var(--color-rule)); }
-  .deck-fill { position: absolute; inset: 0; background: var(--color-tool); transform-origin: left center; }
-  .deck-fill[data-running] { animation: deck-fill linear both; }
-  .deck-toggle {
-    display: inline-flex;
-    flex: none;
-    align-items: center;
-    gap: var(--space-xs);
-    min-height: 44px;
-    padding: 0 var(--space-xs);
-    border: 0;
-    background: none;
-    color: var(--color-muted);
-    font-size: var(--text-sm);
-    cursor: pointer;
-    transition: color var(--dur-short) var(--ease-out);
-  }
-  .deck-toggle:hover { color: var(--color-ink); }
-  .deck-toggle:active { color: var(--color-ink-2); }
-
-  /* Landing: the methods tape, two rows drifting in opposite directions. */
-  .tape-band { padding-block: var(--space-3xl) 0; }
-  .tape {
-    overflow: hidden;
-    mask-image: linear-gradient(90deg, transparent, var(--color-ink) 6%, var(--color-ink) 94%, transparent);
-  }
-  .tape-track { display: flex; width: max-content; animation: tape 90s linear infinite; }
-  .tape[data-reverse] .tape-track { animation-direction: reverse; animation-duration: 110s; }
-  .tape-band[data-paused] .tape-track, .tape:hover .tape-track { animation-play-state: paused; }
-  .tape-list { display: flex; flex: none; margin: 0; padding: 0; list-style: none; }
-  .tape-list > li { display: flex; align-items: baseline; padding: var(--space-md) var(--space-lg) var(--space-md) 0; border-top: var(--rule-hair) solid var(--color-rule); }
-  /* Each tool's name heads its run of methods: Geist set heavier than the serif methods,
-     in the tool's own colour (deepened toward ink for contrast) on a faint wash of it. */
-  .tape-tool { align-items: center; padding-left: var(--space-lg); white-space: nowrap; }
-  .tape-tag {
-    padding: 0.2em 0.6em;
-    border-radius: var(--radius-pill);
-    background: color-mix(in oklab, var(--color-tool) 13%, var(--color-paper));
-    color: color-mix(in oklab, var(--color-tool) 72%, var(--color-ink));
-    font-family: var(--font-body); font-size: 1rem; font-weight: 600; line-height: 1.3;
-  }
-  .tape-method { font-family: var(--font-display); font-size: var(--text-xl); line-height: 1.2; color: var(--color-ink); white-space: nowrap; }
+  /* The supplied illustrations are white-ground rasters: a plate under each, the art
+     multiplied onto it so its white ground takes the plate's tone in both modes. */
+  .art-plate { overflow: hidden; border-radius: var(--radius-card); background: var(--color-plate); }
+  .art-plate img { mix-blend-mode: multiply; }
 }
-
-@keyframes deck-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes tape { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-
-@keyframes guide-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes guide-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
 @media (prefers-reduced-motion: reduce) {
   .btn:active { transform: none; }
-  .guide-x, .guide-y { animation: none; }
-  .deck-frame { transform: none; transition: none; }
-  .deck-fill { display: none; }
-  /* The tape stands still and wraps; its loop copy goes. */
-  .tape { mask-image: none; padding-inline: var(--space-md); }
-  .tape-track { width: auto; animation: none; }
-  .tape-list { flex-wrap: wrap; }
-  .tape-method { white-space: normal; }
-  .tape-copy, .tape-toggle { display: none; }
   .explainer-pop:popover-open, .metric-card, .metric-card-trigger { transition: none; }
 }

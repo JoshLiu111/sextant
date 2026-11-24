@@ -86,7 +86,7 @@ export function SiteNav({ account, logo }: { account?: ReactNode; logo: ReactNod
                     ref={(el) => {
                       buttons.current[group] = el;
                     }}
-                    className={`${NAV_ITEM} inline-flex items-center gap-1.5 aria-expanded:bg-paper-2`}
+                    className={`${NAV_ITEM} inline-flex items-center gap-1.5 aria-expanded:bg-wash`}
                     aria-expanded={expanded}
                     aria-controls={menuId}
                     onClick={() => setOpenGroup(expanded ? null : group)}
@@ -120,4 +120,4 @@ export function SiteNav({ account, logo }: { account?: ReactNode; logo: ReactNod
 
 /** One nav link or group button: body face, one weight, state as a soft background. */
 const NAV_ITEM =
-  "block whitespace-nowrap rounded-card px-3 py-2 text-sm text-ink-2 transition-colors duration-[var(--dur-short)] hover:bg-paper-2 hover:text-ink active:bg-paper-3";
+  "block whitespace-nowrap rounded-card px-3 py-2 text-sm text-ink-2 transition-colors duration-[var(--dur-short)] hover:bg-wash hover:text-ink active:bg-wash-2";

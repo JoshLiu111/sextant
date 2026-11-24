@@ -130,9 +130,14 @@ export function CustomSeries({ start }: { start: string | undefined }) {
                     <p className="font-medium">
                       {hit.title} <span className="tabular-nums text-muted">{hit.id}</span>
                     </p>
-                    <p className="tabular-nums text-muted">
-                      {hit.units} · {hit.frequency} ({hit.seasonal_adjustment}) · {t.macro.meta.lastUpdated}{" "}
-                      {formatTimestampUtc(hit.last_updated)}
+                    <p className="flex flex-wrap gap-x-4 tabular-nums text-muted">
+                      <span>{hit.units}</span>
+                      <span>
+                        {hit.frequency} ({hit.seasonal_adjustment})
+                      </span>
+                      <span>
+                        {t.macro.meta.lastUpdated} {formatTimestampUtc(hit.last_updated)}
+                      </span>
                     </p>
                   </div>
                   <button

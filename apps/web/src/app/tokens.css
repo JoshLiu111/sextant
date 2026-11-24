@@ -19,6 +19,8 @@
   --color-warning: oklch(52% 0.11 70);
   --color-paper: oklch(97.2% 0.006 215);
   --color-paper-2: oklch(94% 0.009 215);
+  /* The plate under the supplied illustrations (white-ground rasters, multiplied onto it): paper in light, a lit plate in dark. */
+  --color-plate: oklch(95.5% 0.008 200);
   --color-paper-3: oklch(90.5% 0.011 215);
   --color-paper-hi: oklch(99% 0.004 215);
   --color-ink: oklch(16% 0.032 250);
@@ -28,8 +30,14 @@
   --color-accent: oklch(68% 0.172 50);
   --color-accent-ink: oklch(16% 0.032 250);
   --color-focus: oklch(52% 0.15 48);
+  /* Text on a tool-coloured button: the tool colours are dark in light mode. */
+  --color-tool-ink: var(--color-paper-hi);
   --color-dot: color-mix(in oklab, var(--color-ink) 20%, transparent);
   --color-mark: color-mix(in oklab, var(--color-ink) 72%, transparent);
+  /* The one hover and press for secondary and quiet controls: ink over the raised paper,
+     visible on paper, paper-2 and paper-hi in both modes. */
+  --color-wash: color-mix(in oklab, var(--color-ink) 8%, var(--color-paper-hi));
+  --color-wash-2: color-mix(in oklab, var(--color-ink) 14%, var(--color-paper-hi));
   --font-display: var(--font-hedvig), "Hedvig Letters Serif", ui-serif, Georgia, serif;
   --font-body: var(--font-geist-sans), "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-math: "STIX Two Math", "Cambria Math", "Latin Modern Math", math;
@@ -96,6 +104,7 @@
 [data-theme="dark"] {
   --color-paper: oklch(16% 0.012 215);
   --color-paper-2: oklch(19.5% 0.013 215);
+  --color-plate: oklch(88% 0.012 200);
   --color-paper-3: oklch(23% 0.014 215);
   --color-paper-hi: oklch(21% 0.013 215);
   --color-ink: oklch(94% 0.010 250);
@@ -105,6 +114,7 @@
   --color-accent: oklch(74% 0.145 50);
   --color-accent-ink: oklch(16% 0.032 250);
   --color-focus: oklch(74% 0.150 48);
+  --color-tool-ink: var(--color-paper);
   --color-error: oklch(72% 0.150 27);
   --color-success: oklch(74% 0.130 150);
   --color-warning: oklch(80% 0.120 80);
@@ -117,6 +127,9 @@
   --color-chart-7: oklch(73% 0.120 352);
   --color-chart-8: oklch(72% 0.120 302);
   --shadow-sheet: none;
+  /* Light ink on dark paper needs a stronger mix to read as the same step. */
+  --color-wash: color-mix(in oklab, var(--color-ink) 15%, var(--color-paper-hi));
+  --color-wash-2: color-mix(in oklab, var(--color-ink) 22%, var(--color-paper-hi));
 }
 [data-theme="dark"] { color-scheme: dark; }
 [data-theme="dark"] body { font-weight: 350; }

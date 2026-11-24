@@ -4,7 +4,7 @@ The locked system. Every Hallmark run reads this first and pages share it. Chang
 
 ## System
 - Genre: editorial
-- Shape of the first page: Conversational FAQ (`/`); every tool, the dashboard, settings, account and operator are app screens
+- Shape of the first page: Index-First: a short hero, every tool on one four-column grid, account and privacy side by side, a disclaimer close (`/`); every tool, the dashboard, settings, account and operator are app screens
 - Theme: Studio (dealt 1/3, seed `free-finance-tools-everyday-e225·89730c67·2026-11-24·r0`)
 - Axes: light/roman-serif/warm · posture: restrained · modes: light+dark (`prefers-color-scheme`)
 
@@ -36,11 +36,18 @@ The spacing scale, the type scale, the easings and the durations are the scaffol
 
 ## Controls
 - Primary: `bg-accent text-accent-ink`, 1px ink border, 3px radius, Geist 500, 40px (app) / 48px (landing).
-- Secondary: 1px `border-ink` outline on paper, same radius and height; tertiary is a text link with an orange underline on hover.
+- Secondary: 1px `border-ink` outline on paper, same radius and height; tertiary is a text link (or a text control such as the landing's pause buttons) with an orange underline on hover.
+- One hover per style: primary darkens its orange (`accent` 86% into ink, 78% on press); secondary and the quiet nav controls (theme toggle, nav items) take `--color-wash` (8% ink over `paper-hi`, 15% in dark; `bg-wash`), `--color-wash-2` on press. Never `paper-2` as a hover: it vanishes on cards and in dark. Tabs keep their own: ink label, tinted track.
+- The focus ring is on the control itself: a link styled as a button carries `.btn`, never a link wrapping a `.btn` span.
 - Fields: 1px `border-muted`, 3px radius, `bg-paper-hi`, focus is an instant 2px `--color-focus` outline.
 
 ## Motion
 - Character: calm. State changes at `--dur-short` on `--ease-out`; the landing's guides draw in once; under reduced motion everything ends at once.
+
+## Landing
+- No screenshots, carousel or moving tape: the page is an index of the tools, readable in one sweep.
+- Pictures are the user's own (`public/landing/sextant-assets`): one feature illustration per tool card, the workspace in the hero, the waves at the close, the sextant mark in the nav and as the favicon, `og-image` as the share card; on app screens, art only in states: the 404 page, the page error boundary and the empty saved-portfolios list (never on a working screen). They are white-ground rasters, so each sits on `.art-plate` (`--color-plate`, multiplied), which keeps them right in dark mode.
+- Never a user count, testimonial or logo. The privacy table states only what the code does; change it when the data model changes.
 
 ## Exports
 `src/app/tokens.css` in this project (Tailwind v4 `@theme static`).

@@ -8,7 +8,7 @@ async function AccountMenuContent() {
   const t = getMessages();
   const user = await getCurrentUser();
   const settings = (
-    <Link href="/settings" className="whitespace-nowrap rounded-card px-2 py-2 text-sm text-ink-2 hover:bg-paper-2 hover:text-ink">
+    <Link href="/settings" className="whitespace-nowrap rounded-card px-2 py-2 text-sm text-ink-2 hover:bg-wash hover:text-ink">
       {t.auth.settings}
     </Link>
   );
@@ -22,18 +22,18 @@ async function AccountMenuContent() {
   }
   return (
     <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm">
-      <Link href="/dashboard" className="whitespace-nowrap rounded-card px-2 py-2 font-medium text-ink hover:bg-paper-2">
+      <Link href="/dashboard" className="whitespace-nowrap rounded-card px-2 py-2 font-medium text-ink hover:bg-wash">
         {t.auth.dashboard}
       </Link>
       <span data-testid="signed-in-user" className="max-w-40 truncate text-muted">
         {user.name || user.email}
       </span>
       {settings}
-      <Link href="/account" className="cursor-pointer whitespace-nowrap rounded-card px-2 py-2 text-ink-2 hover:bg-paper-2 hover:text-ink">
+      <Link href="/account" className="cursor-pointer whitespace-nowrap rounded-card px-2 py-2 text-ink-2 hover:bg-wash hover:text-ink">
         {t.auth.account}
       </Link>
       <form method="post" action="/auth/signout">
-        <button type="submit" className="cursor-pointer whitespace-nowrap rounded-card px-2 py-2 text-ink-2 hover:bg-paper-2 hover:text-ink">
+        <button type="submit" className="cursor-pointer whitespace-nowrap rounded-card px-2 py-2 text-ink-2 hover:bg-wash hover:text-ink">
           {t.auth.signOut}
         </button>
       </form>

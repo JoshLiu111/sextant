@@ -411,7 +411,7 @@ export function CompanyRatios() {
             <>
               <div className="space-y-1">
                 <p className="text-base text-ink">
-                  {ratios.companies.map((c) => `${c.name} (${c.ticker})`).join(" · ")}
+                  {ratios.companies.map((c) => `${c.name} (${c.ticker})`).join(", ")}
                 </p>
                 <p className="max-w-[75ch] text-xs text-muted">{r.averageNote}</p>
                 {quarterly && <p className="max-w-[75ch] text-xs text-muted">{r.quarterlyNote}</p>}
