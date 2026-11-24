@@ -10,6 +10,12 @@ import { useReportSources } from "@/components/PageSources";
 import { askAnalyst, type AnalystAnswer } from "@/lib/analyst";
 import { sourcesOf } from "@/lib/envelope";
 import { formatLocalTime } from "@/lib/format";
+import { exampleHref } from "@/lib/howToUse";
+import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
+
+// Shareable links: `/ai-analyst?question=...` fills in the question. It is not
+// asked on load: each answer spends one of the user's daily AI calls.
+const URL_CODEC = fieldsCodec({ question: "" });
 
 type Account =
   | { kind: "loading" }
@@ -44,7 +50,8 @@ export function AiAnalyst() {
   const t = getMessages().analyst;
   const ai = getMessages().ai;
   const [account, setAccount] = useState<Account>({ kind: "loading" });
-  const [question, setQuestion] = useState("");
+  const { initial, share } = useUrlInputs(URL_CODEC);
+  const [question, setQuestion] = useState(initial.question);
   const [answer, setAnswer] = useState<AnalystAnswer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -69,6 +76,7 @@ export function AiAnalyst() {
 
   async function onAsk(e: FormEvent) {
     e.preventDefault();
+    share({ question });
     setPending(true);
     setError(null);
     const outcome = await askAnalyst(question);
@@ -96,11 +104,17 @@ export function AiAnalyst() {
 
   if (account.kind === "signed_out") {
     return (
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/10 p-4 text-sm dark:border-white/15">
+      <div
+        data-testid="analyst-sign-in"
+        className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/10 p-4 text-sm dark:border-white/15"
+      >
         <p className="min-w-0 flex-1 text-black/70 dark:text-white/70">
           {t.signInPrompt}
         </p>
-        <SignInLink className="rounded-md bg-black px-3 py-1.5 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black" />
+        {/* Back to the same question after signing in. */}
+        <SignInLink
+          returnTo={exampleHref("/ai-analyst", { question: question || undefined })}
+          className="rounded-md bg-black px-3 py-1.5 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black" />
       </div>
     );
   }
