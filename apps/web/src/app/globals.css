@@ -204,7 +204,7 @@
   .metric-card-trigger:focus-visible { outline: none; }
   .metric-card:hover { border-color: var(--color-ink-2); background: var(--color-paper); }
   .metric-card:hover .metric-card-trigger,
-  .metric-card:has(.metric-card-trigger:focus-visible) .metric-card-trigger { color: var(--color-accent); }
+  .metric-card:has(.metric-card-trigger:focus-visible) .metric-card-trigger { color: var(--color-ink); }
   .metric-card:has(.metric-card-trigger:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; transition: none; }
   .metric-card:has(.explainer-pop:popover-open) { border-color: var(--color-accent); }
   .metric-card:has(.explainer-pop:popover-open) .metric-card-trigger { color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 14%, transparent); }

@@ -25,7 +25,7 @@ The spacing scale, the type scale, the easings and the durations are the scaffol
 
 ## Rules every screen follows
 - Never a Tailwind palette colour (`black/60`, `zinc-*`, `blue-500`) and never a `dark:` variant: the tokens swap themselves in dark mode. The one kept name is `text-red-700`, remapped to `--color-error` because e2e asserts the class.
-- Hedvig Letters Serif for `h1`/`h2`/`h3` and display figures only; Geist for everything else, `tabular-nums` on every number. No mono.
+- Hedvig Letters Serif for `h1`/`h2`/`h3` and display figures only; Geist for everything else, `tabular-nums` on every number. No mono. One exception: a heading set at label size (`text-sm`: a metric card's name, a chart's name, a dashboard status row) is a label, so it takes Geist 500 (`font-body`) like the other labels.
 - Labels, table heads, tabs, nav: Geist a step smaller, sentence case, untracked, `text-muted`.
 - The orange fills one thing per screen: the primary action. Orange lines are construction (guides, the active tab rule); never orange type, never an orange field.
 - Surfaces climb the ladder: whitespace, a 1px `border-rule` hairline, a `bg-paper-2` well, then a card (`border-rule`, `rounded-card`). Never a card in a card.
