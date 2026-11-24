@@ -1071,6 +1071,12 @@ export const en = {
       benchmark: { hint: "A real ticker, e.g. SPY." },
       start: { hint: "Any range your provider has prices for." },
     },
+    tabs: {
+      label: "Portfolio results",
+      overview: "Overview",
+      rebalancing: "Rebalancing",
+      frontier: "Efficient frontier",
+    },
     portfolioLabel: "Portfolio",
     benchmarkSuffix: "(benchmark)",
     demoHeading: "Demo portfolio",
@@ -2304,7 +2310,7 @@ export const en = {
     rebalancing: {
       heading: "Rebalancing backtest",
       intro:
-        "Start at the target weights above and compare resetting them by a rule with buying and holding (weights drift with prices). Rebalancing is frictionless: no trading costs or taxes.",
+        "Start at the target weights in the inputs and compare resetting them by a rule with buying and holding (weights drift with prices). Rebalancing is frictionless: no trading costs or taxes.",
       rule: {
         label: "Rebalancing rule",
         hint: "Calendar rules rebalance at the last trading day of each period.",
