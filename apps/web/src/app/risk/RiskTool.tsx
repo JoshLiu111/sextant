@@ -7,14 +7,17 @@ import { DataModeToggle } from "@/components/DataModeToggle";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
+import { KeyFiguresStrip } from "@/components/KeyFiguresStrip";
 import { LineChart, type ChartBand, type ChartMarker, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
+import { Tabs, useUrlTab } from "@/components/Tabs";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import { FactorFiles } from "./FactorFiles";
 import type { MetricResult, SeriesResult } from "@/lib/envelope";
 import { csvFilename } from "@/lib/csv";
+import { STICKY_INPUTS, toolColumns } from "@/lib/layout";
 import { formatChartDate, formatChartPercent, formatCount, formatValue } from "@/lib/format";
 import { DEMO_SOURCE, useMyDataProviders, type PriceSource } from "@/lib/myData";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
@@ -35,6 +38,12 @@ const METRIC_GROUPS = {
   ff3: ["ff3_alpha", "ff3_market", "ff3_smb", "ff3_hml", "ff3_r_squared"],
   carhart: ["carhart_alpha", "carhart_market", "carhart_smb", "carhart_hml", "carhart_mom", "carhart_r_squared"],
 } as const;
+
+/** The results tabs (`?tab=`); the first is the overview. */
+const TABS = ["overview", "rolling", "checks", "technical"] as const;
+
+/** The headline figures above the underwater chart, for the charted ticker. */
+const KEY_FIGURES = ["annualized_return", "annualized_volatility", "max_drawdown", "sharpe"] as const;
 
 /** The factor sections; their values carry a t-statistic or an observation count. */
 const FACTOR_GROUPS: ReadonlySet<string> = new Set(["ff3", "carhart"]);
@@ -154,6 +163,7 @@ export function RiskTool() {
   const [forms, setForms] = useState<Partial<Record<PriceSource, Form>>>(() => ({ [DEMO_SOURCE]: initial }));
   const form = forms[source] ?? defaultsFor(source);
   const [chartTicker, setChartTicker] = useState<string | null>(null);
+  const [tab, setTab] = useUrlTab(TABS);
   const { result, fieldErrors, error, run } = useCompute<string, string>("/risk/metrics", toRequest(form, source));
   const set = (field: keyof Form) => (value: string) =>
     setForms((all) => ({ ...all, [source]: { ...(all[source] ?? defaultsFor(source)), [field]: value } }));
@@ -209,8 +219,8 @@ export function RiskTool() {
       : undefined;
 
   return (
-    <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-      <form onSubmit={onSubmit} noValidate aria-labelledby="risk-inputs" className="min-w-0 space-y-4">
+    <div className={toolColumns("20rem")}>
+      <form onSubmit={onSubmit} noValidate aria-labelledby="risk-inputs" className={`${STICKY_INPUTS} space-y-4`}>
         <h2 id="risk-inputs" className="text-lg font-semibold">
           {r.inputsHeading}
         </h2>
@@ -309,87 +319,114 @@ export function RiskTool() {
           </div>
         )}
         <PeriodNote period={params?.period} />
-        {(Object.keys(METRIC_GROUPS) as (keyof typeof METRIC_GROUPS)[]).map((group) => (
-          <div key={group}>
-            <h2 className="text-lg font-semibold">{r.sections[group]}</h2>
-            {group === "ff3" && factorSourceText && (
-              <p data-testid="factor-source" className="mt-1 text-sm text-black/70 dark:text-white/70">
-                {factorSourceText}
-              </p>
-            )}
-            <div className="mt-2 grid gap-4 xl:grid-cols-3">
-              {METRIC_GROUPS[group].map((id: MetricId) => (
-                <MetricCard
-                  key={id}
-                  id={id}
-                  explainer={r.metrics[id]}
-                  values={
-                    symbols.length
-                      ? symbols.map((ticker) => {
-                          const value = result?.metrics[`${id}:${ticker}`];
-                          return {
-                            id: `${id}:${ticker}`,
-                            label: label(ticker),
-                            result: value,
-                            note: FACTOR_GROUPS.has(group)
-                              ? factorNote(value, r.factors, r.timescale)
-                              : periodCountNote(value, params?.period, r.timescale),
-                          };
-                        })
-                      : [{ id: `${id}:pending`, result: undefined }]
-                  }
+        <Tabs
+          idPrefix="risk"
+          label={r.tabsLabel}
+          tabs={TABS.map((id) => ({ id, label: r.tabs[id] }))}
+          active={tab}
+          onChange={setTab}
+          className=""
+        >
+          <div className="space-y-6 pt-6">
+            {tab === "overview" && (
+              <>
+                <KeyFiguresStrip
+                  figures={KEY_FIGURES.map((id) => ({
+                    id: `${id}:${selected ?? "pending"}`,
+                    label: r.metrics[id].name,
+                    sublabel: selected ? label(selected) : undefined,
+                    result: selected ? result?.metrics[`${id}:${selected}`] : undefined,
+                  }))}
                 />
-              ))}
-            </div>
-          </div>
-        ))}
-        <div>
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <h2 className="text-lg font-semibold">{r.sections.chart}</h2>
-            {symbols.length > 0 && (
-              <label className="text-sm">
-                <span className="mr-2">{r.chart.select}</span>
-                <select
-                  value={selected}
-                  onChange={(e) => setChartTicker(e.target.value)}
-                  className="rounded-md border border-black/20 px-2 py-1 font-mono dark:border-white/20 dark:bg-white/5"
-                >
-                  {symbols.map((ticker) => (
-                    <option key={ticker} value={ticker}>
-                      {label(ticker)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <div>
+                  <div className="flex flex-wrap items-end justify-between gap-2">
+                    <h2 className="text-lg font-semibold">{r.sections.chart}</h2>
+                    {symbols.length > 0 && (
+                      <label className="text-sm">
+                        <span className="mr-2">{r.chart.select}</span>
+                        <select
+                          value={selected}
+                          onChange={(e) => setChartTicker(e.target.value)}
+                          className="rounded-md border border-black/20 px-2 py-1 font-mono dark:border-white/20 dark:bg-white/5"
+                        >
+                          {symbols.map((ticker) => (
+                            <option key={ticker} value={ticker}>
+                              {label(ticker)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    {result && (
+                      <LineChart
+                        label={r.chart.label}
+                        series={chartSeries}
+                        xLabel={r.chart.x}
+                        formatX={formatChartDate}
+                        formatY={formatChartPercent}
+                        markers={markers}
+                        bands={bands}
+                      />
+                    )}
+                  </div>
+                  {mdd?.status === "ok" && mdd.value !== null && (
+                    <p data-testid="drawdown-window" className="mt-1 text-sm text-black/70 dark:text-white/70">
+                      {r.chart.window} ({selected}): {formatValue(mdd.value, mdd.unit)} {r.chart.from}{" "}
+                      {mdd.details.peak} {r.chart.to} {mdd.details.trough};{" "}
+                      {mdd.details.recovery ? `${r.chart.recovered} ${mdd.details.recovery}` : r.chart.notRecovered}.
+                    </p>
+                  )}
+                </div>
+                {(Object.keys(METRIC_GROUPS) as (keyof typeof METRIC_GROUPS)[]).map((group) => (
+                  <div key={group}>
+                    <h2 className="text-lg font-semibold">{r.sections[group]}</h2>
+                    {group === "ff3" && factorSourceText && (
+                      <p data-testid="factor-source" className="mt-1 text-sm text-black/70 dark:text-white/70">
+                        {factorSourceText}
+                      </p>
+                    )}
+                    <div className="mt-2 grid gap-4 xl:grid-cols-3">
+                      {METRIC_GROUPS[group].map((id: MetricId) => (
+                        <MetricCard
+                          key={id}
+                          id={id}
+                          explainer={r.metrics[id]}
+                          values={
+                            symbols.length
+                              ? symbols.map((ticker) => {
+                                  const value = result?.metrics[`${id}:${ticker}`];
+                                  return {
+                                    id: `${id}:${ticker}`,
+                                    label: label(ticker),
+                                    result: value,
+                                    note: FACTOR_GROUPS.has(group)
+                                      ? factorNote(value, r.factors, r.timescale)
+                                      : periodCountNote(value, params?.period, r.timescale),
+                                  };
+                                })
+                              : [{ id: `${id}:pending`, result: undefined }]
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </>
             )}
-          </div>
-          <div className="mt-2">
-            {result && (
-              <LineChart
-                label={r.chart.label}
-                series={chartSeries}
-                xLabel={r.chart.x}
-                formatX={formatChartDate}
-                formatY={formatChartPercent}
-                markers={markers}
-                bands={bands}
-              />
+            {tab === "rolling" && (
+              <>
+                {result && <RollingCharts result={result} symbols={symbols} benchmark={benchmark} label={label} />}
+                {result && params && (
+                  <ReturnDistribution result={result} symbols={symbols} label={label} period={params.period} />
+                )}
+              </>
             )}
+            {tab === "checks" && <ModelChecks result={result} symbols={symbols} label={label} />}
+            {tab === "technical" && result && <TechnicalAnalysis selection={result.meta.parameters as RiskSelection} />}
           </div>
-          {mdd?.status === "ok" && mdd.value !== null && (
-            <p data-testid="drawdown-window" className="mt-1 text-sm text-black/70 dark:text-white/70">
-              {r.chart.window} ({selected}): {formatValue(mdd.value, mdd.unit)} {r.chart.from} {mdd.details.peak}{" "}
-              {r.chart.to} {mdd.details.trough};{" "}
-              {mdd.details.recovery ? `${r.chart.recovered} ${mdd.details.recovery}` : r.chart.notRecovered}.
-            </p>
-          )}
-        </div>
-        {result && <RollingCharts result={result} symbols={symbols} benchmark={benchmark} label={label} />}
-        {result && params && (
-          <ReturnDistribution result={result} symbols={symbols} label={label} period={params.period} />
-        )}
-        <ModelChecks result={result} symbols={symbols} label={label} />
-        {result && <TechnicalAnalysis selection={result.meta.parameters as RiskSelection} />}
+        </Tabs>
         {result && <CalculationInfo result={result} />}
         {result && <AiExplain tool="risk" result={result} />}
       </section>
