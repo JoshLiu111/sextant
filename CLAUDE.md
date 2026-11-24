@@ -17,3 +17,7 @@ Default vocabulary: needs-triage, needs-info, ready-for-agent, ready-for-human, 
 ### Domain docs
 
 Single-context: `GLOSSARY.md` + `docs/adr/` at the repo root (created lazily). See `docs/agents/domain.md`.
+
+### Implementation journal
+
+Before you finish every `/grill-me` (or `/grilling`), `/to-spec`, `/to-tickets` and `/implement-spec` run, call the Skill tool with `journal` to update `.workbench/journal.md`. The journal is git-ignored and never committed.
