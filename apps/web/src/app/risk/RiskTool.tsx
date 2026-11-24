@@ -7,11 +7,11 @@ import { DataModeToggle } from "@/components/DataModeToggle";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
-import { KeyFiguresStrip } from "@/components/KeyFiguresStrip";
+import { KeyFiguresStrip, RETURN_RISK_FIGURES } from "@/components/KeyFiguresStrip";
 import { LineChart, type ChartBand, type ChartMarker, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { NumberField } from "@/components/NumberField";
-import { Tabs, useUrlTab } from "@/components/Tabs";
+import { Tabs, useUrlTab, type TabParams } from "@/components/Tabs";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import { FactorFiles } from "./FactorFiles";
@@ -26,7 +26,7 @@ import { ReturnDistribution } from "./ReturnDistribution";
 import { RollingCharts } from "./RollingCharts";
 import { DEFAULT_ROLLING_WINDOW, PeriodNote, TimescaleInputs, type ReturnPeriod } from "./TimescaleInputs";
 import { ModelChecks } from "./ModelChecks";
-import { TechnicalAnalysis, type RiskSelection } from "./TechnicalAnalysis";
+import { TECHNICAL_PARAMS, TechnicalAnalysis, type RiskSelection } from "./TechnicalAnalysis";
 
 // Metric ids are "<metric>:<ticker>", series ids "drawdown:<ticker>".
 // Cards are grouped by section; the order within a group is the display order.
@@ -41,9 +41,8 @@ const METRIC_GROUPS = {
 
 /** The results tabs (`?tab=`); the first is the overview. */
 const TABS = ["overview", "rolling", "checks", "technical"] as const;
-
-/** The headline figures above the underwater chart, for the charted ticker. */
-const KEY_FIGURES = ["annualized_return", "annualized_volatility", "max_drawdown", "sharpe"] as const;
+// A link without `tab=` but with indicator params (shared before the tabs) opens Technical analysis.
+const TAB_PARAMS: TabParams<(typeof TABS)[number]> = { technical: TECHNICAL_PARAMS };
 
 /** The factor sections; their values carry a t-statistic or an observation count. */
 const FACTOR_GROUPS: ReadonlySet<string> = new Set(["ff3", "carhart"]);
@@ -163,7 +162,7 @@ export function RiskTool() {
   const [forms, setForms] = useState<Partial<Record<PriceSource, Form>>>(() => ({ [DEMO_SOURCE]: initial }));
   const form = forms[source] ?? defaultsFor(source);
   const [chartTicker, setChartTicker] = useState<string | null>(null);
-  const [tab, setTab] = useUrlTab(TABS);
+  const [tab, setTab] = useUrlTab(TABS, { inferFrom: TAB_PARAMS });
   const { result, fieldErrors, error, run } = useCompute<string, string>("/risk/metrics", toRequest(form, source));
   const set = (field: keyof Form) => (value: string) =>
     setForms((all) => ({ ...all, [source]: { ...(all[source] ?? defaultsFor(source)), [field]: value } }));
@@ -219,7 +218,7 @@ export function RiskTool() {
       : undefined;
 
   return (
-    <div className={toolColumns("20rem")}>
+    <div className={`mt-6 ${toolColumns("20rem")}`}>
       <form onSubmit={onSubmit} noValidate aria-labelledby="risk-inputs" className={`${STICKY_INPUTS} space-y-4`}>
         <h2 id="risk-inputs" className="text-lg font-semibold">
           {r.inputsHeading}
@@ -321,17 +320,17 @@ export function RiskTool() {
         <PeriodNote period={params?.period} />
         <Tabs
           idPrefix="risk"
-          label={r.tabsLabel}
-          tabs={TABS.map((id) => ({ id, label: r.tabs[id] }))}
+          label={r.tabs.label}
+          tabs={TABS}
+          labels={r.tabs}
           active={tab}
           onChange={setTab}
-          className=""
         >
           <div className="space-y-6 pt-6">
             {tab === "overview" && (
               <>
                 <KeyFiguresStrip
-                  figures={KEY_FIGURES.map((id) => ({
+                  figures={RETURN_RISK_FIGURES.map((id) => ({
                     id: `${id}:${selected ?? "pending"}`,
                     label: r.metrics[id].name,
                     sublabel: selected ? label(selected) : undefined,

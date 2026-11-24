@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ToolPageHeader } from "@/components/ToolPageHeader";
 import { getMessages } from "@/i18n";
+import { TOOL_PAGE } from "@/lib/layout";
 import { parseCountries } from "./countries";
 import { CrossCountry } from "./CrossCountry";
 import { EuroArea } from "./EuroArea";
@@ -18,8 +19,8 @@ async function Comparison({ searchParams }: { searchParams: PageProps<"/macro">[
 export default function Page({ searchParams }: PageProps<"/macro">) {
   const t = getMessages();
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-10">
-      <ToolPageHeader tool="macro" title={t.tools.macro.name} intro={t.macro.intro} />
+    <main className={TOOL_PAGE}>
+      <ToolPageHeader tool="macro" intro={t.macro.intro} />
       {/* Three sections, each with an anchor: #us, #countries (CrossCountry), #euro-area (EuroArea). */}
       <section id="us" aria-labelledby="macro-us" className="mt-6">
         <h2 id="macro-us" className="text-lg font-semibold">

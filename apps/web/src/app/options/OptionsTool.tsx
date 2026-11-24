@@ -22,7 +22,9 @@ export function OptionsTool() {
     <Tabs
       idPrefix="options"
       label={t.label}
-      tabs={TABS.map((id) => ({ id, label: t[id] }))}
+      tabs={TABS}
+      labels={t}
+      className="mt-6"
       active={tab}
       onChange={setTab}
     >

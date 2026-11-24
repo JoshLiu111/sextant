@@ -132,7 +132,7 @@ test.describe("Screener", () => {
   });
 
   test("a link to one company's filings shows that company's filings", async ({ page }) => {
-    const main = await open(page, "/screener?tab=filings&filings_ticker=AAPL&filings_form=10-K", "Screener & Calendar");
+    const main = await open(page, "/screener?filings_ticker=AAPL&filings_form=10-K", "Screener & Calendar");
     await expect(main.getByLabel("Company ticker")).toHaveValue("AAPL");
     await expect(main.getByLabel("Form type")).toHaveValue("10-K");
     const filings = main.getByRole("table", { name: "Latest SEC filings" });
@@ -144,7 +144,7 @@ test.describe("Screener", () => {
   test("a link to an earnings calendar range and a dividend ticker shows them", async ({ page }) => {
     const main = await open(
       page,
-      "/screener?tab=earnings&earnings_tickers=AAPL,MSFT&earnings_start=2026-01-01&earnings_end=2026-06-30&dividends_ticker=JPM",
+      "/screener?earnings_tickers=AAPL,MSFT&earnings_start=2026-01-01&earnings_end=2026-06-30&dividends_ticker=JPM",
       "Screener & Calendar",
     );
     await expect(main.getByLabel("Companies")).toHaveValue("AAPL,MSFT");
@@ -159,8 +159,23 @@ test.describe("Screener", () => {
     await expect(page).toHaveURL(/[?&]earnings_start=2026-01-01(&|$)/);
   });
 
+  // Links shared before the page had tabs carry no `tab=`: their params pick the tab.
+  test("a link with only a dividend ticker opens the dividend history", async ({ page }) => {
+    const main = await open(page, "/screener?dividends_ticker=JPM", "Screener & Calendar");
+    await expect(main.getByRole("tab", { name: "Dividend history" })).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByTestId("dividends-heading")).toHaveText("JPMORGAN CHASE & CO (JPM)", COLD);
+  });
+
+  test("an explicit tab in a link wins over another tab's params", async ({ page }) => {
+    const main = await open(page, "/screener?tab=dividends&filings_ticker=AAPL&dividends_ticker=JPM", "Screener & Calendar");
+    await expect(main.getByRole("tab", { name: "Dividend history" })).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByTestId("dividends-heading")).toHaveText("JPMORGAN CHASE & CO (JPM)", COLD);
+    await main.getByRole("tab", { name: "Latest filings" }).click();
+    await expect(main.getByLabel("Company ticker")).toHaveValue("AAPL");
+  });
+
   test("a bad calendar range in a link shows the normal validation error", async ({ page }) => {
-    const main = await open(page, "/screener?tab=earnings&earnings_start=2026-06-01&earnings_end=2026-01-01", "Screener & Calendar");
+    const main = await open(page, "/screener?earnings_start=2026-06-01&earnings_end=2026-01-01", "Screener & Calendar");
     await expect(main.getByTestId("field-error-end")).toHaveText("The end date must be on or after the start date.", COLD);
   });
 
@@ -290,7 +305,7 @@ test.describe("Risk & Performance", () => {
   });
 
   test("the technical indicators and their parameters round-trip through the URL", async ({ page }) => {
-    const main = await open(page, "/risk?tab=technical&indicators=ema,macd&ema_window=30&macd_fast=8", "Risk & Performance");
+    const main = await open(page, "/risk?indicators=ema,macd&ema_window=30&macd_fast=8", "Risk & Performance");
     const legend = main.getByTestId("indicator-legend-price");
     await expect(legend).toContainText("EMA (30)", COLD);
     await expect(legend).not.toContainText("SMA");
@@ -332,7 +347,7 @@ test.describe("My Portfolio (demo)", () => {
   });
 
   test("the rebalancing rule and drift threshold round-trip through the URL", async ({ page }) => {
-    const main = await open(page, "/portfolio?tab=rebalancing&rule=drift&drift_threshold=10", "My Portfolio");
+    const main = await open(page, "/portfolio?rule=drift&drift_threshold=10", "My Portfolio");
     const rebalancing = main.getByRole("region", { name: "Rebalancing backtest" });
     await expect(rebalancing.getByLabel("Rebalancing rule")).toHaveValue("drift");
     await expect(rebalancing.getByLabel("Drift threshold (%)")).toHaveValue("10");
@@ -344,7 +359,6 @@ test.describe("My Portfolio (demo)", () => {
 
     await rebalancing.getByLabel("Rebalancing rule").selectOption("monthly");
     await expect(page).toHaveURL(/[?&]rule=monthly(&|$)/);
-    await expect(page).toHaveURL(/[?&]tab=rebalancing(&|$)/);
   });
 
   test("weights that don't add up show the normal validation error", async ({ page }) => {

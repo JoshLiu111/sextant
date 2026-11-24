@@ -1,10 +1,13 @@
 // Shared layout classes for tool pages (issue #70). Structure only: no colour or type.
 
+/** A tool page's `<main>`: wider than the other pages (`max-w-6xl`) to fit the form and results side by side. */
+export const TOOL_PAGE = "mx-auto w-full max-w-7xl px-4 py-10";
+
 /**
  * A tool's two columns: the input form on the left, the results on the right
  * (stacked on small screens). Pass the form column's width, e.g. `20rem`:
  *
- *   <div className={toolColumns("20rem")}>
+ *   <div className={`mt-6 ${toolColumns("20rem")}`}>
  *     <form className={`${STICKY_INPUTS} space-y-4`}>…</form>
  *     <section data-testid="results" className="min-w-0 space-y-6">…</section>
  *   </div>
@@ -17,7 +20,7 @@ const COLUMNS = {
 } as const;
 
 export function toolColumns(formWidth: keyof typeof COLUMNS): string {
-  return `mt-6 grid gap-8 ${COLUMNS[formWidth]}`;
+  return `grid gap-8 ${COLUMNS[formWidth]}`;
 }
 
 /**

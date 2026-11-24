@@ -50,6 +50,8 @@ function byFiscalYear(periods: DividendPeriod[]): YearRow[] {
 
 // Shareable links: `/screener?tab=dividends&dividends_ticker=JPM`.
 const URL_CODEC = fieldsCodec({ dividends_ticker: "AAPL" });
+/** This section's query params: a link with any of them and no `tab=` opens its tab. */
+export const DIVIDENDS_PARAMS = URL_CODEC.keys;
 
 const money = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 

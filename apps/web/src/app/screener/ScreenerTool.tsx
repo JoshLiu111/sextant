@@ -1,16 +1,22 @@
 "use client";
 
-import { Tabs, useUrlTab } from "@/components/Tabs";
+import { Tabs, useUrlTab, type TabParams } from "@/components/Tabs";
 import { getMessages } from "@/i18n";
-import { DividendHistory } from "./DividendHistory";
-import { EarningsCalendar } from "./EarningsCalendar";
-import { LatestFilings } from "./LatestFilings";
+import { DIVIDENDS_PARAMS, DividendHistory } from "./DividendHistory";
+import { EARNINGS_PARAMS, EarningsCalendar } from "./EarningsCalendar";
+import { FILINGS_PARAMS, LatestFilings } from "./LatestFilings";
 import { Screener } from "./Screener";
 
 // Shareable links: `/screener?tab=filings&filings_ticker=AAPL`. Each tab keeps
 // its own prefixed inputs in the URL, so switching tabs loses none of them. An
-// unknown or missing tab opens the screen.
+// unknown tab opens the screen; a link without `tab=` (shared before the page
+// had tabs) opens the tab whose params it carries.
 const TABS = ["screen", "earnings", "dividends", "filings"] as const;
+const TAB_PARAMS: TabParams<(typeof TABS)[number]> = {
+  earnings: EARNINGS_PARAMS,
+  dividends: DIVIDENDS_PARAMS,
+  filings: FILINGS_PARAMS,
+};
 
 /**
  * The Screener & Calendar page's four sections. Only the open one is mounted,
@@ -18,16 +24,10 @@ const TABS = ["screen", "earnings", "dividends", "filings"] as const;
  */
 export function ScreenerTool() {
   const t = getMessages().screener.tabs;
-  const [tab, setTab] = useUrlTab(TABS);
+  const [tab, setTab] = useUrlTab(TABS, { inferFrom: TAB_PARAMS });
 
   return (
-    <Tabs
-      idPrefix="screener"
-      label={t.label}
-      tabs={TABS.map((id) => ({ id, label: t[id] }))}
-      active={tab}
-      onChange={setTab}
-    >
+    <Tabs idPrefix="screener" label={t.label} tabs={TABS} labels={t} active={tab} onChange={setTab} className="mt-6">
       {tab === "screen" && <Screener />}
       {tab === "earnings" && <EarningsCalendar />}
       {tab === "dividends" && <DividendHistory />}

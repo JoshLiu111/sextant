@@ -32,6 +32,8 @@ const URL_CODEC: UrlCodec<Settings> = {
   },
   write: (settings) => ({ ...settings }),
 };
+/** This section's query params: a link with any of them and no `tab=` opens its tab. */
+export const REBALANCING_PARAMS = URL_CODEC.keys;
 
 /** Strategies in `POST /portfolio/rebalancing`: metrics `<metric>:<who>`, series `cumulative_return:<who>`. */
 const WHO = ["rebalanced", "buy_and_hold"] as const;

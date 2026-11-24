@@ -322,7 +322,7 @@ export function ValuationCalculator() {
   }
 
   return (
-    <div className={toolColumns("20rem")}>
+    <div className={`mt-6 ${toolColumns("20rem")}`}>
       <div className={`${STICKY_INPUTS} space-y-8`}>
         <form onSubmit={onSubmit} noValidate aria-labelledby="valuation-inputs" className="min-w-0 space-y-6">
           <h2 id="valuation-inputs" className="sr-only">
@@ -386,10 +386,10 @@ export function ValuationCalculator() {
             <Tabs
               idPrefix="valuation"
               label={v.tabs.label}
-              tabs={TABS.map((id) => ({ id, label: v.tabs[id] }))}
+              tabs={TABS}
+              labels={v.tabs}
               active={tab}
               onChange={setTab}
-              className=""
             >
               <div className="mt-4 space-y-6">
                 {tab === "overview" && (

@@ -265,7 +265,7 @@ export const en = {
         ],
         examples: [
           { label: "Value Microsoft at 8% growth", params: { ticker: "MSFT", growth_rate: "8" } },
-          { label: "Override the cost of equity at 12%", params: { ticker: "MSFT", cost_of_equity: "12" } },
+          { label: "Override the cost of equity at 12%", params: { tab: "wacc", ticker: "MSFT", cost_of_equity: "12" } },
         ],
         signedInExtras: [
           "use the latest share price from your own Tiingo or FMP key",
@@ -713,8 +713,8 @@ export const en = {
       removed: (name: string) => `Removed ${name}.`,
       errorTitle: "Could not use this file",
     },
-    tabsLabel: "Risk & Performance results",
     tabs: {
+      label: "Risk & Performance results",
       overview: "Overview",
       rolling: "Rolling & distribution",
       checks: "Model checks",

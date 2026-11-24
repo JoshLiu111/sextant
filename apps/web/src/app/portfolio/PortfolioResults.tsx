@@ -3,7 +3,7 @@
 import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
-import { KeyFiguresStrip } from "@/components/KeyFiguresStrip";
+import { KeyFiguresStrip, RETURN_RISK_FIGURES } from "@/components/KeyFiguresStrip";
 import { LineChart, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { getMessages } from "@/i18n";
@@ -22,9 +22,6 @@ const METRICS = [
   "sortino",
   "beta",
 ] as const;
-
-/** The headline figures of the overview, picked from METRICS (the portfolio's, not the benchmark's). */
-const KEY_FIGURES = ["annualized_return", "annualized_volatility", "max_drawdown", "sharpe"] as const;
 
 /** Envelope ids: metrics `<metric>:<who>`, series `cumulative_return:<who>`. */
 const WHO = ["portfolio", "benchmark"] as const;
@@ -62,23 +59,21 @@ export function PortfolioResults({
   return (
     <>
       <PortfolioOverview result={result} metricsNote={metricsNote} />
-      <PortfolioResultDetails result={result} aiTool={aiTool} />
+      <PortfolioCalculationAndExplain result={result} aiTool={aiTool} />
     </>
   );
 }
 
 /**
- * Cumulative return vs the benchmark and the risk metric cards, optionally led by
- * a strip of the portfolio's headline figures.
+ * The portfolio's headline figures, then cumulative return vs the benchmark and
+ * the risk metric cards.
  */
 export function PortfolioOverview({
   result,
   metricsNote,
-  keyFigures = false,
 }: {
   result: PortfolioEnvelope | null;
   metricsNote?: string;
-  keyFigures?: boolean;
 }) {
   const t = getMessages();
   const p = t.portfolio;
@@ -104,16 +99,14 @@ export function PortfolioOverview({
 
   return (
     <div className="space-y-6">
-      {keyFigures && (
-        <KeyFiguresStrip
-          figures={KEY_FIGURES.map((id) => ({
-            id: `${id}:portfolio`,
-            label: t.risk.metrics[id].name,
-            sublabel: labels.portfolio,
-            result: result?.metrics[`${id}:portfolio`],
-          }))}
-        />
-      )}
+      <KeyFiguresStrip
+        figures={RETURN_RISK_FIGURES.map((id) => ({
+          id: `${id}:portfolio`,
+          label: t.risk.metrics[id].name,
+          sublabel: labels.portfolio,
+          result: result?.metrics[`${id}:portfolio`],
+        }))}
+      />
       <div>
         <h2 className="text-lg font-semibold">{p.sections.chart}</h2>
         <div className="mt-2">
@@ -167,7 +160,7 @@ export function PortfolioOverview({
 }
 
 /** Calculation info and AI Explain for one portfolio result. */
-export function PortfolioResultDetails({ result, aiTool }: { result: PortfolioEnvelope | null; aiTool: AiTool }) {
+export function PortfolioCalculationAndExplain({ result, aiTool }: { result: PortfolioEnvelope | null; aiTool: AiTool }) {
   if (!result) return null;
   return (
     <>

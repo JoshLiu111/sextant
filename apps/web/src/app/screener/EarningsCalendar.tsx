@@ -31,6 +31,8 @@ const DEFAULT_TICKERS = "AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, JPM, V, WMT,
 // Shareable links: `/screener?tab=earnings&earnings_tickers=AAPL,MSFT&earnings_start=2026-01-01&earnings_end=2026-06-30`
 // (blank dates = the API defaults). Prefixed so they don't collide with the screen's params.
 const URL_CODEC = fieldsCodec({ earnings_tickers: DEFAULT_TICKERS, earnings_start: "", earnings_end: "" });
+/** This section's query params: a link with any of them and no `tab=` opens its tab. */
+export const EARNINGS_PARAMS = URL_CODEC.keys;
 
 function toQuery(tickers: string, start: string, end: string): Query {
   const next: Query = {};

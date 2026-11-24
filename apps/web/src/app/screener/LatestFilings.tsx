@@ -22,6 +22,8 @@ const FORMS = ["10-K", "10-Q", "8-K", "4", "S-1", "DEF 14A", "20-F", "6-K"];
 // Shareable links: `/screener?tab=filings&filings_ticker=MSFT&filings_form=10-K` (blank ticker = market-wide).
 // Prefixed so they don't collide with the screen's params on the same page.
 const URL_CODEC = fieldsCodec({ filings_ticker: "", filings_form: "" });
+/** This section's query params: a link with any of them and no `tab=` opens its tab. */
+export const FILINGS_PARAMS = URL_CODEC.keys;
 
 export function LatestFilings() {
   const t = getMessages();

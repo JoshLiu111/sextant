@@ -110,6 +110,10 @@ test("a saved portfolio with real tickers is valued at the user's Tiingo closes"
   await expect(results.locator('[data-position-value="market_value:AAPL"]')).toHaveText("1,300.00", COLD);
   await expect(results.locator('[data-metric-value="max_drawdown:portfolio"]')).toContainText("10.00%");
   await expect(results.locator('[data-metric-value="twr:portfolio"]')).toContainText("30.00%");
+  // The same headline figures as the demo portfolio, from the same result.
+  const strip = results.getByTestId("key-figures");
+  await expect(strip.locator("[data-key-figure]")).toHaveCount(4);
+  await expect(strip.locator('[data-key-figure="max_drawdown:portfolio"]')).toContainText("10.00%");
   await expect(results.getByTestId("demo-badge")).toHaveCount(0);
   await expect(results.getByText(/Unknown ticker/)).toHaveCount(0);
 });
