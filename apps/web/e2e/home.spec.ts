@@ -256,6 +256,17 @@ test.describe("theme toggle", () => {
     await expect(html).toHaveAttribute("data-theme", "light");
   });
 
+  test("switching back to the system's theme follows the system again", async ({ page }) => {
+    await page.goto("/");
+    const html = page.locator("html");
+    await page.getByRole("button", { name: "Switch to dark mode" }).click();
+    await page.getByRole("button", { name: "Switch to light mode" }).click();
+    expect(await page.evaluate(() => localStorage.getItem("theme"))).toBeNull();
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(html).toHaveAttribute("data-theme", "dark");
+  });
+
   test("with no saved choice, a dark system opens dark", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "dark" });
     await page.goto("/");

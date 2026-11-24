@@ -23,7 +23,10 @@ function subscribe(onChange: () => void) {
 const current = (): Theme | null => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
 const onServer = () => null;
 
-/** The nav's light/dark switch: one click flips the page and remembers the choice. */
+/**
+ * The nav's light/dark switch: one click flips the page. A choice away from the system's
+ * theme is remembered; switching back to it returns the page to following the system.
+ */
 export function ThemeToggle() {
   const t = getMessages().site;
   const theme = useSyncExternalStore(subscribe, current, onServer);
@@ -38,7 +41,10 @@ export function ThemeToggle() {
       onClick={() => {
         document.documentElement.dataset.theme = next;
         try {
-          localStorage.setItem(THEME_KEY, next);
+          // Picking the system's own theme drops the saved choice, so the page follows the system again.
+          const system: Theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          if (next === system) localStorage.removeItem(THEME_KEY);
+          else localStorage.setItem(THEME_KEY, next);
         } catch {
           // Storage blocked: the switch still holds for this page.
         }
