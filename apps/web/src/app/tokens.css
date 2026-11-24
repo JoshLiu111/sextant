@@ -32,6 +32,7 @@
   --color-mark: color-mix(in oklab, var(--color-ink) 72%, transparent);
   --font-display: var(--font-hedvig), "Hedvig Letters Serif", ui-serif, Georgia, serif;
   --font-body: var(--font-geist-sans), "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-math: "STIX Two Math", "Cambria Math", "Latin Modern Math", math;
   --font-outlier: "Sofia Sans Extra Condensed", "Arial Narrow", ui-sans-serif, sans-serif;
   --radius-card: 3px;
   --radius-pill: 3px;

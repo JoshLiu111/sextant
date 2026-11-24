@@ -108,7 +108,7 @@ export function Tabs<Id extends string>({
         role="tablist"
         aria-label={label}
         onKeyDown={onKeyDown}
-        className="flex gap-1 overflow-x-auto border-b border-rule"
+        className="flex flex-wrap gap-x-1 border-b border-rule"
       >
         {tabs.map((id) => (
           <button

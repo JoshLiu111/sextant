@@ -1,7 +1,14 @@
 /* Hallmark · shape: Conversational FAQ (/), app screen (8 tools, dashboard, settings, account, operator) · genre: editorial · theme: Studio (deal 1/3, seed free-finance-tools-everyday-e225·89730c67·2026-11-24·r0) · redesign: full
- * hero: Stage (/) · nav: floating pill, four tool groups and account · footer: colophon block · imagery: the product · signature: a real chart annotated with orange construction guides naming its source, calculation and date
+ * hero: Stage (/), a deck of seven tool captures turning over with redrawn guides, then a methods tape · nav: floating pill, four tool groups and account · footer: colophon block · imagery: the product · signature: a real chart annotated with orange construction guides naming its source, calculation and date
  * axes: light/roman-serif/warm · posture: restrained · modes: light+dark · contrast: pass · fold: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, a finance tool could wear any paper; the construction guides now name the real source and calculation behind each figure */
+/* Hallmark · finish-review: subagent · 8 findings · 7 resolved (AI Analyst laid wide, close without the orphan chart, Companies table full width, captures at even scale, tabs wrap at 375, fields tightened, demo notice boxed in warning ink, sign-in inline) 1 partial (pinned inputs scroll on tall forms, as before) · gap: the lower captures carry crop marks but no guides */
+/* Hallmark · hero-review: fix · 5 findings · 2 resolved (guides now measure the real 2- and 10-year points and the spread; the card capture fills the visual), 2 partial (the ochre Latest line is the macro tool colour the user chose; 375 spacing fixed, chart text at 375 is the capture's own), 1 to the owner (the headline is the site's copy) */
+/* Hallmark · waive 49b · two lines at most at 320px · the "Try this" example links and the data source credits are the tools' own copy and cannot shorten */
+/* Hallmark · waive 77 · a band of one action and the live compute status, once a page · the close sends the visitor back to the tools and says whether the service is up */
+/* Hallmark · dismissed F25 · every wide table pins its row-naming column; the period columns scroll beside it */
+/* Hallmark · dismissed kept · the missing figures are live data and computed timestamps that changed since the before record */
+/* Hallmark · colour: an 8-hue categorical chart palette and one colour per tool, by the user's request (DESIGN.md Variants) */
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./base.css" layer(base);
@@ -96,8 +103,8 @@
     display: block;
     width: 100%;
     min-width: 0;
-    min-height: 40px;
-    padding: var(--space-xs) var(--space-sm);
+    min-height: 36px;
+    padding: var(--space-2xs) var(--space-sm);
     border: var(--rule-hair) solid var(--color-muted);
     border-radius: var(--radius-card);
     background: var(--color-paper-hi);
@@ -121,6 +128,24 @@
   /* Display figures: Hedvig, the theme's figures face. */
   .figure-display { font-family: var(--font-display); font-weight: var(--display-weight); letter-spacing: -0.01em; line-height: 1.05; font-variant-numeric: tabular-nums; }
 
+
+  /* Landing: the hero's proof ground, the dot grid fading out before the next section. */
+  .proof-fade { position: relative; isolation: isolate; }
+  .proof-fade::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: radial-gradient(circle at 1px 1px, var(--color-dot) 1px, transparent 1.4px);
+    background-size: 24px 24px;
+    mask-image: linear-gradient(to bottom, black 55%, transparent);
+    pointer-events: none;
+  }
+
+  /* A printed sheet: paper lifted off the page, lit from the top left. */
+  .sheet { padding: var(--space-md); border-radius: var(--radius-card); background: var(--color-paper); box-shadow: var(--shadow-sheet); }
+  @media (prefers-color-scheme: dark) { .sheet { box-shadow: inset 0 0 0 1px var(--color-rule); } }
+
   /* A metric's explainer: a dotted-underline trigger and a sheet anchored to it, so
      opening one never reflows the table or card around it. Without anchor positioning
      the browser centres the popover in the viewport. */
@@ -136,9 +161,60 @@
     transition: color var(--dur-short) var(--ease-out), text-decoration-color var(--dur-short) var(--ease-out);
   }
   .explainer-trigger:hover, .explainer-trigger:focus-visible { color: var(--color-ink); text-decoration-color: var(--color-accent); }
+
+  /* A metric card is its explainer's trigger: the info button's hit area stretches over
+     the whole card, the card answers hover and focus, and the figure sits on the base line. */
+  .metric-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: border-color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out), box-shadow var(--dur-short) var(--ease-out);
+  }
+  .metric-card-trigger {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin: calc(-1 * var(--space-2xs)) calc(-1 * var(--space-2xs)) 0 0;
+    border-radius: 999px;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: color var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out);
+  }
+  .metric-card-trigger::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-card); }
+  .metric-card-trigger:focus-visible { outline: none; }
+  .metric-card:hover { border-color: var(--color-ink-2); background: var(--color-paper); }
+  .metric-card:hover .metric-card-trigger,
+  .metric-card:has(.metric-card-trigger:focus-visible) .metric-card-trigger { color: var(--color-accent); }
+  .metric-card:has(.metric-card-trigger:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; transition: none; }
+  .metric-card:has(.explainer-pop:popover-open) { border-color: var(--color-accent); }
+  .metric-card:has(.explainer-pop:popover-open) .metric-card-trigger { color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 14%, transparent); }
+  .metric-card:active { background: var(--color-paper-2); }
+  .metric-card .explainer-pop { cursor: auto; }
+  /* Values share three rows across columns (sub-label, figure, unit line), so a sub-label
+     that wraps in one column still leaves the figures level. Each figure sits in a size
+     container; a long figure steps down from 2xl to fit it, never below body size. */
+  .metric-values { display: grid; grid-template-rows: auto auto auto; column-gap: var(--space-md); row-gap: var(--space-2xs); }
+  .metric-value { display: grid; grid-row: span 3; grid-template-rows: subgrid; align-content: start; min-width: 0; }
+  /* The sub-label row is always one line tall, even empty, so figures in neighbouring
+     cards (one with "Call" and "Put", one without) sit on the same line. */
+  .metric-value > :first-child { min-height: 1lh; }
+  /* The size container wraps the figure: containment (layout) on the subgrid itself would
+     cancel it. A shrunk figure sits on its neighbours' bottom line, not at the row's top. */
+  .metric-figure-box { align-self: end; min-width: 0; container-type: inline-size; }
+  /* A third value and on wraps under the first two: open a gap above its sub-label. */
+  .metric-value:nth-child(n + 3) > :first-child { padding-top: var(--space-sm); }
+  .metric-figure {
+    font-size: max(var(--text-md), min(var(--text-2xl), calc(100cqi / (var(--chars) * 0.58))));
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+  }
+  @supports not (font-size: 1cqi) { .metric-figure { font-size: var(--text-xl); } }
   .explainer-pop {
-    width: 24rem;
-    max-width: calc(100% - 2rem);
+    width: 26rem;
+    max-width: calc(100% - 1rem);
     max-height: min(28rem, calc(100dvh - 2rem));
     overflow-y: auto;
     padding: var(--space-md);
@@ -167,11 +243,157 @@
     }
   }
 
+  /* A display formula: native MathML in the system math face, left-aligned, scrolling
+     sideways rather than overflowing when a long one meets a narrow sheet. */
+  .formula { overflow-x: auto; color: var(--color-ink); }
+  .formula math { display: math; font-family: var(--font-math); font-size: 1.0625em; }
+  /* Chromium lays out MathML cells centred or start-aligned only, so a right-aligned column
+     (the left side of an aligned equation) right-aligns by flipping the cell's direction. */
+  .formula mtd.tml-right { direction: rtl; text-align: start; }
+  .formula mtd.tml-right > * { direction: ltr; }
+  .formula mtd.tml-left { text-align: left; }
+  .formula mtable.tml-jot > mtr > mtd { padding-block: 0.9ex; }
+  @media (max-width: 30rem) {
+    .explainer-pop { padding: var(--space-sm); }
+    .formula math { font-size: 0.9em; }
+  }
+
+  /* Crop marks at the four corners of a printed piece. */
+  .crop { --l: 10px; --o: 14px; }
+  .crop::before {
+    content: "";
+    position: absolute;
+    inset: calc(-1 * var(--o));
+    pointer-events: none;
+    --m: linear-gradient(var(--color-mark), var(--color-mark));
+    background:
+      var(--m) 0 var(--o) / var(--l) 1px no-repeat,
+      var(--m) var(--o) 0 / 1px var(--l) no-repeat,
+      var(--m) 100% var(--o) / var(--l) 1px no-repeat,
+      var(--m) calc(100% - var(--o)) 0 / 1px var(--l) no-repeat,
+      var(--m) 0 calc(100% - var(--o)) / var(--l) 1px no-repeat,
+      var(--m) var(--o) 100% / 1px var(--l) no-repeat,
+      var(--m) 100% calc(100% - var(--o)) / var(--l) 1px no-repeat,
+      var(--m) calc(100% - var(--o)) 100% / 1px var(--l) no-repeat;
+  }
+
+  /* Orange construction guides with their readouts, drawn in once along their length. */
+  .guide { position: absolute; display: block; background: var(--color-accent); }
+  .guide-x { left: 0; right: 0; height: 1px; transform-origin: left center; animation: guide-x var(--dur-long) var(--ease-out) 200ms both; }
+  .guide-y { top: 0; bottom: 0; width: 1px; transform-origin: center top; animation: guide-y var(--dur-long) var(--ease-out) 450ms both; }
+  .guide-label { position: absolute; font-size: var(--text-xs); font-weight: 500; line-height: 1.2; color: var(--color-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .guide-chip { padding: var(--space-3xs) var(--space-2xs); background: var(--color-paper); }
+
   /* The thin rule by a tool's title, in the tool's own colour. */
   .tool-rule { display: block; width: var(--space-xl); height: 2px; background: var(--color-tool); }
+
+  /* Landing hero: the deck of proofs. One stage at 4:3; each capture is fitted inside it
+     at its own ratio (container units), so its overlay stays in % of the capture. */
+  .deck-sheet { position: relative; }
+  .deck-sheet::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: var(--radius-card);
+    background: var(--color-paper-2);
+    box-shadow: var(--shadow-sheet);
+    transform: translate(var(--space-sm), var(--space-sm));
+  }
+  .deck-stage { position: relative; aspect-ratio: 4 / 3; container-type: size; }
+  /* The server marks the first sheet active, so it shows without scripting; until the
+     script marks the deck ready the others are out of the flow, then they wait beneath it. */
+  .deck-frame {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    transition: opacity var(--dur-long) var(--ease-out), transform var(--dur-long) var(--ease-out);
+  }
+  .deck-frame[data-active] { transition-delay: 120ms; }
+  .deck:not([data-js]) .deck-frame:not([data-active]) { display: none; }
+  .deck[data-js] .deck-frame:not([data-active]) { opacity: 0; transform: translateY(var(--space-xs)) scale(0.985); }
+  .deck-fit { position: relative; width: min(100cqw, calc(100cqh * var(--ratio))); aspect-ratio: var(--ratio); background: none; }
+
+  /* The deck's buttons: a hairline track over each label, the active one filling in its tool's colour. */
+  .deck-tab {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    min-height: 44px;
+    padding: 0 0 var(--space-xs);
+    border: 0;
+    background: none;
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+    text-align: left;
+    cursor: pointer;
+    transition: color var(--dur-short) var(--ease-out);
+  }
+  .deck-tab:hover, .deck-tab[aria-current] { color: var(--color-ink); }
+  .deck-tab:active { color: var(--color-ink-2); }
+  .deck-track { position: relative; display: block; height: 2px; overflow: hidden; background: var(--color-rule); }
+  .deck-tab:hover .deck-track { background: color-mix(in oklab, var(--color-tool) 35%, var(--color-rule)); }
+  .deck-fill { position: absolute; inset: 0; background: var(--color-tool); transform-origin: left center; }
+  .deck-fill[data-running] { animation: deck-fill linear both; }
+  .deck-toggle {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--space-xs);
+    min-height: 44px;
+    padding: 0 var(--space-xs);
+    border: 0;
+    background: none;
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: color var(--dur-short) var(--ease-out);
+  }
+  .deck-toggle:hover { color: var(--color-ink); }
+  .deck-toggle:active { color: var(--color-ink-2); }
+
+  /* Landing: the methods tape, two rows drifting in opposite directions. */
+  .tape-band { padding-block: var(--space-3xl) 0; }
+  .tape {
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, var(--color-ink) 6%, var(--color-ink) 94%, transparent);
+  }
+  .tape-track { display: flex; width: max-content; animation: tape 90s linear infinite; }
+  .tape[data-reverse] .tape-track { animation-direction: reverse; animation-duration: 110s; }
+  .tape-band[data-paused] .tape-track, .tape:hover .tape-track { animation-play-state: paused; }
+  .tape-list { display: flex; flex: none; margin: 0; padding: 0; list-style: none; }
+  .tape-list > li { display: flex; align-items: baseline; padding: var(--space-md) var(--space-lg) var(--space-md) 0; border-top: var(--rule-hair) solid var(--color-rule); }
+  /* Each tool's name heads its run of methods: Geist set heavier than the serif methods,
+     in the tool's own colour (deepened toward ink for contrast) on a faint wash of it. */
+  .tape-tool { align-items: center; padding-left: var(--space-lg); white-space: nowrap; }
+  .tape-tag {
+    padding: 0.2em 0.6em;
+    border-radius: var(--radius-pill);
+    background: color-mix(in oklab, var(--color-tool) 13%, var(--color-paper));
+    color: color-mix(in oklab, var(--color-tool) 72%, var(--color-ink));
+    font-family: var(--font-body); font-size: 1rem; font-weight: 600; line-height: 1.3;
+  }
+  .tape-method { font-family: var(--font-display); font-size: var(--text-xl); line-height: 1.2; color: var(--color-ink); white-space: nowrap; }
 }
+
+@keyframes deck-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes tape { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+@keyframes guide-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes guide-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
 @media (prefers-reduced-motion: reduce) {
   .btn:active { transform: none; }
-  .explainer-pop:popover-open { transition: none; }
+  .guide-x, .guide-y { animation: none; }
+  .deck-frame { transform: none; transition: none; }
+  .deck-fill { display: none; }
+  /* The tape stands still and wraps; its loop copy goes. */
+  .tape { mask-image: none; padding-inline: var(--space-md); }
+  .tape-track { width: auto; animation: none; }
+  .tape-list { flex-wrap: wrap; }
+  .tape-method { white-space: normal; }
+  .tape-copy, .tape-toggle { display: none; }
+  .explainer-pop:popover-open, .metric-card, .metric-card-trigger { transition: none; }
 }

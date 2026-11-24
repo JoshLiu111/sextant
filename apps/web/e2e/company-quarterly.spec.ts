@@ -46,7 +46,9 @@ test("a quarterly link loads quarterly, and the drill-down lists the four quarte
   await ratios.getByRole("button", { name: "Show the inputs of Asset turnover for Q3 FY2026" }).click();
   const dialog = page.getByRole("dialog", { name: "Asset turnover · AAPL · Q3 FY2026" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Revenue divided by average total assets")).toBeVisible();
+  await expect(dialog.locator("math")).toBeVisible();
+  await expect(dialog.locator("math")).toContainText("Revenue");
+  await expect(dialog.locator("math")).toContainText("Average total assets");
   await expect(dialog.getByText("1.31", { exact: true })).toBeVisible();
   const inputs = dialog.getByRole("table", { name: "Inputs" });
   await expect(inputs.getByRole("rowheader", { name: "Revenue" })).toBeVisible();
@@ -69,7 +71,9 @@ test("drill into an annual ratio: formula, inputs and their 10-K", async ({ page
 
   await ratios.getByRole("button", { name: "Show the inputs of Current ratio for FY2026" }).click();
   const dialog = page.getByRole("dialog", { name: "Current ratio · AAPL · FY2026" });
-  await expect(dialog.getByText("Current assets divided by current liabilities")).toBeVisible();
+  await expect(dialog.locator("math")).toBeVisible();
+  await expect(dialog.locator("math")).toContainText("Current assets");
+  await expect(dialog.locator("math")).toContainText("Current liabilities");
   const inputs = dialog.getByRole("table", { name: "Inputs" });
   await expect(inputs.getByRole("rowheader", { name: "Total Current Assets" })).toBeVisible();
   await expect(inputs.getByText("173,857", { exact: true })).toBeVisible();

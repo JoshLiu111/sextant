@@ -149,6 +149,17 @@ function SensitivityTable({ result }: { result: ValuationResult }) {
   const { growth_rates, discount_rates } = result.sensitivity;
   const center = Math.floor(growth_rates.length / 2);
   const columns = discount_rates.length ? discount_rates : [null, null, null, null, null];
+  // Each value is tinted in the tool's colour by where it sits between the table's
+  // lowest and highest value, so the grid reads as a heat map.
+  const values = Object.entries(result.metrics)
+    .filter(([id, m]) => id.startsWith("sensitivity:") && m.status === "ok" && m.value !== null)
+    .map(([, m]) => m.value as number);
+  const low = Math.min(...values);
+  const span = Math.max(...values) - low;
+  const tint = (value: number) => {
+    const share = span > 0 ? (value - low) / span : 0;
+    return `color-mix(in oklab, var(--color-tool) ${Math.round(4 + share * 30)}%, var(--color-paper))`;
+  };
   return (
     <section data-testid="sensitivity" aria-labelledby="sensitivity-heading">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -198,8 +209,9 @@ function SensitivityTable({ result }: { result: ValuationResult }) {
                       data-metric-value={id}
                       data-status={cell?.status ?? "pending"}
                       title={ok ? undefined : (cell?.reason ?? undefined)}
+                      style={ok ? { background: tint(cell.value as number) } : undefined}
                       className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${
-                        isBase ? "bg-paper-2 font-medium text-ink shadow-[inset_0_-2px_0_var(--color-ink)]" : ""
+                        isBase ? "font-medium text-ink shadow-[inset_0_0_0_2px_var(--color-ink)]" : ""
                       } ${ok ? "" : "text-muted"}`}
                     >
                       {ok ? formatMoneyValue(cell.value as number, cell.unit) : "—"}

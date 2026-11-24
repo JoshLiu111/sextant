@@ -40,7 +40,10 @@ test("each ratio has an explainer", async ({ page }) => {
 
   const row = ratios.getByRole("table", { name: "Liquidity" }).getByRole("rowheader", { name: /Current ratio/ });
   await row.getByText("About Current ratio").click();
-  await expect(row.getByText("Current assets divided by current liabilities")).toBeVisible();
+  const formula = row.getByTestId("explainer").locator("math");
+  await expect(formula).toBeVisible();
+  await expect(formula).toContainText("Current assets");
+  await expect(formula).toContainText("Current liabilities");
   expect(await ratios.getByTestId("explainer").count()).toBeGreaterThanOrEqual(36);
 });
 

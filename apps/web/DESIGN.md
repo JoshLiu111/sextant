@@ -31,7 +31,7 @@ The spacing scale, the type scale, the easings and the durations are the scaffol
 - Surfaces climb the ladder: whitespace, a 1px `border-rule` hairline, a `bg-paper-2` well, then a card (`border-rule`, `rounded-card`). Never a card in a card.
 
 ## Variants
-- **Chart palette (user request: colourful charts).** Eight categorical hues (`--color-chart-1` to `-8`), tuned for light and dark, none of them the action orange. Each tool owns one through `data-tool` on its root (`globals.css`), exposed as `--color-tool`: its charts' primary series and a thin rule by its title. Further series take the other chart colours in a fixed order; reference series take `--color-muted`. Gridlines are `--color-rule`, axis text `--color-muted`, text never wears a series colour.
+- **Chart palette (user request: colourful charts).** Eight categorical hues (`--color-chart-1` to `-8`), tuned for light and dark, none of them the action orange. Each tool owns one through `data-tool` on its root (`globals.css`), exposed as `--color-tool`: its charts' primary series and a thin rule by its title. Further series take the other chart colours in a fixed order; reference series take `--color-muted`. Gridlines are `--color-rule`, axis text `--color-muted`, text never wears a series colour. One exception (user request): on the landing's methods tape each tool's name is a tag, Geist 600 in its tool colour deepened toward ink, on a 13% wash of it (`.tape-tag`).
 - **App screens.** The inputs rail, result tabs and key-figures strip (#70) stay. Controls 36 to 40px with a 44px hit target, tables before cards, four data states (loading, empty, error, full) where the logic exists.
 
 ## Controls

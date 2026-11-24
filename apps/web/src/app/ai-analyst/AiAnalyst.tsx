@@ -104,6 +104,7 @@ export function AiAnalyst() {
   if (account.kind === "signed_out") {
     return (
       <div
+        id="analyst"
         data-testid="analyst-sign-in"
         className="card mt-8 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 p-4 text-sm md:p-5"
       >
@@ -119,7 +120,7 @@ export function AiAnalyst() {
   }
 
   return (
-    <div className="mt-8 space-y-10">
+    <div id="analyst" className="mt-8 space-y-10">
       <form onSubmit={onAsk} className="max-w-[75ch] space-y-3">
         <label htmlFor="analyst-question" className="label">
           {t.questionLabel}

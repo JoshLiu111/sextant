@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { ErrorNotice } from "@/components/ErrorNotice";
+import { Formula } from "@/components/Formula";
 import { getMessages } from "@/i18n";
 import type { ResultEnvelope, Unit } from "@/lib/envelope";
 import { formatStatementValue } from "@/lib/format";
@@ -116,7 +117,10 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
         <dl className="max-w-[75ch] space-y-2 text-sm">
           <div>
             <dt className="text-muted">{d.formula}</dt>
-            <dd>{explainer.how}</dd>
+            <dd>
+              {explainer.formula && <Formula tex={explainer.formula} className="my-1.5" />}
+              <span className={explainer.formula ? "text-muted" : undefined}>{explainer.how}</span>
+            </dd>
           </div>
           <div>
             <dt className="text-muted">{d.value}</dt>

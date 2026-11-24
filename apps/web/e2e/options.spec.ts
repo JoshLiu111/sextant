@@ -87,8 +87,12 @@ test("every metric has an explainer", async ({ page }) => {
     await main.locator("[data-metric] [data-metric-value]").count(),
   );
 
-  const explainer = main.locator('[data-metric="vega"]').getByTestId("explainer");
-  await explainer.getByText("About Vega").click();
+  // The whole card opens its explainer: a click on the figure, not just the info button.
+  const card = main.locator('[data-metric="vega"]');
+  const explainer = card.getByTestId("explainer");
+  await expect(card.getByRole("button", { name: "About Vega" })).toBeVisible();
+  await card.click();
+  await expect(explainer.locator(".explainer-pop")).toBeVisible();
   await expect(explainer).toContainText("What it is");
   await expect(explainer).toContainText("How it's computed");
   await expect(explainer).toContainText("How to read it");
