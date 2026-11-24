@@ -246,7 +246,7 @@ export function Screener() {
   const sortProps = { sort: query.sort, direction: query.direction, onSort: sortBy };
 
   return (
-    <section aria-labelledby="screen-heading" className="mt-8 space-y-6">
+    <section aria-labelledby="screen-heading" className="mt-6 space-y-6">
       <h2 id="screen-heading" className="text-xl font-semibold">
         {s.screenHeading}
       </h2>

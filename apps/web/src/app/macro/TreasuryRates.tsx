@@ -43,9 +43,9 @@ export function TreasuryRates({
 
   return (
     <section data-testid="rates" aria-labelledby="macro-rates" className="mt-10 space-y-6">
-      <h2 id="macro-rates" className="text-lg font-semibold">
+      <h3 id="macro-rates" className="text-lg font-semibold">
         {t.macro.sections.rates}
-      </h2>
+      </h3>
       {error && <ErrorNotice title={t.common.errors.heading} message={error} />}
       <div className="grid gap-6 lg:grid-cols-2">
         <YieldCurve

@@ -132,7 +132,7 @@ test.describe("Screener", () => {
   });
 
   test("a link to one company's filings shows that company's filings", async ({ page }) => {
-    const main = await open(page, "/screener?filings_ticker=AAPL&filings_form=10-K", "Screener & Calendar");
+    const main = await open(page, "/screener?tab=filings&filings_ticker=AAPL&filings_form=10-K", "Screener & Calendar");
     await expect(main.getByLabel("Company ticker")).toHaveValue("AAPL");
     await expect(main.getByLabel("Form type")).toHaveValue("10-K");
     const filings = main.getByRole("table", { name: "Latest SEC filings" });
@@ -144,12 +144,13 @@ test.describe("Screener", () => {
   test("a link to an earnings calendar range and a dividend ticker shows them", async ({ page }) => {
     const main = await open(
       page,
-      "/screener?earnings_tickers=AAPL,MSFT&earnings_start=2026-01-01&earnings_end=2026-06-30&dividends_ticker=JPM",
+      "/screener?tab=earnings&earnings_tickers=AAPL,MSFT&earnings_start=2026-01-01&earnings_end=2026-06-30&dividends_ticker=JPM",
       "Screener & Calendar",
     );
     await expect(main.getByLabel("Companies")).toHaveValue("AAPL,MSFT");
     await expect(main.getByTestId("earnings-range")).toHaveText("Earnings releases from 2026-01-01 to 2026-06-30", COLD);
     await expect(main.getByRole("table", { name: "Earnings calendar" }).locator("tbody tr")).toHaveCount(4);
+    await main.getByRole("tab", { name: "Dividend history" }).click();
     await expect(main.getByTestId("dividends-heading")).toHaveText("JPMORGAN CHASE & CO (JPM)", COLD);
 
     await main.getByLabel("Dividend ticker").fill("msft");
@@ -159,7 +160,7 @@ test.describe("Screener", () => {
   });
 
   test("a bad calendar range in a link shows the normal validation error", async ({ page }) => {
-    const main = await open(page, "/screener?earnings_start=2026-06-01&earnings_end=2026-01-01", "Screener & Calendar");
+    const main = await open(page, "/screener?tab=earnings&earnings_start=2026-06-01&earnings_end=2026-01-01", "Screener & Calendar");
     await expect(main.getByTestId("field-error-end")).toHaveText("The end date must be on or after the start date.", COLD);
   });
 

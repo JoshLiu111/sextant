@@ -12,7 +12,7 @@ const COLD = { timeout: 20_000 };
 async function openRates(page: Page) {
   await page.goto("/macro");
   const main = page.getByRole("main");
-  await expect(main.getByRole("heading", { level: 2, name: "US Treasury yields" })).toBeVisible();
+  await expect(main.getByRole("heading", { level: 3, name: "US Treasury yields" })).toBeVisible();
   await expect(main.locator('[data-metric-value="latest:spread_10y_2y"]')).toHaveAttribute("data-status", "ok", COLD);
   return main;
 }

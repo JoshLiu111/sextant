@@ -42,7 +42,7 @@ export function CrossCountry({ initialCountries }: { initialCountries: CountryCo
   }
 
   return (
-    <section data-testid="countries" aria-labelledby="macro-countries" className="mt-10 space-y-6">
+    <section id="countries" data-testid="countries" aria-labelledby="macro-countries" className="mt-10 space-y-6">
       <div>
         <h2 id="macro-countries" className="text-lg font-semibold">
           {t.macro.sections.countries}

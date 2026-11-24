@@ -48,7 +48,7 @@ function byFiscalYear(periods: DividendPeriod[]): YearRow[] {
   return [...rows.values()].sort((a, b) => b.fiscalYear - a.fiscalYear);
 }
 
-// Shareable links: `/screener?dividends_ticker=JPM`.
+// Shareable links: `/screener?tab=dividends&dividends_ticker=JPM`.
 const URL_CODEC = fieldsCodec({ dividends_ticker: "AAPL" });
 
 const money = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
@@ -88,7 +88,7 @@ export function DividendHistory() {
 
   const rows = history ? byFiscalYear(history.periods) : [];
   return (
-    <section aria-labelledby="dividends-section" className="mt-12 space-y-4">
+    <section aria-labelledby="dividends-section" className="mt-6 space-y-4">
       <h2 id="dividends-section" className="text-xl font-semibold">
         {m.heading}
       </h2>

@@ -19,7 +19,7 @@ type Query = { ticker: string; form: string };
 
 // Must match FilingForm in the compute request model.
 const FORMS = ["10-K", "10-Q", "8-K", "4", "S-1", "DEF 14A", "20-F", "6-K"];
-// Shareable links: `/screener?filings_ticker=MSFT&filings_form=10-K` (blank ticker = market-wide).
+// Shareable links: `/screener?tab=filings&filings_ticker=MSFT&filings_form=10-K` (blank ticker = market-wide).
 // Prefixed so they don't collide with the screen's params on the same page.
 const URL_CODEC = fieldsCodec({ filings_ticker: "", filings_form: "" });
 
@@ -43,7 +43,7 @@ export function LatestFilings() {
   }
 
   return (
-    <section aria-labelledby="filings-section" className="mt-12 space-y-4">
+    <section aria-labelledby="filings-section" className="mt-6 space-y-4">
       <h2 id="filings-section" className="text-xl font-semibold">
         {f.heading}
       </h2>

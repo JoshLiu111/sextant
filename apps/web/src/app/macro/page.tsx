@@ -20,10 +20,16 @@ export default function Page({ searchParams }: PageProps<"/macro">) {
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-10">
       <ToolPageHeader tool="macro" title={t.tools.macro.name} intro={t.macro.intro} />
-      {/* Reads the chart range and the added FRED series from the query string (shareable links). */}
-      <Suspense>
-        <MacroTool />
-      </Suspense>
+      {/* Three sections, each with an anchor: #us, #countries (CrossCountry), #euro-area (EuroArea). */}
+      <section id="us" aria-labelledby="macro-us" className="mt-6">
+        <h2 id="macro-us" className="text-lg font-semibold">
+          {t.macro.sections.us}
+        </h2>
+        {/* Reads the chart range and the added FRED series from the query string (shareable links). */}
+        <Suspense>
+          <MacroTool />
+        </Suspense>
+      </section>
       <Suspense fallback={<div className="mt-10 h-96" />}>
         <Comparison searchParams={searchParams} />
       </Suspense>
