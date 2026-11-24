@@ -31,6 +31,20 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   }
 });
 
+/**
+ * True when `token` is a live session. For the proxy, which has the cookie but
+ * no React request scope. Any failure counts as "no".
+ */
+export async function isSignedIn(token: string | null): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const res = await computeFetchAsUser(token, "/me", { signal: AbortSignal.timeout(5000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Server-side call to the compute service on behalf of the user holding `token`. */
 export function computeFetchAsUser(
   token: string,
