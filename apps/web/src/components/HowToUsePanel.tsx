@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type SyntheticEvent } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { SignInLink } from "@/components/SignInLink";
 import { getMessages } from "@/i18n";
 import { fetchAiQuota } from "@/lib/ai";
@@ -56,68 +56,92 @@ function useSignedOut(): boolean {
 }
 
 /**
- * The collapsible "How to use" panel at the top of a tool page: steps, "Try
- * this" example links, and for visitors what signing in adds on this tool.
- * Content comes from `tools[tool].howTo` in src/i18n. Renders open before
- * hydration, then follows the state remembered for this tool.
+ * Open or collapsed for this tool. Open on the server and before hydration, so
+ * the steps show without JavaScript; then the state remembered in this browser.
+ * The button and the panel each read it, so they stay in step wherever they sit.
+ */
+function useOpen(tool: ToolSlug): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => readOpen(tool),
+    () => true,
+  );
+}
+
+const buttonId = (tool: ToolSlug) => `how-to-use-${tool}`;
+const panelId = (tool: ToolSlug) => `how-to-use-panel-${tool}`;
+
+/**
+ * The "How to use" button for a tool page's title row (see `ToolPageHeader`):
+ * a disclosure that opens and closes `HowToUsePanel` and remembers the choice.
+ */
+export function HowToUseButton({ tool }: { tool: ToolSlug }) {
+  const copy = getMessages().common.howToUse;
+  const open = useOpen(tool);
+  return (
+    <button
+      type="button"
+      id={buttonId(tool)}
+      aria-expanded={open}
+      aria-controls={panelId(tool)}
+      onClick={() => storeOpen(tool, !open)}
+      className="shrink-0 rounded-md border border-black/20 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+    >
+      {copy.heading}
+    </button>
+  );
+}
+
+/**
+ * The "How to use" panel under a tool page's title: steps, "Try this" example
+ * links, and for visitors what signing in adds on this tool. Content comes from
+ * `tools[tool].howTo` in src/i18n. `HowToUseButton` opens and closes it; it is
+ * open on a first visit. Collapsed, it stays in the page but hidden.
  */
 export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
   const t = getMessages();
   const copy = t.common.howToUse;
   // Every tool has `howTo`; the annotation makes a missing one a type error.
   const howTo: HowToUse = t.tools[tool].howTo;
-  // Open on the server and before hydration, so the steps show without JavaScript.
-  const open = useSyncExternalStore(
-    subscribe,
-    () => readOpen(tool),
-    () => true,
-  );
+  const open = useOpen(tool);
   const signedOut = useSignedOut();
 
   const href = getTool(tool).href;
-  const headingId = `how-to-use-${tool}`;
-
-  // A native <details> fires `toggle` for any change, including ones React made
-  // (and the open-on-load one); only a change away from the stored state is the visitor's.
-  function onToggle(e: SyntheticEvent<HTMLDetailsElement>) {
-    const next = e.currentTarget.open;
-    if (next !== open) storeOpen(tool, next);
-  }
 
   return (
-    <section aria-labelledby={headingId} className="mt-4 rounded-lg border border-black/10 dark:border-white/15">
-      <details open={open} onToggle={onToggle}>
-        <summary id={headingId} className="cursor-pointer px-4 py-2 font-medium">
-          {copy.heading}
-        </summary>
-        <div className="space-y-3 px-4 pb-4 text-sm">
-          <ol aria-label={copy.stepsLabel} className="list-decimal space-y-1 pl-5 text-black/80 dark:text-white/80">
-            {howTo.steps.map((step) => (
-              <li key={step}>{step}</li>
+    <section
+      id={panelId(tool)}
+      aria-labelledby={buttonId(tool)}
+      hidden={!open}
+      className="mt-4 rounded-lg border border-black/10 dark:border-white/15"
+    >
+      <div className="space-y-3 p-4 text-sm">
+        <ol aria-label={copy.stepsLabel} className="list-decimal space-y-1 pl-5 text-black/80 dark:text-white/80">
+          {howTo.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+        {howTo.examples.length > 0 && (
+          <ul aria-label={copy.examplesLabel} className="flex flex-wrap gap-x-4 gap-y-1">
+            {howTo.examples.map((example) => (
+              <li key={example.label}>
+                {/* A full navigation (not <Link>): the tool reads its URL inputs on load. */}
+                <a href={hrefWithQuery(href, example.params)} className="underline underline-offset-2 hover:no-underline">
+                  {copy.tryThis} {example.label}
+                </a>
+              </li>
             ))}
-          </ol>
-          {howTo.examples.length > 0 && (
-            <ul aria-label={copy.examplesLabel} className="flex flex-wrap gap-x-4 gap-y-1">
-              {howTo.examples.map((example) => (
-                <li key={example.label}>
-                  {/* A full navigation (not <Link>): the tool reads its URL inputs on load. */}
-                  <a href={hrefWithQuery(href, example.params)} className="underline underline-offset-2 hover:no-underline">
-                    {copy.tryThis} {example.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-          {signedOut && howTo.signedInExtras.length > 0 && (
-            <div data-testid="signed-in-extras" className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <p>
-                {copy.signedInExtras} {howTo.signedInExtras.join("; ")}.
-              </p>
-              <SignInLink className="font-medium underline underline-offset-2 hover:no-underline" />
-            </div>
-          )}
-        </div>
-      </details>
+          </ul>
+        )}
+        {signedOut && howTo.signedInExtras.length > 0 && (
+          <div data-testid="signed-in-extras" className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p>
+              {copy.signedInExtras} {howTo.signedInExtras.join("; ")}.
+            </p>
+            <SignInLink className="font-medium underline underline-offset-2 hover:no-underline" />
+          </div>
+        )}
+      </div>
     </section>
   );
 }

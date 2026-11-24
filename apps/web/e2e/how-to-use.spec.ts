@@ -1,9 +1,19 @@
 import { expect, test } from "@playwright/test";
-import { metric, openTool, steps, uniqueEmail, untilPanelIsLive } from "./how-to-use-helpers";
+import { howToUseButton, metric, openTool, steps, uniqueEmail, untilPanelIsLive } from "./how-to-use-helpers";
 
 // The "How to use" panel at the top of tool pages (spec 02, issue #66): steps,
 // one-click example links, and for visitors the things signing in adds on that tool.
-// Open or collapsed is remembered per tool in the browser.
+// A "How to use" button in the page's title row opens and closes it (issue #70);
+// open or collapsed is remembered per tool in the browser.
+
+test("the How to use button sits in the title row, next to the page heading", async ({ page }) => {
+  for (const url of ["/options", "/risk", "/portfolio", "/valuation", "/company", "/macro", "/screener", "/ai-analyst"]) {
+    await openTool(page, url);
+    const titleRow = page.getByRole("main").getByTestId("tool-title-row");
+    await expect(titleRow.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(titleRow.getByRole("button", { name: "How to use" })).toBeVisible();
+  }
+});
 
 test.describe("on the first visit", () => {
   for (const [url, tool] of [
@@ -15,6 +25,7 @@ test.describe("on the first visit", () => {
       await expect(steps(panel)).toBeVisible();
       expect(await steps(panel).getByRole("listitem").count()).toBeGreaterThanOrEqual(3);
       await expect(panel.getByRole("link", { name: /^Try this:/ }).first()).toBeVisible();
+      await expect(howToUseButton(page)).toHaveAttribute("aria-expanded", "true");
     });
   }
 });
@@ -31,8 +42,9 @@ test.describe("without JavaScript", () => {
 test("a collapsed panel stays collapsed after a reload, and only on that tool", async ({ page }) => {
   const risk = await openTool(page, "/risk");
   await untilPanelIsLive(risk);
-  await risk.getByText("How to use", { exact: true }).click();
+  await howToUseButton(page).click();
   await expect(steps(risk)).toBeHidden();
+  await expect(howToUseButton(page)).toHaveAttribute("aria-expanded", "false");
 
   // It renders open until the page reads the remembered state.
   await page.reload();
@@ -45,7 +57,7 @@ test("a collapsed panel stays collapsed after a reload, and only on that tool", 
   // Opening it again is remembered too.
   const reopened = await openTool(page, "/risk");
   await untilPanelIsLive(reopened);
-  await reopened.getByText("How to use", { exact: true }).click();
+  await howToUseButton(page).click();
   await expect(steps(reopened)).toBeVisible();
   await page.reload();
   await expect(steps(reopened)).toBeVisible();
@@ -54,7 +66,7 @@ test("a collapsed panel stays collapsed after a reload, and only on that tool", 
 test("the panel toggles from the keyboard", async ({ page }) => {
   const panel = await openTool(page, "/risk");
   await untilPanelIsLive(panel);
-  const toggle = panel.getByText("How to use", { exact: true });
+  const toggle = howToUseButton(page);
   await toggle.focus();
   await page.keyboard.press("Enter");
   await expect(steps(panel)).toBeHidden();

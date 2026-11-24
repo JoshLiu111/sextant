@@ -8,12 +8,14 @@ export const metric = (page: Page, id: string) => page.getByRole("main").locator
 /** EDGAR and FRED come from the e2e fakes; a cold compute cache is slow. */
 export const COLD = { timeout: 30_000 };
 
-/** Opens a tool page and returns its "How to use" panel. */
+/** The "How to use" button in a tool page's title row; it opens and closes the panel. */
+export const howToUseButton = (page: Page) => page.getByRole("main").getByRole("button", { name: "How to use" });
+
+/** Opens a tool page and returns its "How to use" panel (which may be collapsed). */
 export async function openTool(page: Page, url: string) {
   await page.goto(url);
-  const panel = page.getByRole("main").getByRole("region", { name: "How to use" });
-  await expect(panel).toBeVisible();
-  return panel;
+  await expect(howToUseButton(page)).toBeVisible();
+  return page.getByRole("main").getByRole("region", { name: "How to use", includeHidden: true });
 }
 
 /** The panel's steps; visible only while the panel is open. */
