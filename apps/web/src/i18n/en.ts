@@ -713,6 +713,13 @@ export const en = {
       removed: (name: string) => `Removed ${name}.`,
       errorTitle: "Could not use this file",
     },
+    tabsLabel: "Risk & Performance results",
+    tabs: {
+      overview: "Overview",
+      rolling: "Rolling & distribution",
+      checks: "Model checks",
+      technical: "Technical analysis",
+    },
     sections: {
       metrics: "Return and risk",
       tail: "Tail risk: VaR and CVaR",

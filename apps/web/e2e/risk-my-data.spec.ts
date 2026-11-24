@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { openRiskTab } from "./risk-helpers";
 import { expect, test, type Page } from "@playwright/test";
 
 // Risk & Performance on My data: a signed-in user with a saved Tiingo key
@@ -77,6 +78,7 @@ test("a user with a Tiingo key switches to My data and sees metrics from their o
     await expect(metric(page, id)).toHaveAttribute("data-status", "missing_data");
   }
   // #27's heatmap and price chart read the user's prices too (they pass the source through).
+  await openRiskTab(main, "Technical analysis");
   await expect(main.locator('[data-correlation="AAPL:SPY"]')).toHaveAttribute("data-status", "ok");
   await expect(main.getByRole("img", { name: /^Price chart/ })).toBeVisible();
 
@@ -90,6 +92,7 @@ test("a user with a Tiingo key switches to My data and sees metrics from their o
   expect(Number(aapl[csv.rows[0].indexOf("Max drawdown")])).toBeCloseTo(0.1, 6);
 
   // An unknown real ticker only affects its own metrics.
+  await openRiskTab(main, "Overview");
   await main.getByLabel("Tickers").fill("AAPL, ZZZZ");
   await expect(metric(page, "annualized_return:ZZZZ")).toHaveAttribute("data-status", "missing_data");
   await expect(metric(page, "annualized_return:ZZZZ")).toContainText("Tiingo has no ticker ZZZZ.");

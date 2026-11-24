@@ -289,7 +289,7 @@ test.describe("Risk & Performance", () => {
   });
 
   test("the technical indicators and their parameters round-trip through the URL", async ({ page }) => {
-    const main = await open(page, "/risk?indicators=ema,macd&ema_window=30&macd_fast=8", "Risk & Performance");
+    const main = await open(page, "/risk?tab=technical&indicators=ema,macd&ema_window=30&macd_fast=8", "Risk & Performance");
     const legend = main.getByTestId("indicator-legend-price");
     await expect(legend).toContainText("EMA (30)", COLD);
     await expect(legend).not.toContainText("SMA");

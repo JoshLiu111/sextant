@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openRiskTab } from "./risk-helpers";
 
 // Risk & Performance time-scale views (#24): return periods, rolling curves,
 // the marked underwater chart and the return distribution.
@@ -39,6 +40,7 @@ test("switching the return period recomputes the period statistics", async ({ pa
 
 test("rolling curves are hoverable and their window is adjustable", async ({ page }) => {
   const main = await openRisk(page);
+  await openRiskTab(main, "Rolling & distribution");
   const rolling = main.getByRole("region", { name: "Rolling metrics" });
 
   for (const name of [/rolling volatility/i, /rolling sharpe/i, /rolling beta/i]) {
@@ -79,6 +81,7 @@ test("the return distribution shows a histogram and positive excess kurtosis for
   page,
 }) => {
   const main = await openRisk(page);
+  await openRiskTab(main, "Rolling & distribution");
   await main.getByLabel("Tickers").fill("DEMO-A, DEMO-F");
   const kurtosis = metric(main, "excess_kurtosis:DEMO-F");
   await expect(kurtosis).toHaveAttribute("data-status", "ok");

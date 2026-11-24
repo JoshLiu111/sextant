@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openRiskTab } from "./risk-helpers";
 
 // The panel follows the Risk & Performance selection: DEMO-A, DEMO-B, DEMO-D vs DEMO-MKT,
 // 2021-01-01 to 2025-12-31 (synthetic demo data trades Mon-Fri, so 2021-01-01 is the first date shown).
@@ -9,6 +10,7 @@ async function openRisk(page: Page) {
   await expect(main.locator('[data-metric-value="annualized_return:DEMO-A"]')).toHaveAttribute("data-status", "ok", {
     timeout: 30_000,
   });
+  await openRiskTab(main, "Technical analysis");
   return main;
 }
 
