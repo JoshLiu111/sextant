@@ -197,13 +197,14 @@ test.describe("Options Calculator", () => {
   test("submitting writes the inputs to the URL", async ({ page }) => {
     const main = await open(page, "/options", "Options Calculator");
     await expect(metric(main, "call_price")).toContainText("10.45");
-    await main.getByLabel("Volatility").fill("30");
+    // The field, not the "About Implied volatility" explainer button.
+    await main.getByRole("spinbutton", { name: "Volatility (%)" }).fill("30");
     await main.getByRole("button", { name: "Calculate" }).click();
     await expect(page).toHaveURL(/[?&]volatility=30(&|$)/);
     await expect(page).toHaveURL(/[?&]spot=100(&|$)/);
 
     await page.reload();
-    await expect(main.getByLabel("Volatility")).toHaveValue("30");
+    await expect(main.getByRole("spinbutton", { name: "Volatility (%)" })).toHaveValue("30");
     await expect(metric(main, "call_price")).toContainText("14.23");
   });
 

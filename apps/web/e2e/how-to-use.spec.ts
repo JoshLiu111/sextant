@@ -78,8 +78,9 @@ test.describe("example links fill in the inputs and show a result", () => {
   test("Options Calculator: a call at 30% volatility", async ({ page }) => {
     const panel = await openTool(page, "/options");
     await panel.getByRole("link", { name: "Try this: Price a call at 30% volatility" }).click();
-    await expect(page).toHaveURL(/[?&]volatility=30(&|$)/);
-    await expect(page.getByRole("main").getByLabel("Volatility")).toHaveValue("30");
+    // The example link also scrolls to its tab, so the URL may end in a #fragment.
+    await expect(page).toHaveURL(/[?&]volatility=30(&|#|$)/);
+    await expect(page.getByRole("main").getByRole("spinbutton", { name: "Volatility (%)" })).toHaveValue("30");
     // S = K = 100, T = 1, sigma = 30%, r = 5% -> call 14.23.
     await expect(metric(page, "call_price")).toContainText("14.23");
   });

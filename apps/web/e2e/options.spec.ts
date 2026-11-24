@@ -27,7 +27,8 @@ test("results show on load without any user action", async ({ page }) => {
 
   await expect(metric(results, "call_price")).toContainText("10.45");
   for (const name of ["Delta", "Gamma", "Vega", "Theta", "Rho"]) {
-    await expect(results.getByText(name, { exact: true })).toBeVisible();
+    // The card's heading; its explainer popover repeats the name.
+    await expect(results.getByRole("heading", { name, exact: true })).toBeVisible();
   }
   await expect(metric(results, "call_delta")).toContainText("0.6368");
   await expect(main.getByRole("img", { name: /payoff/i })).toBeVisible();
