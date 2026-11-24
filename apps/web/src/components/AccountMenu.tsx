@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { getMessages } from "@/i18n";
 import { getCurrentUser } from "@/lib/auth/session";
 import { SignInLink } from "./SignInLink";
-import { LogoLink } from "./SiteNav";
 
 async function AccountMenuContent() {
   const t = getMessages();
@@ -47,19 +46,6 @@ export function AccountMenu() {
   return (
     <Suspense fallback={<span className="text-sm" aria-hidden />}>
       <AccountMenuContent />
-    </Suspense>
-  );
-}
-
-async function NavLogoContent() {
-  return <LogoLink href={(await getCurrentUser()) ? "/dashboard" : "/"} />;
-}
-
-/** The nav logo, pointing at the signed-in user's dashboard or the landing page. */
-export function NavLogo() {
-  return (
-    <Suspense fallback={<LogoLink href="/" />}>
-      <NavLogoContent />
     </Suspense>
   );
 }

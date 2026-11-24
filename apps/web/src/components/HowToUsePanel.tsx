@@ -4,8 +4,9 @@ import { useEffect, useState, useSyncExternalStore, type SyntheticEvent } from "
 import { SignInLink } from "@/components/SignInLink";
 import { getMessages } from "@/i18n";
 import { fetchAiQuota } from "@/lib/ai";
-import { exampleHref, type HowToUse } from "@/lib/howToUse";
+import type { HowToUse } from "@/lib/howToUse";
 import { getTool, type ToolSlug } from "@/lib/tools";
+import { hrefWithQuery } from "@/lib/urlInputs";
 
 /** Open or collapsed, per tool, in this browser only (never sent to the server). */
 const storageKey = (tool: ToolSlug) => `sextant:how-to-use:${tool}`;
@@ -63,9 +64,8 @@ function useSignedOut(): boolean {
 export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
   const t = getMessages();
   const copy = t.common.howToUse;
-  // Tools without `howTo` yet render nothing.
-  const entry: { name: string; howTo?: HowToUse } = t.tools[tool];
-  const howTo = entry.howTo;
+  // Every tool has `howTo`; the annotation makes a missing one a type error.
+  const howTo: HowToUse = t.tools[tool].howTo;
   // Open on the server and before hydration, so the steps show without JavaScript.
   const open = useSyncExternalStore(
     subscribe,
@@ -74,7 +74,6 @@ export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
   );
   const signedOut = useSignedOut();
 
-  if (!howTo) return null;
   const href = getTool(tool).href;
   const headingId = `how-to-use-${tool}`;
 
@@ -102,7 +101,7 @@ export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
               {howTo.examples.map((example) => (
                 <li key={example.label}>
                   {/* A full navigation (not <Link>): the tool reads its URL inputs on load. */}
-                  <a href={exampleHref(href, example.params)} className="underline underline-offset-2 hover:no-underline">
+                  <a href={hrefWithQuery(href, example.params)} className="underline underline-offset-2 hover:no-underline">
                     {copy.tryThis} {example.label}
                   </a>
                 </li>

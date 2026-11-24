@@ -5,27 +5,15 @@ import { useState, type ReactNode } from "react";
 import { getMessages } from "@/i18n";
 import { TOOLS } from "@/lib/tools";
 
-/** The Sextant logo: home is `/dashboard` for signed-in users, `/` for visitors. */
-export function LogoLink({ href }: { href: "/" | "/dashboard" }) {
-  return (
-    <Link href={href} className="text-lg font-semibold tracking-tight">
-      {getMessages().site.name}
-    </Link>
-  );
-}
-
-/**
- * `account` and `logo` are server-rendered from the signed-in state (see
- * AccountMenu and NavLogo); without `logo` the logo links to `/`.
- */
-export function SiteNav({ account, logo }: { account?: ReactNode; logo?: ReactNode }) {
+/** `account` and `logo` are server-rendered from the signed-in state (see AccountMenu and NavLogo). */
+export function SiteNav({ account, logo }: { account?: ReactNode; logo: ReactNode }) {
   const t = getMessages();
   const [open, setOpen] = useState(false);
 
   return (
     <header className="border-b border-black/10 dark:border-white/15">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3">
-        {logo ?? <LogoLink href="/" />}
+        {logo}
         <div className="ml-auto md:order-last">{account}</div>
         <button
           type="button"

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { computeFetchAsUser } from "@/lib/auth/session";
+import { answersAsUser, computeFetchAsUser } from "@/lib/auth/session";
 
 // Operator view of AI usage and users (compute: /api/compute/operator/...). Only accounts in
 // the compute service's OPERATOR_EMAILS get in; for everyone else both endpoints
@@ -30,14 +30,8 @@ export type AiUsageReport = {
 };
 
 /** True when `token` belongs to an operator. Any failure counts as "no". */
-export async function isOperator(token: string | null): Promise<boolean> {
-  if (!token) return false;
-  try {
-    const res = await computeFetchAsUser(token, "/operator/access", { signal: AbortSignal.timeout(5000) });
-    return res.status === 204;
-  } catch {
-    return false;
-  }
+export function isOperator(token: string | null): Promise<boolean> {
+  return answersAsUser(token, "/operator/access", (res) => res.status === 204);
 }
 
 export type OperatorResult<T> = { kind: "ok"; report: T } | { kind: "not_found" } | { kind: "failed" };

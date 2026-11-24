@@ -66,6 +66,16 @@ function toQuery(params: URLSearchParams): string {
   return params.toString().replace(/%2C/gi, ",").replace(/%3A/gi, ":");
 }
 
+/**
+ * `path` with these params (undefined ones left out) as its query, readable as
+ * in shared links, e.g. for a "Try this" example or a sign-in `returnTo`.
+ */
+export function hrefWithQuery(path: string, params: Readonly<Record<string, string | undefined>>): string {
+  const defined = Object.entries(params).filter((entry): entry is [string, string] => entry[1] !== undefined);
+  const query = toQuery(new URLSearchParams(defined));
+  return query ? `${path}?${query}` : path;
+}
+
 /** Replace the codec's params in the address bar, keeping any others. */
 export function writeUrlInputs<F>(codec: UrlCodec<F>, form: F) {
   const params = new URLSearchParams(window.location.search);

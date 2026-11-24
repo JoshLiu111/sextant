@@ -10,8 +10,7 @@ import { useReportSources } from "@/components/PageSources";
 import { askAnalyst, type AnalystAnswer } from "@/lib/analyst";
 import { sourcesOf } from "@/lib/envelope";
 import { formatLocalTime } from "@/lib/format";
-import { exampleHref } from "@/lib/howToUse";
-import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
+import { fieldsCodec, hrefWithQuery, useUrlInputs } from "@/lib/urlInputs";
 
 // Shareable links: `/ai-analyst?question=...` fills in the question. It is not
 // asked on load: each answer spends one of the user's daily AI calls.
@@ -113,7 +112,7 @@ export function AiAnalyst() {
         </p>
         {/* Back to the same question after signing in. */}
         <SignInLink
-          returnTo={exampleHref("/ai-analyst", { question: question || undefined })}
+          returnTo={hrefWithQuery("/ai-analyst", { question: question || undefined })}
           className="rounded-md bg-black px-3 py-1.5 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black" />
       </div>
     );

@@ -16,10 +16,3 @@ export type HowToUse = {
   examples: readonly { label: string; params: Readonly<Record<string, string | undefined>> }[];
   signedInExtras: readonly string[];
 };
-
-/** The tool's URL with these inputs, `,` and `:` left readable as in shared links. */
-export function exampleHref(path: string, params: Readonly<Record<string, string | undefined>>): string {
-  const defined = Object.entries(params).filter((entry): entry is [string, string] => entry[1] !== undefined);
-  const query = new URLSearchParams(defined).toString().replace(/%2C/gi, ",").replace(/%3A/gi, ":");
-  return query ? `${path}?${query}` : path;
-}
