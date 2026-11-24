@@ -10,6 +10,7 @@ import { getMessages } from "@/i18n";
 import { csvFilename } from "@/lib/csv";
 import type { MetricResult, ResultEnvelope, SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercentValue, formatTimestampUtc } from "@/lib/format";
+import { series } from "@/lib/chartColors";
 
 // Envelope ids: metric "latest:<key>" (details carry the series metadata), series "history:<key>".
 const INDICATORS = ["gdp_growth", "cpi_inflation", "unemployment_rate", "fed_funds_rate"] as const;
@@ -18,10 +19,10 @@ export type IndicatorMetricId = `latest:${IndicatorKey}`;
 export type IndicatorSeriesId = `history:${IndicatorKey}`;
 
 const COLORS: Record<IndicatorKey, string> = {
-  gdp_growth: "#2563eb",
-  cpi_inflation: "#dc2626",
-  unemployment_rate: "#7c3aed",
-  fed_funds_rate: "#059669",
+  gdp_growth: series(0),
+  cpi_inflation: series(1),
+  unemployment_rate: series(2),
+  fed_funds_rate: series(3),
 };
 
 function chartPoints(series: SeriesResult | undefined) {
@@ -41,7 +42,7 @@ export function MacroDashboard({
 
   return (
     <section data-testid="results" aria-labelledby="macro-indicators" className="mt-6 space-y-6">
-      <h3 id="macro-indicators" className="text-lg font-semibold">
+      <h3 id="macro-indicators" className="text-xl">
         {t.macro.sections.indicators}
       </h3>
       {error && <ErrorNotice title={t.common.errors.heading} message={error} />}
@@ -112,29 +113,29 @@ export function SeriesMeta({ details }: { details: MetricResult["details"] }) {
   return (
     <dl
       data-testid="series-meta"
-      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-black/70 dark:text-white/70"
+      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm text-ink-2"
     >
-      <dt className="font-medium">{m.source}</dt>
+      <dt className="text-muted">{m.source}</dt>
       <dd>
         {text("source")}, {m.via}{" "}
         <a
           href={`https://fred.stlouisfed.org/series/${encodeURIComponent(seriesId)}`}
-          className="font-mono underline"
+          className="link tabular-nums"
           target="_blank"
           rel="noreferrer"
         >
           {seriesId}
         </a>
       </dd>
-      <dt className="font-medium">{m.units}</dt>
+      <dt className="text-muted">{m.units}</dt>
       <dd>{text("units")}</dd>
-      <dt className="font-medium">{m.frequency}</dt>
+      <dt className="text-muted">{m.frequency}</dt>
       <dd>
         {text("frequency")} ({text("seasonal_adjustment")})
       </dd>
-      <dt className="font-medium">{m.latestPeriod}</dt>
+      <dt className="text-muted">{m.latestPeriod}</dt>
       <dd>{text("date")}</dd>
-      <dt className="font-medium">{m.lastUpdated}</dt>
+      <dt className="text-muted">{m.lastUpdated}</dt>
       <dd>{formatTimestampUtc(text("last_updated"))}</dd>
     </dl>
   );

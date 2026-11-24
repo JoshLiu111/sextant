@@ -26,7 +26,7 @@ export function TextField({
   const hintId = `${id}-hint`;
   return (
     <div className="min-w-0">
-      <label htmlFor={id} className="block text-sm font-medium">
+      <label htmlFor={id} className="label">
         {label}
       </label>
       <input
@@ -39,12 +39,10 @@ export function TextField({
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={error ? true : undefined}
         aria-describedby={[hint ? hintId : null, error ? fieldErrorId(name) : null].filter(Boolean).join(" ") || undefined}
-        className={`mt-1 w-full min-w-0 rounded-md border px-3 py-2 font-mono dark:bg-white/5 ${
-          error ? "border-red-500" : "border-black/20 dark:border-white/20"
-        }`}
+        className="field mt-1"
       />
       {hint && (
-        <p id={hintId} className="mt-1 text-xs text-black/50 dark:text-white/50">
+        <p id={hintId} className="hint mt-1">
           {hint}
         </p>
       )}

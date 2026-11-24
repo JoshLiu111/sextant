@@ -16,13 +16,13 @@ export function FooterAttribution() {
   return (
     <div data-testid="attribution-slot">
       {ids.length > 0 && (
-        <ul aria-label={t.footer.sourcesLabel} className="flex flex-col gap-1">
+        <ul aria-label={t.footer.sourcesLabel} className="flex flex-col gap-1.5">
           {ids.map((id) => {
             const a: Attribution = ATTRIBUTIONS[id];
             return (
               <li key={id} data-attribution={id}>
                 {a.href ? (
-                  <a href={a.href} className="underline" target="_blank" rel="noreferrer">
+                  <a href={a.href} className="link" target="_blank" rel="noreferrer">
                     {a.text}
                   </a>
                 ) : (
@@ -30,8 +30,8 @@ export function FooterAttribution() {
                 )}
                 {a.links?.map((link) => (
                   <span key={link.href}>
-                    {" · "}
-                    <a href={link.href} className="underline" target="_blank" rel="noreferrer">
+                    {", "}
+                    <a href={link.href} className="link" target="_blank" rel="noreferrer">
                       {link.label}
                     </a>
                   </span>

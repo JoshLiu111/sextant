@@ -11,6 +11,7 @@ import type { SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercent } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
 import { useUrlInputs, writeUrlInputs, type UrlCodec } from "@/lib/urlInputs";
+import { series } from "@/lib/chartColors";
 
 const RULES = ["monthly", "quarterly", "yearly", "drift"] as const;
 type Rule = (typeof RULES)[number];
@@ -55,8 +56,8 @@ type MetricId = `${(typeof RISK_METRICS)[number]}:${Who}` | `${(typeof TRADING_M
 type SeriesId = `cumulative_return:${Who}`;
 
 const COLORS: Record<Who, { color: string; dashed?: boolean }> = {
-  rebalanced: { color: "#2563eb" },
-  buy_and_hold: { color: "#d97706", dashed: true },
+  rebalanced: { color: series(0) },
+  buy_and_hold: { color: series(1), dashed: true },
 };
 
 function chartPoints(series: SeriesResult | undefined) {
@@ -102,13 +103,13 @@ export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, u
 
   return (
     <section aria-labelledby="rebalancing-heading" className="min-w-0 space-y-4">
-      <h2 id="rebalancing-heading" className="text-xl font-semibold">
+      <h2 id="rebalancing-heading" className="text-2xl">
         {r.heading}
       </h2>
-      <p className="text-sm text-black/70 dark:text-white/70">{r.intro}</p>
+      <p className="max-w-[55ch] text-sm text-ink-2">{r.intro}</p>
       <div className="grid gap-4 sm:grid-cols-2 lg:max-w-xl">
         <div>
-          <label htmlFor="input-rule" className="block text-sm font-medium">
+          <label htmlFor="input-rule" className="label">
             {r.rule.label}
           </label>
           <select
@@ -117,7 +118,7 @@ export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, u
             value={rule}
             onChange={(e) => setRule(e.target.value as Rule)}
             aria-describedby={fieldErrors.rule ? fieldErrorId("rule") : "input-rule-hint"}
-            className="mt-1 w-full rounded-md border border-black/20 px-3 py-2 dark:border-white/20 dark:bg-white/5"
+            className="field mt-1"
           >
             {RULES.map((id) => (
               <option key={id} value={id}>
@@ -125,7 +126,7 @@ export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, u
               </option>
             ))}
           </select>
-          <p id="input-rule-hint" className="mt-1 text-xs text-black/50 dark:text-white/50">
+          <p id="input-rule-hint" className="hint mt-1">
             {r.rule.hint}
           </p>
           <FieldError name="rule" message={fieldErrors.rule} />
@@ -148,7 +149,7 @@ export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, u
           <ErrorNotice title={otherErrors ? t.common.errors.invalidHeading : t.common.errors.heading} message={error} />
         )}
         <div>
-          <h3 className="text-lg font-semibold">{r.sections.chart}</h3>
+          <h3 className="text-xl">{r.sections.chart}</h3>
           <div className="mt-2">
             {result && (
               <LineChart
@@ -162,7 +163,7 @@ export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, u
           </div>
         </div>
         <div>
-          <h3 className="text-lg font-semibold">{r.sections.metrics}</h3>
+          <h3 className="text-xl">{r.sections.metrics}</h3>
           <div className="mt-2 grid gap-4 xl:grid-cols-3">
             {RISK_METRICS.map((id) => (
               <MetricCard
@@ -179,7 +180,7 @@ export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, u
           </div>
         </div>
         <div>
-          <h3 className="text-lg font-semibold">{r.sections.trading}</h3>
+          <h3 className="text-xl">{r.sections.trading}</h3>
           <div className="mt-2 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {TRADING_METRICS.map((id) => (
               <MetricCard

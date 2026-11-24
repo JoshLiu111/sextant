@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { getMessages } from "@/i18n";
@@ -6,7 +7,8 @@ import { getCurrentUser } from "@/lib/auth/session";
 /** The Sextant logo: home is `/dashboard` for signed-in users, `/` for visitors. */
 function LogoLink({ href }: { href: "/" | "/dashboard" }) {
   return (
-    <Link href={href} className="text-lg font-semibold tracking-tight">
+    <Link href={href} className="inline-flex items-center gap-2.5 whitespace-nowrap font-display text-2xl leading-none text-ink">
+      <Image src="/landing/sextant-assets/brand/favicon-64x64.png" width={32} height={32} alt="" className="size-8 rounded-[7px]" />
       {getMessages().site.name}
     </Link>
   );

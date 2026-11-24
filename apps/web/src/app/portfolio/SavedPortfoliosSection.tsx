@@ -26,10 +26,10 @@ export async function SavedPortfoliosSection() {
     return (
       <div
         data-testid="save-prompt"
-        className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/10 p-4 text-sm dark:border-white/15"
+        className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-rule p-4 text-sm"
       >
-        <p className="min-w-0 flex-1 text-black/70 dark:text-white/70">{t.savePrompt.body}</p>
-        <SignInLink className="rounded-md bg-black px-3 py-1.5 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black" />
+        <p className="min-w-0 flex-1 text-ink-2">{t.savePrompt.body}</p>
+        <SignInLink className="btn" />
       </div>
     );
   }

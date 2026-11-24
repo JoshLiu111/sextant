@@ -6,6 +6,7 @@ import { MetricExplainer } from "@/components/MetricExplainer";
 import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope, SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercent, formatValue } from "@/lib/format";
+import { series } from "@/lib/chartColors";
 
 // Metric ids "<method>:<ticker>" and "garch_volatility:<ticker>"; series "garch_volatility:<ticker>".
 // See apps/compute/sextant_compute/risk/model_checks.py.
@@ -76,14 +77,14 @@ export function ModelChecks({
   return (
     <div data-testid="model-checks" className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <h2 className="text-lg font-semibold">{t.heading}</h2>
+        <h2 className="text-xl">{t.heading}</h2>
         {symbols.length > 0 && (
-          <label className="text-sm">
-            <span className="mr-2">{t.select}</span>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <span>{t.select}</span>
             <select
               value={ticker}
               onChange={(e) => setPicked(e.target.value)}
-              className="rounded-md border border-black/20 px-2 py-1 font-mono dark:border-white/20 dark:bg-white/5"
+              className="field w-auto text-ink"
             >
               {symbols.map((s) => (
                 <option key={s} value={s}>
@@ -95,20 +96,20 @@ export function ModelChecks({
         )}
       </div>
 
-      <div className="rounded-lg border border-black/10 p-4 dark:border-white/15">
+      <div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <caption className="text-left font-medium">
+            <caption className="pb-2 text-left font-medium">
               {t.backtest.caption} {ticker ? `(${ticker})` : ""}
             </caption>
             <thead>
-              <tr className="text-left text-black/60 dark:text-white/60">
-                <th scope="col" className="py-1 pr-3 font-medium">{t.backtest.columns.method}</th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">{t.backtest.columns.breaches}</th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">{t.backtest.columns.expected}</th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">{t.backtest.columns.statistic}</th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">{t.backtest.columns.pValue}</th>
-                <th scope="col" className="py-1 font-medium">{t.backtest.columns.reading}</th>
+              <tr className="whitespace-nowrap text-left text-muted">
+                <th scope="col" className="sticky left-0 bg-paper py-2 pr-3 font-medium">{t.backtest.columns.method}</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">{t.backtest.columns.breaches}</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">{t.backtest.columns.expected}</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">{t.backtest.columns.statistic}</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">{t.backtest.columns.pValue}</th>
+                <th scope="col" className="py-2 font-medium">{t.backtest.columns.reading}</th>
               </tr>
             </thead>
             <tbody>
@@ -120,31 +121,31 @@ export function ModelChecks({
                     key={method}
                     data-backtest={id}
                     data-status={r?.status ?? "pending"}
-                    className="border-t border-black/10 dark:border-white/10"
+                    className="border-t border-rule"
                   >
-                    <th scope="row" className="py-1 pr-3 text-left font-normal">{t.backtest.methods[method]}</th>
+                    <th scope="row" className="sticky left-0 bg-paper py-2 pr-3 text-left font-normal">{t.backtest.methods[method]}</th>
                     {r?.status === "ok" && r.value !== null ? (
                       <>
-                        <td className="py-1 pr-3 text-right font-mono tabular-nums">{r.value}</td>
-                        <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                        <td className="py-2 pr-3 text-right tabular-nums">{r.value}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">
                           {show(num(r, "expected_breaches"), (n) => ONE.format(n))}
                         </td>
-                        <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                        <td className="py-2 pr-3 text-right tabular-nums">
                           {show(num(r, "kupiec_statistic"), (n) => TWO.format(n))}
                         </td>
-                        <td className="py-1 pr-3 text-right font-mono tabular-nums">
+                        <td className="py-2 pr-3 text-right tabular-nums">
                           {show(num(r, "p_value"), pValue)}
                         </td>
                         <td
                           data-testid="reading"
-                          className={r.details.result === "reject" ? "py-1 text-red-700 dark:text-red-400" : "py-1"}
+                          className={r.details.result === "reject" ? "whitespace-nowrap py-2 text-red-700" : "whitespace-nowrap py-2"}
                         >
                           {r.details.result === "reject" ? t.backtest.reject : t.backtest.accept} {t.backtest.at}{" "}
                           {level}
                         </td>
                       </>
                     ) : (
-                      <td colSpan={5} className="py-1 text-black/60 dark:text-white/60">
+                      <td colSpan={5} className="py-2 text-muted">
                         {r ? r.reason : getMessages().common.status.pending}
                       </td>
                     )}
@@ -157,12 +158,12 @@ export function ModelChecks({
         <MetricExplainer explainer={t.backtest.explainer} />
       </div>
 
-      <div className="rounded-lg border border-black/10 p-4 dark:border-white/15">
-        <h3 className="text-sm font-medium">
+      <div className="border-t border-rule pt-6">
+        <h3 className="font-body text-sm font-medium tracking-normal">
           {t.garch.heading} {ticker ? `(${ticker})` : ""}
         </h3>
         {garch && garch.status !== "ok" ? (
-          <p data-testid="garch-missing" className="mt-2 text-sm text-black/60 dark:text-white/60">
+          <p data-testid="garch-missing" className="mt-2 text-sm text-muted">
             <span className="font-medium">{getMessages().common.status[garch.status]}: </span>
             {garch.reason}
           </p>
@@ -172,7 +173,7 @@ export function ModelChecks({
               {result && ticker && (
                 <LineChart
                   label={t.garch.chartLabel}
-                  series={[{ id: ticker, label: ticker, points: chartPoints(garchSeries), color: "#7c3aed" }]}
+                  series={[{ id: ticker, label: ticker, points: chartPoints(garchSeries), color: series(0) }]}
                   xLabel={t.garch.x}
                   formatX={formatChartDate}
                   formatY={formatChartPercent}
@@ -182,8 +183,8 @@ export function ModelChecks({
             <dl data-testid="garch-parameters" className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
               {garchRows.map(([key, name, text]) => (
                 <div key={key}>
-                  <dt className="text-xs text-black/60 dark:text-white/60">{name}</dt>
-                  <dd data-garch={key} className="font-mono tabular-nums">
+                  <dt className="text-xs text-muted">{name}</dt>
+                  <dd data-garch={key} className="tabular-nums">
                     {text}
                   </dd>
                 </div>

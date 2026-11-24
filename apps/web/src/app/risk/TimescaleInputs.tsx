@@ -28,7 +28,7 @@ export function TimescaleInputs({
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-1">
       <div>
-        <label htmlFor="input-period" className="block text-sm font-medium">
+        <label htmlFor="input-period" className="label">
           {ts.inputs.period.label}
         </label>
         <select
@@ -36,7 +36,7 @@ export function TimescaleInputs({
           name="period"
           value={period}
           onChange={(e) => onPeriod(e.target.value as ReturnPeriod)}
-          className="mt-1 w-full rounded-md border border-black/20 px-3 py-2 dark:border-white/20 dark:bg-white/5"
+          className="field mt-1"
         >
           {PERIODS.map((p) => (
             <option key={p} value={p}>
@@ -44,7 +44,7 @@ export function TimescaleInputs({
             </option>
           ))}
         </select>
-        <p className="mt-1 text-xs text-black/50 dark:text-white/50">{ts.inputs.period.hint}</p>
+        <p className="hint mt-1">{ts.inputs.period.hint}</p>
         <FieldError name="period" message={fieldErrors.period} />
       </div>
       <NumberField
@@ -66,7 +66,7 @@ export function PeriodNote({ period }: { period: ReturnPeriod | undefined }) {
   const ts = getMessages().risk.timescale;
   const p = ts.periods[period];
   return (
-    <p data-testid="period-note" className="mt-1 text-sm text-black/70 dark:text-white/70">
+    <p data-testid="period-note" className="mt-1 max-w-[55ch] text-sm text-ink-2">
       {ts.periodNote(p.label.toLowerCase(), p.perYear, p.noun)}
     </p>
   );

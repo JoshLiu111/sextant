@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
 import { getMessages } from "@/i18n";
@@ -57,13 +58,11 @@ const summaryOf = ({ id, name, created_at, updated_at }: SavedPortfolio): Portfo
   updated_at,
 });
 
-const inputClass = (error: string | undefined) =>
-  `w-full min-w-0 rounded-md border px-2 py-2 font-mono dark:bg-white/5 ${
-    error ? "border-red-500" : "border-black/20 dark:border-white/20"
-  }`;
+// `.field` draws the error border from aria-invalid; the class only adds it for the first paint.
+const inputClass = (error: string | undefined) => `field px-2 ${error ? "border-error" : ""}`;
 
 const buttonClass =
-  "rounded-md border border-black/20 px-3 py-1 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10";
+  "btn btn-sm";
 
 /**
  * Create, rename, edit, delete and switch between the signed-in user's saved
@@ -171,19 +170,19 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
   }
 
   const dirty = loaded !== null && JSON.stringify(toBody(editor)) !== JSON.stringify(toBody(toEditor(loaded)));
-  const selectClass = "w-full min-w-0 rounded-md border border-black/20 px-3 py-2 dark:border-white/20 dark:bg-white/5";
+  const selectClass = "field";
 
   return (
-    <section aria-labelledby="saved-portfolios" className="mt-8 rounded-lg border border-black/10 p-4 dark:border-white/15">
-      <h2 id="saved-portfolios" className="text-xl font-semibold">
+    <section aria-labelledby="saved-portfolios" className="mt-8 border-t border-rule pt-8">
+      <h2 id="saved-portfolios" className="text-2xl">
         {s.heading}
       </h2>
-      <p className="mt-1 text-sm text-black/70 dark:text-white/70">{s.intro}</p>
+      <p className="mt-1 max-w-[55ch] text-sm text-ink-2">{s.intro}</p>
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
         {list.length > 0 ? (
           <div className="min-w-0 flex-1">
-            <label htmlFor="saved-portfolio-switcher" className="block text-sm font-medium">
+            <label htmlFor="saved-portfolio-switcher" className="label">
               {s.switcher}
             </label>
             <select
@@ -201,7 +200,12 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
             </select>
           </div>
         ) : (
-          <p className="min-w-0 flex-1 text-sm">{s.empty}</p>
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            <div className="art-plate w-32 flex-none">
+              <Image src="/landing/sextant-assets/states/empty.png" width={480} height={300} alt="" sizes="8rem" className="block h-auto w-full" />
+            </div>
+            <p className="min-w-0 text-sm">{s.empty}</p>
+          </div>
         )}
         <button type="button" onClick={() => select(null)} className={buttonClass}>
           {s.newPortfolio}
@@ -211,7 +215,7 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         <form onSubmit={onSave} noValidate className="min-w-0 space-y-4">
           <div className="min-w-0">
-            <label htmlFor="saved-portfolio-name" className="block text-sm font-medium">
+            <label htmlFor="saved-portfolio-name" className="label">
               {s.name.label}
             </label>
             <input
@@ -228,11 +232,11 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
           </div>
 
           <fieldset className="min-w-0" aria-describedby={fieldErrors.holdings ? fieldErrorId("holdings") : undefined}>
-            <legend className="text-sm font-medium">{s.holdings.heading}</legend>
-            <p className="mt-1 text-xs text-black/50 dark:text-white/50">{s.holdings.hint}</p>
+            <legend className="label">{s.holdings.heading}</legend>
+            <p className="hint mt-1">{s.holdings.hint}</p>
             <div
               aria-hidden
-              className="mt-2 grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_2rem] gap-2 text-xs text-black/60 dark:text-white/60"
+              className="mt-2 grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_2rem] gap-2 text-xs text-muted"
             >
               {FIELDS.map((f) => (
                 <span key={f} className="truncate">
@@ -270,7 +274,7 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
                         aria-label={`${s.holdings.remove} ${n}`}
                         disabled={editor.holdings.length === 1}
                         onClick={() => setHoldings((rows) => rows.filter((_, j) => j !== i))}
-                        className="rounded-md px-2 py-1 text-lg leading-none text-black/60 hover:bg-black/5 disabled:opacity-30 dark:text-white/60 dark:hover:bg-white/10"
+                        className="btn btn-sm w-8 px-0 text-lg leading-none"
                       >
                         ×
                       </button>
@@ -302,27 +306,27 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
             <button
               type="submit"
               disabled={busy}
-              className="rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-white/80"
+              className="btn"
             >
               {busy ? s.saving : s.save}
             </button>
-            <p role="status" className="text-sm text-green-700 dark:text-green-400">
+            <p role="status" className="text-sm text-success">
               {notice}
             </p>
           </div>
-          {dirty && <p className="text-xs text-black/60 dark:text-white/60">{s.unsavedNote}</p>}
+          {dirty && <p className="text-xs text-muted">{s.unsavedNote}</p>}
 
           {selectedId !== null &&
             (confirmingDelete ? (
-              <div className="flex flex-wrap items-center gap-3 rounded-md border border-red-300 p-3 dark:border-red-800">
-                <p role="alert" className="w-full text-sm font-medium text-red-700 dark:text-red-400">
+              <div className="well flex flex-wrap items-center gap-3 p-3">
+                <p role="alert" className="w-full text-sm font-medium text-red-700">
                   {s.delete.warning}
                 </p>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={onDelete}
-                  className="rounded bg-red-700 px-3 py-1.5 text-sm font-medium text-white"
+                  className="btn btn-danger"
                 >
                   {s.delete.confirm}
                 </button>
@@ -334,7 +338,7 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(true)}
-                className="rounded border border-red-700 px-3 py-1 text-sm font-medium text-red-700 dark:text-red-400"
+                className="btn btn-danger text-red-700"
               >
                 {s.delete.button}
               </button>
@@ -345,7 +349,7 @@ export function SavedPortfolios({ initial }: { initial: PortfolioSummary[] | nul
           {loaded ? (
             <SavedPortfolioResults key={`${loaded.id}:${loaded.updated_at}`} portfolio={loaded} />
           ) : (
-            selectedId !== null && <p className="text-sm text-black/60 dark:text-white/60">{s.loading}</p>
+            selectedId !== null && <p className="text-sm text-muted">{s.loading}</p>
           )}
         </div>
       </div>

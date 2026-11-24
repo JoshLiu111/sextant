@@ -36,12 +36,12 @@ export function FrequencyToggle() {
   return (
     <fieldset className="mt-6">
       <legend className="text-sm font-medium">{c.legend}</legend>
-      <div className="mt-2 inline-flex rounded-md border border-black/20 p-0.5 dark:border-white/20">
+      <div className="mt-1 inline-flex divide-x divide-muted overflow-hidden rounded-card border border-muted">
         {FREQUENCIES.map((f) => (
           <label
             key={f}
-            className={`relative cursor-pointer rounded px-3 py-1.5 text-sm has-[:focus-visible]:outline has-[:focus-visible]:outline-2 ${
-              frequency === f ? "bg-black text-white dark:bg-white dark:text-black" : "hover:bg-black/5 dark:hover:bg-white/10"
+            className={`relative inline-flex min-h-9 cursor-pointer items-center whitespace-nowrap px-4 text-sm has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-focus ${
+              frequency === f ? "bg-ink text-paper" : "bg-paper-hi text-ink-2 hover:bg-paper-2 active:bg-paper-3"
             }`}
           >
             <input
@@ -50,7 +50,7 @@ export function FrequencyToggle() {
               value={f}
               checked={frequency === f}
               onChange={() => choose(f)}
-              className="absolute inset-0 cursor-pointer appearance-none rounded opacity-0"
+              className="absolute inset-0 cursor-pointer appearance-none opacity-0"
             />
             {c[f]}
           </label>

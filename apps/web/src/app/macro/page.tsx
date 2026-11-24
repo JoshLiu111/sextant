@@ -19,11 +19,11 @@ async function Comparison({ searchParams }: { searchParams: PageProps<"/macro">[
 export default function Page({ searchParams }: PageProps<"/macro">) {
   const t = getMessages();
   return (
-    <main className={TOOL_PAGE}>
+    <main data-tool="macro" className={TOOL_PAGE}>
       <ToolPageHeader tool="macro" intro={t.macro.intro} />
       {/* Three sections, each with an anchor: #us, #countries (CrossCountry), #euro-area (EuroArea). */}
       <section id="us" aria-labelledby="macro-us" className="mt-6">
-        <h2 id="macro-us" className="text-lg font-semibold">
+        <h2 id="macro-us" className="text-2xl">
           {t.macro.sections.us}
         </h2>
         {/* Reads the chart range and the added FRED series from the query string (shareable links). */}

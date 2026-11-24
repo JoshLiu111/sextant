@@ -62,6 +62,9 @@ test.describe("Company Health Check", () => {
     await expect(ratios.getByLabel("Compare company 1", { exact: true })).toHaveValue("AAPL");
     await expect(ratios.getByLabel("Share price 1", { exact: true })).toHaveValue("250");
     await expect(metric(page, "price_to_earnings:AAPL:2026-09-26")).toHaveText("27.84", COLD);
+    // The link lands on the valuation table, not the top of the page.
+    await expect(page).toHaveURL(/#ratios-valuation$/);
+    await expect(metric(page, "price_to_earnings:AAPL:2026-09-26")).toBeInViewport();
   });
 
   test("example: Microsoft next to Apple", async ({ page }) => {

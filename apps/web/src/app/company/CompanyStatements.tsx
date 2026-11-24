@@ -45,21 +45,21 @@ const URL_CODEC = fieldsCodec({ ticker: DEFAULT_TICKER });
 
 function Cell({ id, label, result }: { id: string; label: string; result: MetricResult | undefined }) {
   const c = getMessages().company;
-  if (!result) return <span className="text-black/40 dark:text-white/40">…</span>;
+  if (!result) return <span className="text-muted">…</span>;
   if (result.status !== "ok" || result.value === null) {
     return (
       <span
         data-metric-value={id}
         data-status={result.status}
         title={result.reason ?? `${label}: ${c.notReported}`}
-        className="text-xs italic text-black/50 dark:text-white/50"
+        className="text-xs italic text-muted"
       >
         {c.notReported}
       </span>
     );
   }
   const d = result.details;
-  const source = `${label} · ${c.sourceFiling}: ${d.form} ${c.filed} ${d.filed}${d.derived_from ? ` (${c.derived}: ${d.derived_from})` : ""}`;
+  const source = `${label}\n${c.sourceFiling}: ${d.form} ${c.filed} ${d.filed}${d.derived_from ? ` (${c.derived}: ${d.derived_from})` : ""}`;
   return (
     <a
       href={String(d.url)}
@@ -68,7 +68,7 @@ function Cell({ id, label, result }: { id: string; label: string; result: Metric
       data-metric-value={id}
       data-status="ok"
       title={source}
-      className="font-mono tabular-nums hover:underline"
+      className="tabular-nums underline decoration-transparent underline-offset-2 hover:decoration-accent"
     >
       {formatStatementValue(result.value, result.unit)}
     </a>
@@ -86,7 +86,7 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
   return (
     <section aria-labelledby={headingId}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={headingId} className="text-base font-semibold">
+        <h3 id={headingId} className="text-lg">
           {c.statements[statement]}
         </h3>
         <ExportCsvButton
@@ -96,24 +96,24 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
           demo={result.source.is_demo}
         />
       </div>
-      <div className="mt-2 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+      <div className="mt-3 overflow-x-auto">
         <table aria-labelledby={headingId} className="w-full min-w-[40rem] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-black/10 align-bottom dark:border-white/10">
-              <th scope="col" className="sticky left-0 bg-white px-3 py-2 text-left font-medium dark:bg-black">
+            <tr className="border-b border-ink align-bottom">
+              <th scope="col" className="sticky left-0 z-10 whitespace-nowrap bg-paper py-2 pr-3 text-left text-xs font-medium text-muted">
                 {c.lineItem}
               </th>
               {result.periods.map((p) => (
-                <th key={p.id} scope="col" className="px-3 py-2 text-right font-medium">
-                  <span className="block">{p.label}</span>
-                  <span className="block text-xs font-normal text-black/50 dark:text-white/50">
+                <th key={p.id} scope="col" className="whitespace-nowrap py-2 pl-4 text-right font-medium">
+                  <span className="block text-ink">{p.label}</span>
+                  <span className="block text-xs font-normal text-muted">
                     {p.fiscal_quarter ? c.quarterEnded : c.yearEnded} {p.end}
                   </span>
                   <a
                     href={p.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="block text-xs font-normal text-black/50 underline decoration-dotted dark:text-white/50"
+                    className="link block text-xs font-normal text-muted"
                   >
                     {p.form} {c.filed} {p.filed}
                   </a>
@@ -123,17 +123,17 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
+              <tr key={item.id} className="border-b border-rule last:border-0">
                 <th
                   scope="row"
-                  className="sticky left-0 bg-white px-3 py-1.5 text-left font-normal dark:bg-black"
+                  className="sticky left-0 z-10 w-40 min-w-40 bg-paper py-1.5 pr-3 text-left font-normal sm:w-56 sm:min-w-56"
                 >
                   {item.label}
                 </th>
                 {result.periods.map((p) => {
                   const id = `${item.id}:${p.id}`;
                   return (
-                    <td key={p.id} className="px-3 py-1.5 text-right">
+                    <td key={p.id} className="whitespace-nowrap py-1.5 pl-4 text-right">
                       <Cell id={id} label={item.label} result={result.metrics[id]} />
                     </td>
                   );
@@ -168,12 +168,12 @@ export function CompanyStatements() {
   }
 
   return (
-    <div className="mt-6 space-y-6">
+    <div className="mt-12 space-y-6 border-t border-rule pt-8">
       <form
         onSubmit={onSubmit}
         noValidate
         aria-labelledby="company-inputs"
-        className="flex flex-wrap items-end gap-4"
+        className="flex flex-wrap items-start gap-x-3 gap-y-2"
       >
         <h2 id="company-inputs" className="sr-only">
           {c.inputsHeading}
@@ -190,7 +190,7 @@ export function CompanyStatements() {
         </div>
         <button
           type="submit"
-          className="mb-6 rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn whitespace-nowrap sm:mt-6"
         >
           {c.submit}
         </button>
@@ -206,12 +206,16 @@ export function CompanyStatements() {
         {statements ? (
           <>
             <div>
-              <h2 className="text-lg font-semibold">{statements.company.name}</h2>
-              <p className="text-sm text-black/60 dark:text-white/60">
-                {statements.company.ticker} · CIK {statements.company.cik} · {c.unitsNote}
+              <h2 className="text-2xl">{statements.company.name}</h2>
+              <p className="mt-1 flex flex-wrap gap-x-4 text-sm text-muted">
+                <span>{statements.company.ticker}</span>
+                <span>
+                  CIK <span className="tabular-nums">{statements.company.cik}</span>
+                </span>
+                <span>{c.unitsNote}</span>
               </p>
               {statements.periods.some((p) => p.fiscal_quarter) && (
-                <p className="mt-1 text-xs text-black/60 dark:text-white/60">{c.quarterlyNote}</p>
+                <p className="mt-1 max-w-[75ch] text-xs text-muted">{c.quarterlyNote}</p>
               )}
               <MetricExplainer explainer={c.explainer} />
             </div>
@@ -222,7 +226,7 @@ export function CompanyStatements() {
             <AiExplain tool="company" result={statements} />
           </>
         ) : (
-          !error && <p className="text-sm text-black/60 dark:text-white/60">{c.loading}</p>
+          !error && <p className="text-sm text-muted">{c.loading}</p>
         )}
       </section>
     </div>

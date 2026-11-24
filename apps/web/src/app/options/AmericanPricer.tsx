@@ -11,7 +11,9 @@ import { getMessages } from "@/i18n";
 import { formatChartNumber } from "@/lib/format";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { STICKY_INPUTS, toolColumns } from "@/lib/layout";
 import { chartPoints, MARKET_DEFAULTS, MARKET_FIELDS, marketRequest, toNumber, type MarketForm } from "./form";
+import { REFERENCE, series } from "@/lib/chartColors";
 
 type Kind = "call" | "put";
 type MetricId = `american_${Kind}` | `european_${Kind}` | `european_${Kind}_tree` | `${Kind}_early_exercise_premium`;
@@ -50,28 +52,28 @@ export function AmericanPricer() {
   const bsValue = m?.[`european_${chartKind}`]?.value;
   const chartSeries: ChartSeries[] = result
     ? [
-        { id: "american", label: a.chart.american, points: americanPoints, color: "#2563eb" },
+        { id: "american", label: a.chart.american, points: americanPoints, color: series(0) },
         {
           id: "european_tree",
           label: a.chart.europeanTree,
           points: chartPoints(result.series[`european_${chartKind}_tree_by_steps`]),
-          color: "#ea580c",
+          color: series(1),
         },
         {
           id: "bs",
           label: a.chart.bs,
           points: bsValue == null ? [] : americanPoints.map((p) => ({ x: p.x, y: bsValue })),
-          color: "#6b7280",
+          color: REFERENCE,
           dashed: true,
         },
       ]
     : [];
 
   return (
-    <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-      <form onSubmit={onSubmit} noValidate aria-labelledby="american-inputs" className="space-y-4">
-        <p className="text-sm text-black/70 dark:text-white/70">{a.intro}</p>
-        <h2 id="american-inputs" className="text-lg font-semibold">
+    <div className={`mt-6 ${toolColumns("20rem")}`}>
+      <form onSubmit={onSubmit} noValidate aria-labelledby="american-inputs" className={`${STICKY_INPUTS} space-y-4`}>
+        <p className="max-w-[55ch] text-sm text-ink-2">{a.intro}</p>
+        <h2 id="american-inputs" className="text-xl">
           {o.inputsHeading}
         </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-1">
@@ -90,7 +92,7 @@ export function AmericanPricer() {
         </div>
         <button
           type="submit"
-          className="w-full rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn btn-primary w-full"
         >
           {o.submit}
         </button>
@@ -104,7 +106,7 @@ export function AmericanPricer() {
           />
         )}
         <div>
-          <h2 className="text-lg font-semibold">{a.sections.prices}</h2>
+          <h2 className="text-xl">{a.sections.prices}</h2>
           <div className="mt-2 grid gap-4 sm:grid-cols-2">
             {(
               [
@@ -128,16 +130,16 @@ export function AmericanPricer() {
           </div>
         </div>
         <div>
-          <h2 className="text-lg font-semibold">{a.sections.chart}</h2>
-          <div className="mt-2">
-            <label htmlFor="american-chart-kind" className="text-sm">
+          <h2 className="text-xl">{a.sections.chart}</h2>
+          <div className="mt-2 flex items-center gap-2">
+            <label htmlFor="american-chart-kind" className="text-sm text-muted">
               {a.chart.select}
             </label>{" "}
             <select
               id="american-chart-kind"
               value={chartKind}
               onChange={(e) => setChartKind(e.target.value as Kind)}
-              className="rounded-md border border-black/20 px-2 py-1 text-sm dark:border-white/20 dark:bg-white/5"
+              className="field w-auto"
             >
               {KINDS.map((k) => (
                 <option key={k} value={k}>

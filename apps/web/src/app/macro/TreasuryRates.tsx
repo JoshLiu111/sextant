@@ -16,13 +16,14 @@ import {
   formatTimestampUtc,
   formatValue,
 } from "@/lib/format";
+import { REFERENCE, series } from "@/lib/chartColors";
 
 // Envelope ids from POST /macro/rates. Curves: x = maturity in years, details.date
 // = the curve's date. The spread history's bands are its inversion periods.
 const CURVES = [
-  { key: "latest", color: "#2563eb", dashed: false },
-  { key: "1m_ago", color: "#059669", dashed: true },
-  { key: "1y_ago", color: "#9ca3af", dashed: true },
+  { key: "latest", color: series(0), dashed: false },
+  { key: "1m_ago", color: series(1), dashed: true },
+  { key: "1y_ago", color: REFERENCE, dashed: true },
 ] as const;
 type CurveKey = (typeof CURVES)[number]["key"];
 export type RatesMetricId = "latest:yield_2y" | "latest:yield_10y" | "latest:spread_10y_2y";
@@ -42,8 +43,8 @@ export function TreasuryRates({
   const t = getMessages();
 
   return (
-    <section data-testid="rates" aria-labelledby="macro-rates" className="mt-10 space-y-6">
-      <h3 id="macro-rates" className="text-lg font-semibold">
+    <section data-testid="rates" aria-labelledby="macro-rates" className="mt-12 space-y-6">
+      <h3 id="macro-rates" className="text-xl">
         {t.macro.sections.rates}
       </h3>
       {error && <ErrorNotice title={t.common.errors.heading} message={error} />}
@@ -166,7 +167,7 @@ function TermSpread({ latest, history }: { latest: MetricResult | undefined; his
       {points.length > 0 && (
         <LineChart
           label={r.spreadChart}
-          series={[{ id: "spread_10y_2y", label: r.spread_10y_2y.name, points, color: "#7c3aed" }]}
+          series={[{ id: "spread_10y_2y", label: r.spread_10y_2y.name, points, color: series(2) }]}
           bands={bands}
           xLabel={t.macro.chart.x}
           formatX={formatChartDate}
@@ -185,22 +186,22 @@ function TreasuryMeta({ details }: { details: MetricResult["details"] }) {
   return (
     <dl
       data-testid="series-meta"
-      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-black/70 dark:text-white/70"
+      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm text-ink-2"
     >
-      <dt className="font-medium">{m.source}</dt>
+      <dt className="text-muted">{m.source}</dt>
       <dd>
         {text("source")},{" "}
-        <a href={TREASURY_PAGE} className="underline" target="_blank" rel="noreferrer">
+        <a href={TREASURY_PAGE} className="link" target="_blank" rel="noreferrer">
           {text("title")}
         </a>
       </dd>
-      <dt className="font-medium">{m.units}</dt>
+      <dt className="text-muted">{m.units}</dt>
       <dd>{text("units")}</dd>
-      <dt className="font-medium">{m.frequency}</dt>
+      <dt className="text-muted">{m.frequency}</dt>
       <dd>{text("frequency")}</dd>
-      <dt className="font-medium">{m.latestPeriod}</dt>
+      <dt className="text-muted">{m.latestPeriod}</dt>
       <dd>{text("date")}</dd>
-      <dt className="font-medium">{m.lastUpdated}</dt>
+      <dt className="text-muted">{m.lastUpdated}</dt>
       <dd>
         {formatTimestampUtc(text("last_updated"))} ({m.retrieved})
       </dd>

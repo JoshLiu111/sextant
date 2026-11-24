@@ -11,6 +11,7 @@ import { formatChartDate, formatChartNumber } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
 import { fieldsCodec, useUrlInputs, writeUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { CorrelationHeatmap } from "./CorrelationHeatmap";
+import { INK, REFERENCE, series } from "@/lib/chartColors";
 
 /** The Risk & Performance selection the panel follows (from the last good `/risk/metrics` result). */
 export type RiskSelection = { tickers: string[]; benchmark: string; start: string; end: string; source: string };
@@ -80,16 +81,16 @@ const URL_CODEC: UrlCodec<Form> = {
 export const TECHNICAL_PARAMS = URL_CODEC.keys;
 
 const COLORS: Record<SeriesId, string> = {
-  price: "#0f172a",
-  sma: "#2563eb",
-  ema: "#d97706",
-  bollinger_upper: "#7c3aed",
-  bollinger_middle: "#a78bfa",
-  bollinger_lower: "#7c3aed",
-  rsi: "#0891b2",
-  macd: "#2563eb",
-  macd_signal: "#d97706",
-  macd_histogram: "#64748b",
+  price: INK,
+  sma: series(0),
+  ema: series(1),
+  bollinger_upper: series(2),
+  bollinger_middle: series(3),
+  bollinger_lower: series(2),
+  rsi: series(4),
+  macd: series(0),
+  macd_signal: series(1),
+  macd_histogram: REFERENCE,
 };
 
 function toNumber(raw: string): number | null {
@@ -189,13 +190,13 @@ export function TechnicalAnalysis({ selection }: { selection: RiskSelection }) {
     <div data-testid="technical-analysis" className="space-y-6">
       <div>
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="text-lg font-semibold">{t.heading}</h2>
-          <label className="text-sm">
-            <span className="mr-2">{t.select}</span>
+          <h2 className="text-xl">{t.heading}</h2>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <span>{t.select}</span>
             <select
               value={ticker}
               onChange={(e) => setChosen(e.target.value)}
-              className="rounded-md border border-black/20 px-2 py-1 font-mono dark:border-white/20 dark:bg-white/5"
+              className="field w-auto text-ink"
             >
               {symbols.map((symbol) => (
                 <option key={symbol} value={symbol}>
@@ -205,7 +206,7 @@ export function TechnicalAnalysis({ selection }: { selection: RiskSelection }) {
             </select>
           </label>
         </div>
-        <p className="mt-1 text-sm text-black/70 dark:text-white/70">{t.intro}</p>
+        <p className="mt-1 max-w-[55ch] text-sm text-ink-2">{t.intro}</p>
         {error && (
           <ErrorNotice
             title={Object.keys(fieldErrors).length ? common.errors.invalidHeading : common.errors.heading}

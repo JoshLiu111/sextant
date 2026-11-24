@@ -61,7 +61,7 @@ function Cell({ id, result }: { id: string; result: MetricResult | undefined }) 
       data-position-value={id}
       data-status={result?.status ?? "pending"}
       title={result && result.status !== "ok" ? `${t.status[result.status]}: ${result.reason ?? ""}` : undefined}
-      className="px-2 py-1.5 text-right font-mono tabular-nums"
+      className="px-2 py-1.5 text-right tabular-nums"
     >
       {text || (result && result.status !== "ok" ? "—" : "")}
     </td>
@@ -79,12 +79,12 @@ export function PositionsTable({ result, currency }: { result: PortfolioEnvelope
     <div>
       <div className="min-w-0 overflow-x-auto">
         <table aria-label={s.sections.positions} className="w-full min-w-[40rem] border-collapse text-sm">
-          <caption className="mb-1 text-left text-sm text-black/70 dark:text-white/70">
+          <caption className="mb-1 text-left text-sm text-ink-2">
             {s.sections.positionsNote} {currency && `(${currency})`}
           </caption>
           <thead>
-            <tr className="border-b border-black/10 align-bottom dark:border-white/10">
-              <th scope="col" className="px-2 py-2 text-left font-medium">
+            <tr className="border-b border-rule align-bottom whitespace-nowrap text-muted">
+              <th scope="col" className="sticky left-0 bg-paper px-2 py-2 text-left font-medium">
                 {s.sections.columns.ticker}
               </th>
               {POSITION_COLUMNS.map((c) => (
@@ -96,8 +96,8 @@ export function PositionsTable({ result, currency }: { result: PortfolioEnvelope
           </thead>
           <tbody>
             {tickers.map((ticker) => (
-              <tr key={ticker} data-ticker={ticker} className="border-b border-black/5 dark:border-white/5">
-                <th scope="row" className="px-2 py-1.5 text-left font-mono font-normal">
+              <tr key={ticker} data-ticker={ticker} className="border-b border-rule">
+                <th scope="row" className="sticky left-0 bg-paper px-2 py-1.5 text-left tabular-nums font-normal">
                   {ticker}
                 </th>
                 {POSITION_COLUMNS.map((c) => (
@@ -107,15 +107,15 @@ export function PositionsTable({ result, currency }: { result: PortfolioEnvelope
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t border-black/10 font-medium dark:border-white/10">
-              <th scope="row" className="px-2 py-1.5 text-left">
+            <tr className="border-t border-rule font-medium">
+              <th scope="row" className="sticky left-0 bg-paper px-2 py-1.5 text-left">
                 {s.sections.total}
               </th>
               {POSITION_COLUMNS.map((c: Column) => {
                 if (c === "quantity") return <td key={c} />;
                 if (c === "weight")
                   return (
-                    <td key={c} className="px-2 py-1.5 text-right font-mono tabular-nums">
+                    <td key={c} className="px-2 py-1.5 text-right tabular-nums">
                       {totalWeight === null ? "—" : formatValue(totalWeight, "decimal")}
                     </td>
                   );

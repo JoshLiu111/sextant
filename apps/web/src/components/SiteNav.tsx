@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getMessages } from "@/i18n";
 import { TOOLS_BY_GROUP, type ToolGroup } from "@/lib/tools";
+import { ThemeToggle } from "./ThemeToggle";
 
 /**
  * The top bar. Tools come in the registry's groups (lib/tools.ts): a group with
@@ -42,13 +43,16 @@ export function SiteNav({ account, logo }: { account?: ReactNode; logo: ReactNod
   }
 
   return (
-    <header className="border-b border-black/10 dark:border-white/15">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3">
+    <header className="proof px-3 pt-3 md:px-6 md:pt-4">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-card border border-rule bg-paper-hi px-4 py-2 shadow-sheet md:px-5">
         {logo}
-        <div className="ml-auto md:order-last">{account}</div>
+        <div className="ml-auto flex items-center gap-1 md:order-last">
+          <ThemeToggle />
+          {account}
+        </div>
         <button
           type="button"
-          className="rounded border border-black/15 px-3 py-1 text-sm md:hidden dark:border-white/20"
+          className="btn btn-sm md:hidden"
           aria-expanded={open}
           aria-controls="tools-nav"
           onClick={() => setOpen((o) => !o)}
@@ -61,13 +65,13 @@ export function SiteNav({ account, logo }: { account?: ReactNode; logo: ReactNod
           aria-label={t.site.toolsNavLabel}
           className={`${open ? "block" : "hidden"} w-full md:block md:w-auto`}
         >
-          <ul className="flex flex-col gap-1 py-2 md:flex-row md:flex-wrap md:gap-4 md:py-0">
+          <ul className="flex flex-col gap-1 py-2 md:flex-row md:flex-wrap md:gap-1 md:py-0">
             {TOOLS_BY_GROUP.map(({ group, tools }) => {
               if (tools.length === 1) {
                 const [tool] = tools;
                 return (
                   <li key={group}>
-                    <Link href={tool.href} className="block py-1 text-sm hover:underline" onClick={closeAll}>
+                    <Link href={tool.href} className={NAV_ITEM} onClick={closeAll}>
                       {t.tools[tool.slug].name}
                     </Link>
                   </li>
@@ -82,21 +86,23 @@ export function SiteNav({ account, logo }: { account?: ReactNode; logo: ReactNod
                     ref={(el) => {
                       buttons.current[group] = el;
                     }}
-                    className="block py-1 text-sm hover:underline"
+                    className={`${NAV_ITEM} inline-flex items-center gap-1.5 aria-expanded:bg-wash`}
                     aria-expanded={expanded}
                     aria-controls={menuId}
                     onClick={() => setOpenGroup(expanded ? null : group)}
                   >
                     {t.toolGroups[group]}
-                    <span aria-hidden> ▾</span>
+                    <svg aria-hidden width="9" height="6" viewBox="0 0 9 6" className="text-muted">
+                      <path d="M1 1l3.5 3.5L8 1" fill="none" stroke="currentColor" strokeWidth="1.25" />
+                    </svg>
                   </button>
                   <ul
                     id={menuId}
-                    className={`${expanded ? "flex" : "hidden"} flex-col gap-1 pb-1 pl-4 md:absolute md:left-0 md:top-full md:z-10 md:mt-1 md:min-w-max md:rounded md:border md:border-black/10 md:bg-background md:p-2 md:dark:border-white/15`}
+                    className={`${expanded ? "flex" : "hidden"} flex-col gap-0.5 pb-1 pl-4 md:absolute md:left-0 md:top-full md:z-[var(--z-dropdown)] md:mt-2 md:min-w-max md:bg-paper-hi md:p-1.5 md:shadow-sheet`}
                   >
                     {tools.map((tool) => (
                       <li key={tool.slug}>
-                        <Link href={tool.href} className="block py-1 text-sm hover:underline" onClick={closeAll}>
+                        <Link href={tool.href} className={NAV_ITEM} onClick={closeAll}>
                           {t.tools[tool.slug].name}
                         </Link>
                       </li>
@@ -111,3 +117,7 @@ export function SiteNav({ account, logo }: { account?: ReactNode; logo: ReactNod
     </header>
   );
 }
+
+/** One nav link or group button: body face, one weight, state as a soft background. */
+const NAV_ITEM =
+  "block whitespace-nowrap rounded-card px-3 py-2 text-sm text-ink-2 transition-colors duration-[var(--dur-short)] hover:bg-wash hover:text-ink active:bg-wash-2";

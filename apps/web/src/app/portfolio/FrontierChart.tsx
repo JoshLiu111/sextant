@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { REFERENCE } from "@/lib/chartColors";
 
 export type FrontierPoint = { x: number; y: number };
 export type MarkedPortfolio = { id: string; label: string; point: FrontierPoint; color: string };
@@ -58,10 +59,10 @@ export function FrontierChart({
   return (
     <div ref={wrapper} className="w-full">
       <svg role="img" aria-label={label} width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="block">
-        <g className="text-black/40 dark:text-white/40" fontSize={11} fill="currentColor">
+        <g className="text-muted" fontSize={12} fill="currentColor">
           {ticks(y0, y1).map((t) => (
             <g key={`y${t}`}>
-              <line x1={MARGIN.left} x2={width - MARGIN.right} y1={sy(t)} y2={sy(t)} stroke="currentColor" strokeOpacity={0.25} />
+              <line x1={MARGIN.left} x2={width - MARGIN.right} y1={sy(t)} y2={sy(t)} className="stroke-rule" />
               <text x={MARGIN.left - 6} y={sy(t)} textAnchor="end" dominantBaseline="middle">
                 {format(t)}
               </text>
@@ -79,20 +80,20 @@ export function FrontierChart({
             {yLabel}
           </text>
         </g>
-        <path d={path} fill="none" stroke="#64748b" strokeWidth={2} />
+        <path d={path} fill="none" style={{ stroke: REFERENCE }} strokeWidth={2} />
         {marked.map((m, i) => {
           const flip = sx(m.point.x) > MARGIN.left + innerW * 0.7;
           return (
             <g key={m.id} data-frontier-point={m.id}>
-              <circle cx={sx(m.point.x)} cy={sy(m.point.y)} r={6} fill={m.color} stroke="white" strokeWidth={1.5}>
+              <circle cx={sx(m.point.x)} cy={sy(m.point.y)} r={6} style={{ fill: m.color }} className="stroke-paper-hi" strokeWidth={1.5}>
                 <title>{`${m.label}: ${yLabel} ${format(m.point.y)}, ${xLabel} ${format(m.point.x)}`}</title>
               </circle>
               <text
                 x={sx(m.point.x) + (flip ? -10 : 10)}
                 y={sy(m.point.y) + (i - 1) * 4 + 4}
                 textAnchor={flip ? "end" : "start"}
-                fontSize={11}
-                className="fill-black/70 dark:fill-white/70"
+                fontSize={12}
+                className="fill-ink-2"
               >
                 {m.label}
               </text>
@@ -100,10 +101,10 @@ export function FrontierChart({
           );
         })}
       </svg>
-      <ul className="mt-2 flex flex-wrap gap-4 text-xs">
+      <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-2">
         <li className="flex items-center gap-2">
           <svg aria-hidden width={20} height={6}>
-            <line x1={0} x2={20} y1={3} y2={3} stroke="#64748b" strokeWidth={2} />
+            <line x1={0} x2={20} y1={3} y2={3} style={{ stroke: REFERENCE }} strokeWidth={2} />
           </svg>
           {frontierLabel}
         </li>

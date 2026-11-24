@@ -4,6 +4,7 @@ import { LineChart, type ChartSeries } from "@/components/LineChart";
 import { getMessages } from "@/i18n";
 import type { ResultEnvelope, SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartNumber, formatChartPercent } from "@/lib/format";
+import { REFERENCE, SERIES } from "@/lib/chartColors";
 
 // Series ids "<chart>:<ticker>" from POST /risk/metrics; details.window = window in trading days.
 const CHARTS = [
@@ -13,7 +14,7 @@ const CHARTS = [
 ] as const;
 
 /** One color per ticker, in the order the tickers were entered; the benchmark is grey. */
-export const TICKER_COLORS = ["#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed", "#db2777", "#0891b2", "#65a30d", "#9333ea", "#ea580c"];
+export const TICKER_COLORS = SERIES;
 
 function points(series: SeriesResult | undefined) {
   if (!series || series.status !== "ok") return [];
@@ -39,11 +40,11 @@ export function RollingCharts({
   return (
     <section aria-labelledby="risk-rolling" className="space-y-4">
       <div>
-        <h2 id="risk-rolling" className="text-lg font-semibold">
+        <h2 id="risk-rolling" className="text-xl">
           {r.heading}
         </h2>
         {typeof window === "number" && (
-          <p data-testid="rolling-window-note" className="mt-1 text-sm text-black/70 dark:text-white/70">
+          <p data-testid="rolling-window-note" className="mt-1 max-w-[55ch] text-sm text-ink-2">
             {r.windowNote(window)}
           </p>
         )}
@@ -53,7 +54,7 @@ export function RollingCharts({
           id: ticker,
           label: label(ticker),
           points: points(result.series[`${chart.id}:${ticker}`]),
-          color: ticker === benchmark ? "#64748b" : TICKER_COLORS[i % TICKER_COLORS.length],
+          color: ticker === benchmark ? REFERENCE : TICKER_COLORS[i % TICKER_COLORS.length],
           dashed: ticker === benchmark,
         }));
         const reasons = symbols.flatMap((ticker) => {
@@ -62,7 +63,7 @@ export function RollingCharts({
         });
         return (
           <div key={chart.id} data-rolling-chart={chart.id}>
-            <h3 className="text-sm font-medium text-black/70 dark:text-white/70">{r.charts[chart.id].name}</h3>
+            <h3 className="font-body text-sm font-medium tracking-normal text-ink-2">{r.charts[chart.id].name}</h3>
             <LineChart
               label={r.charts[chart.id].label}
               series={series}
@@ -72,7 +73,7 @@ export function RollingCharts({
               height={220}
             />
             {reasons.length > 0 && (
-              <p className="text-sm text-black/60 dark:text-white/60">{reasons.join(" ")}</p>
+              <p className="text-sm text-muted">{reasons.join(" ")}</p>
             )}
           </div>
         );

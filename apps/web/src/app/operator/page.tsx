@@ -34,10 +34,10 @@ const USD = new Intl.NumberFormat("en-US", {
 });
 const PRICE = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 4 });
 
-const th = "px-3 py-2 text-left font-medium";
-const thNum = "px-3 py-2 text-right font-medium";
-const td = "px-3 py-2";
-const tdNum = "px-3 py-2 text-right tabular-nums";
+const th = "px-3 py-2 text-left text-xs font-medium text-muted first:pl-0";
+const thNum = "px-3 py-2 text-right text-xs font-medium text-muted last:pr-0";
+const td = "px-3 py-2 first:pl-0";
+const tdNum = "px-3 py-2 text-right tabular-nums last:pr-0";
 
 function TotalCells({ row }: { row: UsageTotals }) {
   return (
@@ -67,17 +67,17 @@ function UserCell({ row }: { row: UserUsage }) {
   return (
     <td className={td}>
       {row.email}
-      {row.name && <span className="text-black/60 dark:text-white/60"> ({row.name})</span>}
+      {row.name && <span className="text-muted"> ({row.name})</span>}
     </td>
   );
 }
 
-const tableClass = "mt-3 w-full border-collapse text-sm [&_tbody_tr]:border-t [&_tbody_tr]:border-black/10 dark:[&_tbody_tr]:border-white/10";
+const tableClass = "mt-3 w-full border-collapse text-sm [&_thead_tr]:border-b [&_thead_tr]:border-ink [&_tbody_tr]:border-t [&_tbody_tr]:border-rule [&_tbody_tr:first-child]:border-t-0";
 
 function PerUserTable({ users, totals }: { users: UserUsage[]; totals: UsageTotals }) {
   return (
     <table className={tableClass} aria-label={t.operator.perUser}>
-      <caption className="text-left text-lg font-semibold">{t.operator.perUser}</caption>
+      <caption className="pb-2 text-left font-display text-lg">{t.operator.perUser}</caption>
       <thead>
         <tr>
           <th scope="col" className={th}>{c.user}</th>
@@ -93,7 +93,7 @@ function PerUserTable({ users, totals }: { users: UserUsage[]; totals: UsageTota
         ))}
       </tbody>
       <tfoot>
-        <tr className="border-t-2 border-black/20 font-semibold dark:border-white/20" data-testid="ai-usage-totals">
+        <tr className="border-t border-ink font-medium" data-testid="ai-usage-totals">
           <th scope="row" className={th}>{t.operator.totals}</th>
           <TotalCells row={totals} />
         </tr>
@@ -105,7 +105,7 @@ function PerUserTable({ users, totals }: { users: UserUsage[]; totals: UsageTota
 function PerDayTable({ days }: { days: DayUsage[] }) {
   return (
     <table className={tableClass} aria-label={t.operator.perDay}>
-      <caption className="text-left text-lg font-semibold">{t.operator.perDay}</caption>
+      <caption className="pb-2 text-left font-display text-lg">{t.operator.perDay}</caption>
       <thead>
         <tr>
           <th scope="col" className={th}>{c.day}</th>
@@ -139,14 +139,14 @@ async function AiUsage({ days }: { days: WindowDays }) {
   const { report } = result;
   return (
     <>
-      <p className="mt-2 text-black/70 dark:text-white/70">{t.operator.intro(report.since, report.until)}</p>
-      <p className="mt-1 text-sm text-black/60 dark:text-white/60" data-testid="ai-usage-pricing">
+      <p className="mt-3 max-w-[65ch] text-ink-2">{t.operator.intro(report.since, report.until)}</p>
+      <p className="mt-1 max-w-[75ch] text-sm tabular-nums text-muted" data-testid="ai-usage-pricing">
         {t.operator.pricing(
           PRICE.format(report.pricing.input_usd_per_mtok),
           PRICE.format(report.pricing.output_usd_per_mtok),
         )}
       </p>
-      <p className="mt-1 text-sm text-black/60 dark:text-white/60">{t.operator.failedNote}</p>
+      <p className="mt-1 max-w-[75ch] text-sm text-muted">{t.operator.failedNote}</p>
       {report.users.length === 0 ? (
         <p className="mt-6" data-testid="ai-usage-empty">{t.operator.empty}</p>
       ) : (
@@ -163,9 +163,9 @@ const u = t.operator.users;
 
 function Stat({ label, value, testId }: { label: string; value: number; testId: string }) {
   return (
-    <div className="rounded border border-black/10 px-4 py-3 dark:border-white/10">
-      <dt className="text-sm text-black/70 dark:text-white/70">{label}</dt>
-      <dd className="mt-1 text-2xl font-semibold tabular-nums" data-testid={testId}>
+    <div className="min-w-0">
+      <dt className="text-sm text-muted">{label}</dt>
+      <dd className="figure-display mt-2 text-3xl" data-testid={testId}>
         {WHOLE.format(value)}
       </dd>
     </div>
@@ -185,7 +185,7 @@ async function Users({ days }: { days: WindowDays }) {
   const { report } = result;
   return (
     <>
-      <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-5 border-t border-ink pt-4 sm:grid-cols-3">
         <Stat label={u.total} value={report.total_users} testId="users-total" />
         {report.signed_in_within.map((s) => (
           <Stat
@@ -196,10 +196,10 @@ async function Users({ days }: { days: WindowDays }) {
           />
         ))}
       </dl>
-      <p className="mt-2 text-sm text-black/60 dark:text-white/60">{u.signedInNote}</p>
+      <p className="mt-3 max-w-[75ch] text-sm text-muted">{u.signedInNote}</p>
       <div className="mt-6 overflow-x-auto">
         <table className={tableClass} aria-label={u.signUps}>
-          <caption className="text-left text-lg font-semibold">{u.signUps}</caption>
+          <caption className="pb-2 text-left font-display text-lg">{u.signUps}</caption>
           <thead>
             <tr>
               <th scope="col" className={th}>{u.columns.day}</th>
@@ -215,7 +215,7 @@ async function Users({ days }: { days: WindowDays }) {
             ))}
           </tbody>
         </table>
-        <p className="mt-1 text-sm text-black/60 dark:text-white/60">{u.signUpsIntro(report.since, report.until)}</p>
+        <p className="mt-2 text-sm tabular-nums text-muted">{u.signUpsIntro(report.since, report.until)}</p>
       </div>
     </>
   );
@@ -223,13 +223,13 @@ async function Users({ days }: { days: WindowDays }) {
 
 function WindowPicker({ days }: { days: WindowDays }) {
   return (
-    <nav aria-label={t.operator.window.label} className="mt-3 flex flex-wrap gap-2 text-sm">
+    <nav aria-label={t.operator.window.label} className="mt-5 flex flex-wrap gap-2 text-sm">
       {WINDOW_DAYS.map((d) => (
         <Link
           key={d}
           href={`/operator?days=${d}`}
           aria-current={d === days ? "page" : undefined}
-          className="rounded-md border border-black/20 px-3 py-1 hover:bg-black/5 aria-[current=page]:bg-black aria-[current=page]:text-white dark:border-white/25 dark:hover:bg-white/10 dark:aria-[current=page]:bg-white dark:aria-[current=page]:text-black"
+          className="btn btn-sm tabular-nums aria-[current=page]:bg-paper-2 aria-[current=page]:shadow-[inset_0_-2px_0_var(--color-accent)]"
         >
           {t.operator.window.option(d)}
         </Link>
@@ -243,14 +243,14 @@ async function Report({ searchParams }: { searchParams: PageProps<"/operator">["
   return (
     <>
       <WindowPicker days={days} />
-      <section aria-labelledby="operator-users" className="mt-6">
-        <h2 id="operator-users" className="text-xl font-semibold">{u.heading}</h2>
+      <section aria-labelledby="operator-users" className="mt-10">
+        <h2 id="operator-users" className="text-2xl">{u.heading}</h2>
         <Suspense fallback={null}>
           <Users days={days} />
         </Suspense>
       </section>
-      <section aria-labelledby="operator-ai-usage" className="mt-10">
-        <h2 id="operator-ai-usage" className="text-xl font-semibold">{t.operator.aiUsageHeading}</h2>
+      <section aria-labelledby="operator-ai-usage" className="mt-12 border-t border-rule pt-10">
+        <h2 id="operator-ai-usage" className="text-2xl">{t.operator.aiUsageHeading}</h2>
         <Suspense fallback={null}>
           <AiUsage days={days} />
         </Suspense>
@@ -261,8 +261,8 @@ async function Report({ searchParams }: { searchParams: PageProps<"/operator">["
 
 export default function OperatorPage({ searchParams }: PageProps<"/operator">) {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-10">
-      <h1 className="text-2xl font-semibold">{t.operator.heading}</h1>
+    <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-10 md:px-6">
+      <h1 className="text-3xl">{t.operator.heading}</h1>
       <Suspense fallback={null}>
         <Report searchParams={searchParams} />
       </Suspense>

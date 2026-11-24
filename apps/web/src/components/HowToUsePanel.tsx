@@ -68,6 +68,37 @@ function useOpen(tool: ToolSlug): boolean {
   );
 }
 
+/**
+ * After a "Try this" link lands on `#target`, keep the target at the top while the
+ * tool's results load in and push the page around, then let go: after a few
+ * seconds, or as soon as the visitor scrolls, clicks or types. The browser's own
+ * jump to the hash happens once, before the results exist, so it lands short.
+ */
+function useSettledHashScroll() {
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (!id) return;
+    const userEvents = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+    // Polled, not observed: results mount and grow in nested boxes no single observer sees.
+    const align = () => {
+      const target = document.getElementById(id);
+      if (!target) return;
+      const offset = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      if (Math.abs(target.getBoundingClientRect().top - offset) > 2) target.scrollIntoView({ block: "start" });
+    };
+    const poll = setInterval(align, 100);
+    const release = () => {
+      clearInterval(poll);
+      clearTimeout(timer);
+      for (const event of userEvents) window.removeEventListener(event, release);
+    };
+    const timer = setTimeout(release, 5000);
+    for (const event of userEvents) window.addEventListener(event, release, { passive: true });
+    align();
+    return release;
+  }, []);
+}
+
 const buttonId = (tool: ToolSlug) => `how-to-use-${tool}`;
 const panelId = (tool: ToolSlug) => `how-to-use-panel-${tool}`;
 
@@ -85,7 +116,7 @@ export function HowToUseButton({ tool }: { tool: ToolSlug }) {
       aria-expanded={open}
       aria-controls={panelId(tool)}
       onClick={() => storeOpen(tool, !open)}
-      className="shrink-0 rounded-md border border-black/20 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+      className="btn shrink-0"
     >
       {copy.heading}
     </button>
@@ -105,6 +136,7 @@ export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
   const howTo: HowToUse = t.tools[tool].howTo;
   const open = useOpen(tool);
   const signedOut = useSignedOut();
+  useSettledHashScroll();
 
   const href = getTool(tool).href;
 
@@ -113,10 +145,10 @@ export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
       id={panelId(tool)}
       aria-labelledby={buttonId(tool)}
       hidden={!open}
-      className="mt-4 rounded-lg border border-black/10 dark:border-white/15"
+      className="well mt-5"
     >
-      <div className="space-y-3 p-4 text-sm">
-        <ol aria-label={copy.stepsLabel} className="list-decimal space-y-1 pl-5 text-black/80 dark:text-white/80">
+      <div className="space-y-3 p-4 text-sm md:px-5">
+        <ol aria-label={copy.stepsLabel} className="max-w-[75ch] list-decimal space-y-1 pl-5 text-ink-2 marker:text-muted">
           {howTo.steps.map((step) => (
             <li key={step}>{step}</li>
           ))}
@@ -126,7 +158,10 @@ export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
             {howTo.examples.map((example) => (
               <li key={example.label}>
                 {/* A full navigation (not <Link>): the tool reads its URL inputs on load. */}
-                <a href={hrefWithQuery(href, example.params)} className="underline underline-offset-2 hover:no-underline">
+                <a
+                  href={`${hrefWithQuery(href, example.params)}${example.target ? `#${example.target}` : ""}`}
+                  className="link"
+                >
                   {copy.tryThis} {example.label}
                 </a>
               </li>
@@ -134,11 +169,11 @@ export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
           </ul>
         )}
         {signedOut && howTo.signedInExtras.length > 0 && (
-          <div data-testid="signed-in-extras" className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <p>
-              {copy.signedInExtras} {howTo.signedInExtras.join("; ")}.
+          <div data-testid="signed-in-extras">
+            <p className="max-w-[75ch]">
+              {copy.signedInExtras} {howTo.signedInExtras.join("; ")}.{" "}
+              <SignInLink className="link whitespace-nowrap font-medium" />
             </p>
-            <SignInLink className="font-medium underline underline-offset-2 hover:no-underline" />
           </div>
         )}
       </div>

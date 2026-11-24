@@ -6,13 +6,18 @@
  * - `steps`: 3–5 short steps, the same for visitors and signed-in users.
  * - `examples`: 1–2 "Try this" links. `params` are the tool's own URL inputs
  *   (the shareable-link format in lib/urlInputs.ts), so a click fills in the form
- *   and shows a result.
+ *   and shows a result. `target` is the id of the element the example is about;
+ *   the link carries it as `#target` and the page scrolls there once it settles.
  * - `signedInExtras`: what signing in adds on this tool, shown only to visitors.
  *   Empty when the tool has nothing extra for signed-in users.
  */
 export type HowToUse = {
   steps: readonly string[];
   // `| undefined` only so that examples with different params type-check side by side.
-  examples: readonly { label: string; params: Readonly<Record<string, string | undefined>> }[];
+  examples: readonly {
+    label: string;
+    params: Readonly<Record<string, string | undefined>>;
+    target?: string;
+  }[];
   signedInExtras: readonly string[];
 };

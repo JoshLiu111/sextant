@@ -87,7 +87,7 @@ function SavedPortfolioAnalysis({
   return (
     <section data-testid="saved-results" aria-label={s.sections.value} className="min-w-0 space-y-6">
       <div>
-        <h3 className="text-sm font-medium">{s.analysisHeading}</h3>
+        <h3 className="font-body text-sm font-medium tracking-normal">{s.analysisHeading}</h3>
         <div className="mt-2">
           <DataModeToggle providers={providers} value={source} onChange={setChosen} />
         </div>
@@ -122,7 +122,7 @@ function SavedPortfolioAnalysis({
       )}
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">{s.sections.value}</h2>
+          <h2 className="text-xl">{s.sections.value}</h2>
           {result && (
             <ExportCsvButton
               label={s.sections.value}
@@ -139,7 +139,7 @@ function SavedPortfolioAnalysis({
             />
           )}
         </div>
-        <p className="mt-1 text-sm text-black/70 dark:text-white/70">{s.sections.valueNote}</p>
+        <p className="mt-1 text-sm text-ink-2">{s.sections.valueNote}</p>
         <div className="mt-2 grid gap-4 sm:grid-cols-2">
           {VALUE_METRICS.map((id) => (
             <MetricCard
@@ -159,7 +159,7 @@ function SavedPortfolioAnalysis({
       </div>
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">{s.sections.positions}</h2>
+          <h2 className="text-xl">{s.sections.positions}</h2>
           {result && (
             <ExportCsvButton
               label={s.sections.positions}

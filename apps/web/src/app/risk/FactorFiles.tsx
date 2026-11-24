@@ -62,11 +62,11 @@ export function FactorFiles({ onChange }: { onChange: () => void }) {
   }
 
   return (
-    <section aria-labelledby="factor-files-heading" className="rounded-lg border border-black/10 p-3 dark:border-white/15">
-      <h3 id="factor-files-heading" className="text-sm font-semibold">
+    <section aria-labelledby="factor-files-heading" className="well p-3">
+      <h3 id="factor-files-heading" className="font-body text-sm font-medium tracking-normal">
         {t.heading}
       </h3>
-      <p className="mt-1 text-xs text-black/60 dark:text-white/60">{t.body}</p>
+      <p className="hint mt-1">{t.body}</p>
       <ul className="mt-2 space-y-2 text-sm">
         {files.map((file) => (
           <li key={file.kind} data-testid={`factor-file-${file.kind}`} className="flex items-start justify-between gap-2">
@@ -79,7 +79,7 @@ export function FactorFiles({ onChange }: { onChange: () => void }) {
               disabled={busy}
               onClick={() => onRemove(file)}
               aria-label={t.remove(t.kinds[file.kind])}
-              className="shrink-0 rounded border border-black/15 px-2 py-0.5 text-xs disabled:opacity-50 dark:border-white/20"
+              className="btn btn-sm shrink-0"
             >
               {t.removeShort}
             </button>
@@ -87,7 +87,7 @@ export function FactorFiles({ onChange }: { onChange: () => void }) {
         ))}
       </ul>
       {files.length === 0 && <p className="mt-2 text-sm">{t.none}</p>}
-      <label htmlFor="factor-file-input" className="mt-3 block text-sm font-medium">
+      <label htmlFor="factor-file-input" className="label mt-3">
         {t.upload}
       </label>
       <input
@@ -99,11 +99,11 @@ export function FactorFiles({ onChange }: { onChange: () => void }) {
         aria-describedby="factor-file-hint"
         className="mt-1 block w-full text-sm"
       />
-      <p id="factor-file-hint" className="mt-1 text-xs text-black/50 dark:text-white/50">
+      <p id="factor-file-hint" className="hint mt-1">
         {t.hint}
       </p>
       {notice?.kind === "status" && (
-        <p role="status" className="mt-2 text-sm text-green-800 dark:text-green-300">
+        <p role="status" className="mt-2 text-sm text-success">
           {notice.message}
         </p>
       )}

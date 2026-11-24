@@ -10,6 +10,7 @@ import { getMessages } from "@/i18n";
 import type { ResultEnvelope, SeriesResult } from "@/lib/envelope";
 import { csvFilename } from "@/lib/csv";
 import { formatChartDate, formatChartPercent } from "@/lib/format";
+import { REFERENCE, series } from "@/lib/chartColors";
 
 /** The P3 metric set, scored for the portfolio and the benchmark. Explainers are shared with Risk & Performance. */
 const METRICS = [
@@ -85,13 +86,13 @@ export function PortfolioOverview({
           id: "portfolio",
           label: labels.portfolio,
           points: chartPoints(result.series["cumulative_return:portfolio"]),
-          color: "#2563eb",
+          color: series(0),
         },
         {
           id: "benchmark",
           label: labels.benchmark,
           points: chartPoints(result.series["cumulative_return:benchmark"]),
-          color: "#64748b",
+          color: REFERENCE,
           dashed: true,
         },
       ]
@@ -108,7 +109,7 @@ export function PortfolioOverview({
         }))}
       />
       <div>
-        <h2 className="text-lg font-semibold">{p.sections.chart}</h2>
+        <h2 className="text-xl">{p.sections.chart}</h2>
         <div className="mt-2">
           {result && (
             <LineChart
@@ -123,7 +124,7 @@ export function PortfolioOverview({
       </div>
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">{p.sections.metrics}</h2>
+          <h2 className="text-xl">{p.sections.metrics}</h2>
           {result && (
             <ExportCsvButton
               label={p.sections.metrics}
@@ -139,7 +140,7 @@ export function PortfolioOverview({
             />
           )}
         </div>
-        <p className="mt-1 text-sm text-black/70 dark:text-white/70">{metricsNote ?? p.sections.metricsNote}</p>
+        <p className="mt-1 max-w-[55ch] text-sm text-ink-2">{metricsNote ?? p.sections.metricsNote}</p>
         <div className="mt-2 grid gap-4 xl:grid-cols-3">
           {METRICS.map((id) => (
             <MetricCard

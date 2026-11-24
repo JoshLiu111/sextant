@@ -74,17 +74,17 @@ export function AiExplain({ tool, result }: { tool: string; result: ResultEnvelo
   return (
     <section
       aria-labelledby={`ai-explain-${tool}`}
-      className="rounded-lg border border-black/10 p-4 dark:border-white/15"
+      className="card p-4 md:p-5"
     >
-      <h2 id={`ai-explain-${tool}`} className="text-lg font-semibold">
+      <h2 id={`ai-explain-${tool}`} className="text-xl">
         {t.heading}
       </h2>
-      <p className="mt-1 text-sm text-black/60 dark:text-white/60">{t.intro}</p>
+      <p className="mt-1 text-sm text-muted">{t.intro}</p>
 
       {account.kind === "signed_out" && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
-          <p className="min-w-0 flex-1 text-black/70 dark:text-white/70">{t.signInPrompt}</p>
-          <SignInLink className="rounded-md bg-black px-3 py-1.5 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black" />
+          <p className="min-w-0 flex-1 text-ink-2">{t.signInPrompt}</p>
+          <SignInLink className="btn" />
         </div>
       )}
 
@@ -95,18 +95,18 @@ export function AiExplain({ tool, result }: { tool: string; result: ResultEnvelo
               type="button"
               onClick={onExplain}
               disabled={pending || usedUp}
-              className="rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-white/80"
+              className="btn"
             >
               {pending ? t.pending : t.button}
             </button>
             {quota && (
-              <p data-testid="ai-quota" aria-live="polite" className="text-sm text-black/60 dark:text-white/60">
+              <p data-testid="ai-quota" aria-live="polite" className="text-sm text-muted">
                 {t.quota(quota.remaining, quota.limit)}
               </p>
             )}
           </div>
           {usedUp && (
-            <p data-testid="ai-quota-used-up" className="text-sm text-black/70 dark:text-white/70">
+            <p data-testid="ai-quota-used-up" className="text-sm text-ink-2">
               {t.usedUp(formatLocalTime(quota.resets_at))}
             </p>
           )}
@@ -117,13 +117,13 @@ export function AiExplain({ tool, result }: { tool: string; result: ResultEnvelo
               {shown.advice_notice && (
                 <p
                   data-testid="ai-advice-notice"
-                  className="rounded-md bg-amber-50 p-2 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+                  className="border-l-2 border-accent pl-3 text-ink"
                 >
                   {shown.advice_notice}
                 </p>
               )}
-              <p className="text-xs text-black/50 dark:text-white/50">
-                {t.generatedBy} <span className="break-all font-mono">{shown.calculation_id}</span>
+              <p className="text-xs text-muted">
+                {t.generatedBy} <span className="break-all tabular-nums">{shown.calculation_id}</span>
               </p>
             </div>
           )}

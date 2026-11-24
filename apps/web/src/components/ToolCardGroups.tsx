@@ -22,7 +22,7 @@ export function ToolCardGroups({
         const headingId = `tool-group-${group}`;
         return (
           <section key={group} aria-labelledby={headingId}>
-            <h3 id={headingId} className="text-lg font-semibold tracking-tight">
+            <h3 id={headingId} className="text-xl">
               {t.toolGroups[group]}
             </h3>
             <ul className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

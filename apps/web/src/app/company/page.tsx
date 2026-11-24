@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: getMessages().tools["company"].name }
 export default function Page() {
   const t = getMessages();
   return (
-    <main className={TOOL_PAGE}>
+    <main data-tool="company" className={TOOL_PAGE}>
       <ToolPageHeader tool="company" intro={t.company.intro} />
       {/* All read ?ticker= (links from the screener) and ?frequency=, known only at request time. */}
       <Suspense>

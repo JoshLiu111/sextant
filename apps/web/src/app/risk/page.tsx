@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: getMessages().tools["risk"].name };
 export default function Page() {
   const t = getMessages();
   return (
-    <main className={TOOL_PAGE}>
+    <main data-tool="risk" className={TOOL_PAGE}>
       <ToolPageHeader tool="risk" intro={t.risk.intro} />
       {/* Reads its inputs from the query string (shareable links). */}
       <Suspense>

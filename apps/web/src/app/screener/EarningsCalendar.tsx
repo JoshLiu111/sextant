@@ -63,10 +63,10 @@ export function EarningsCalendar() {
 
   return (
     <section aria-labelledby="earnings-section" className="mt-6 space-y-4">
-      <h2 id="earnings-section" className="text-xl font-semibold">
+      <h2 id="earnings-section" className="text-2xl">
         {m.heading}
       </h2>
-      <p className="text-sm text-black/70 dark:text-white/70">{m.intro}</p>
+      <p className="max-w-[75ch] text-sm text-ink-2">{m.intro}</p>
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-4">
         <div className="w-full max-w-xl">
           <TextField name="tickers" label={m.tickers.label} hint={m.tickers.hint} value={tickers} onChange={setTickers} error={fieldErrors.tickers} />
@@ -79,13 +79,13 @@ export function EarningsCalendar() {
         </div>
         <button
           type="submit"
-          className="mt-6 rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn btn-primary mt-6"
         >
           {m.submit}
         </button>
       </form>
 
-      <div aria-busy={pending} className="min-w-0 space-y-3">
+      <div aria-busy={pending} className="min-w-0 space-y-3 border-t border-rule pt-6">
         {error && (
           <ErrorNotice
             title={Object.keys(fieldErrors).length ? t.common.errors.invalidHeading : t.common.errors.heading}
@@ -95,7 +95,7 @@ export function EarningsCalendar() {
         {calendar ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 data-testid="earnings-range" className="text-base font-semibold">
+              <h3 data-testid="earnings-range" className="text-lg">
                 {m.range(calendar.start, calendar.end)}
               </h3>
               {calendar.events.length > 0 && (
@@ -111,22 +111,22 @@ export function EarningsCalendar() {
               )}
             </div>
             {calendar.events.length === 0 ? (
-              <p className="text-sm text-black/60 dark:text-white/60">{m.none}</p>
+              <p className="text-sm text-muted">{m.none}</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+              <div className="overflow-x-auto">
                 <table aria-label={m.tableLabel} className="w-full min-w-[36rem] border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-black/10 text-left dark:border-white/10">
-                      <th scope="col" className="px-2 py-2 font-medium">
+                    <tr className="border-b border-ink text-left">
+                      <th scope="col" className="sticky left-0 z-10 whitespace-nowrap bg-paper px-2 py-2 font-normal text-muted">
                         {m.date}
                       </th>
-                      <th scope="col" className="px-2 py-2 font-medium">
+                      <th scope="col" className="whitespace-nowrap px-2 py-2 font-normal text-muted">
                         {m.company}
                       </th>
-                      <th scope="col" className="px-2 py-2 font-medium">
+                      <th scope="col" className="whitespace-nowrap px-2 py-2 font-normal text-muted">
                         {m.status}
                       </th>
-                      <th scope="col" className="px-2 py-2 font-medium">
+                      <th scope="col" className="whitespace-nowrap px-2 py-2 font-normal text-muted">
                         {m.filing}
                       </th>
                     </tr>
@@ -137,17 +137,17 @@ export function EarningsCalendar() {
                         key={`${e.ticker}-${e.status}-${e.date}-${e.accession}`}
                         data-ticker={e.ticker}
                         data-status={e.status}
-                        className="border-b border-black/5 last:border-0 dark:border-white/5"
+                        className="border-b border-rule"
                       >
-                        <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs">{e.date}</td>
+                        <td className="sticky left-0 z-10 whitespace-nowrap bg-paper px-2 py-1.5 tabular-nums">{e.date}</td>
                         <td className="px-2 py-1.5">
-                          <span className="font-mono text-xs">{e.ticker}</span> {e.company}
+                          <span className="font-medium tabular-nums">{e.ticker}</span> {e.company}
                         </td>
-                        <td className={`px-2 py-1.5 ${e.status === "expected" ? "italic text-black/60 dark:text-white/60" : ""}`}>
+                        <td className={`px-2 py-1.5 ${e.status === "expected" ? "text-muted" : ""}`}>
                           {e.status === "reported" ? m.reported : m.expected}
                         </td>
                         <td className="px-2 py-1.5">
-                          <a href={e.url} target="_blank" rel="noreferrer" className="underline decoration-dotted">
+                          <a href={e.url} target="_blank" rel="noreferrer" className="link">
                             {e.status === "reported" ? m.reportedLink(e.form, e.date) : m.expectedLink(e.form, e.based_on ?? "")}
                           </a>
                         </td>
@@ -160,7 +160,7 @@ export function EarningsCalendar() {
             <CalculationInfo result={calendar} />
           </>
         ) : (
-          !error && <p className="text-sm text-black/60 dark:text-white/60">{m.loading}</p>
+          !error && <p className="text-sm text-muted">{m.loading}</p>
         )}
       </div>
     </section>

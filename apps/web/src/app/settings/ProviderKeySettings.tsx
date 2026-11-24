@@ -59,19 +59,19 @@ export function ProviderKeySettings({ provider, initial }: { provider: Provider;
   return (
     <section
       aria-labelledby={`${provider}-key-heading`}
-      className="mt-8 rounded-lg border border-black/10 p-4 dark:border-white/15"
+      className="mt-8 border-t border-rule pt-6"
     >
-      <h2 id={`${provider}-key-heading`} className="font-semibold">
+      <h2 id={`${provider}-key-heading`} className="text-lg">
         {t.heading}
       </h2>
-      <p className="mt-1 text-sm text-black/70 dark:text-white/70">{t.body}</p>
+      <p className="mt-2 max-w-[65ch] text-sm text-ink-2">{t.body}</p>
       <p data-testid="key-status" className="mt-3 text-sm font-medium">
         {saved ? shared.saved(saved.hint) : shared.none}
       </p>
 
-      <form onSubmit={onSave} className="mt-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-0 flex-1">
-          <label htmlFor={inputId} className="block text-sm font-medium">
+      <form onSubmit={onSave} className="mt-5 flex max-w-xl flex-wrap items-start gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1 basis-56">
+          <label htmlFor={inputId} className="label">
             {t.label}
           </label>
           <input
@@ -84,11 +84,9 @@ export function ProviderKeySettings({ provider, initial }: { provider: Provider;
             onChange={(e) => setKey(e.target.value)}
             aria-invalid={fieldError ? true : undefined}
             aria-describedby={[`${inputId}-hint`, fieldError ? fieldErrorId(errorName) : null].filter(Boolean).join(" ")}
-            className={`mt-1 w-full min-w-0 rounded-md border px-3 py-2 font-mono dark:bg-white/5 ${
-              fieldError ? "border-red-500" : "border-black/20 dark:border-white/20"
-            }`}
+            className="field mt-1"
           />
-          <p id={`${inputId}-hint`} className="mt-1 text-xs text-black/50 dark:text-white/50">
+          <p id={`${inputId}-hint`} className="hint mt-1">
             {t.hint}
           </p>
           <FieldError name={errorName} message={fieldError} />
@@ -96,15 +94,15 @@ export function ProviderKeySettings({ provider, initial }: { provider: Provider;
         <button
           type="submit"
           disabled={busy}
-          className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-black/80 disabled:opacity-50 dark:bg-white dark:text-black"
+          className="btn sm:mt-[1.625rem]"
         >
           {saved ? shared.replace : shared.save}
         </button>
       </form>
 
-      {busy && <p className="mt-3 text-sm text-black/60 dark:text-white/60">{t.saving}</p>}
+      {busy && <p className="mt-3 text-sm text-muted">{t.saving}</p>}
       {notice?.kind === "status" && (
-        <p role="status" className="mt-3 text-sm text-green-800 dark:text-green-300">
+        <p role="status" className="mt-3 text-sm text-success">
           {notice.message}
         </p>
       )}
@@ -117,21 +115,21 @@ export function ProviderKeySettings({ provider, initial }: { provider: Provider;
       {saved &&
         (confirming ? (
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <p role="alert" className="w-full text-sm font-medium text-red-700 dark:text-red-400">
+            <p role="alert" className="w-full text-sm font-medium text-red-700">
               {shared.deleteWarning}
             </p>
             <button
               type="button"
               disabled={busy}
               onClick={onDelete}
-              className="rounded bg-red-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+              className="btn btn-danger"
             >
               {shared.confirmDelete}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="rounded border border-black/15 px-3 py-1.5 text-sm dark:border-white/20"
+              className="btn"
             >
               {shared.cancel}
             </button>
@@ -140,7 +138,7 @@ export function ProviderKeySettings({ provider, initial }: { provider: Provider;
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="mt-4 rounded border border-red-700 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-400"
+            className="btn btn-danger mt-5"
           >
             {shared.delete}
           </button>

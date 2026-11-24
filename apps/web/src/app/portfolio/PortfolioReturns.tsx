@@ -44,7 +44,7 @@ export function PortfolioReturns({
   return (
     <section aria-label={r.heading} data-testid="portfolio-returns">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">{r.heading}</h2>
+        <h2 className="text-xl">{r.heading}</h2>
         {result && (
           <ExportCsvButton
             label={r.heading}
@@ -57,7 +57,7 @@ export function PortfolioReturns({
           />
         )}
       </div>
-      <p className="mt-1 text-sm text-black/70 dark:text-white/70">{r.note}</p>
+      <p className="mt-1 text-sm text-ink-2">{r.note}</p>
       <div className="mt-2 grid gap-4 sm:grid-cols-3">
         {RETURN_METRICS.map((id) => (
           <MetricCard
@@ -68,9 +68,9 @@ export function PortfolioReturns({
           />
         ))}
       </div>
-      <div className="mt-3 rounded-lg bg-black/[0.03] p-3 text-sm dark:bg-white/[0.05]">
-        <h3 className="font-medium">{r.whichHeading}</h3>
-        <p className="mt-1 text-black/80 dark:text-white/80">{r.which}</p>
+      <div className="well mt-3 p-3 text-sm">
+        <h3 className="text-lg">{r.whichHeading}</h3>
+        <p className="mt-1 max-w-[55ch] text-ink-2">{r.which}</p>
       </div>
     </section>
   );

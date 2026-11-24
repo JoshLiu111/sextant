@@ -39,7 +39,7 @@ export function ExportCsvButton({
       type="button"
       onClick={onClick}
       aria-label={t.exportLabel(label)}
-      className="rounded-md border border-black/20 px-2 py-1 text-xs font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+      className="btn btn-sm text-xs"
     >
       {t.export}
     </button>

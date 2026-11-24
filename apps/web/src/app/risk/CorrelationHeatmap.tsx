@@ -16,7 +16,9 @@ type CorrelationId = `correlation:${string}:${string}`;
 function cellColor(result: MetricResult | undefined): string | undefined {
   if (result?.status !== "ok" || result.value === null) return undefined;
   const v = Math.max(-1, Math.min(1, result.value));
-  return v >= 0 ? `rgba(37, 99, 235, ${v})` : `rgba(220, 38, 38, ${-v})`;
+  const share = Math.round(Math.abs(v) * 70);
+  const hue = v >= 0 ? "var(--color-chart-1)" : "var(--color-chart-6)";
+  return `color-mix(in oklab, ${hue} ${share}%, var(--color-paper-hi))`;
 }
 
 function cellText(result: MetricResult | undefined): string {
@@ -38,10 +40,10 @@ export function CorrelationHeatmap({ selection }: { selection: RiskSelection }) 
 
   return (
     <div>
-      <h2 className="text-lg font-semibold">{t.heading}</h2>
+      <h2 className="text-xl">{t.heading}</h2>
       {error && <ErrorNotice title={common.errors.heading} message={error} />}
       <div className="mt-2 max-w-full overflow-x-auto">
-        <table aria-label={t.label} className="border-separate border-spacing-0.5 font-mono text-xs tabular-nums">
+        <table aria-label={t.label} className="border-separate border-spacing-0.5 tabular-nums text-xs">
           <thead>
             <tr>
               <th scope="col" />
@@ -71,9 +73,7 @@ export function CorrelationHeatmap({ selection }: { selection: RiskSelection }) 
                       onMouseEnter={() => setHovered([a, b])}
                       onFocus={() => setHovered([a, b])}
                       onBlur={() => setHovered(null)}
-                      className={`h-9 min-w-12 rounded-sm border border-black/10 px-1 text-center outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-white/10 ${
-                        strong ? "text-white" : ""
-                      }`}
+                      className={`h-9 min-w-12 rounded-sm border border-rule px-1 text-center tabular-nums text-ink focus-visible:outline-offset-[-2px] ${strong ? "font-medium" : ""}`}
                       style={{ background: cellColor(r) }}
                     >
                       {cellText(r)}
@@ -85,7 +85,7 @@ export function CorrelationHeatmap({ selection }: { selection: RiskSelection }) 
           </tbody>
         </table>
       </div>
-      <p data-testid="heatmap-tooltip" role="status" className="mt-1 min-h-5 text-sm text-black/70 dark:text-white/70">
+      <p data-testid="heatmap-tooltip" role="status" className="mt-1 min-h-5 max-w-[55ch] text-sm text-ink-2">
         {hovered &&
           `${hovered[0]} ${t.versus} ${hovered[1]}: ${
             hoveredResult?.status === "ok" || !hoveredResult ? cellText(hoveredResult) : hoveredResult.reason

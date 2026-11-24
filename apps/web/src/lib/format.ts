@@ -101,6 +101,21 @@ export function formatTimestampUtc(iso: string): string {
 }
 
 /**
+ * ISO 8601 timestamp to US Eastern time ("Nov 24, 2026, 1:33 PM EST"). A fixed zone,
+ * so the server and the browser render the same text.
+ */
+export function formatTimestampEt(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const zone = "America/New_York";
+  const when = new Intl.DateTimeFormat("en-US", { timeZone: zone, dateStyle: "medium", timeStyle: "short" }).format(d);
+  const tz = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "short" })
+    .formatToParts(d)
+    .find((part) => part.type === "timeZoneName")?.value;
+  return `${when} ${tz ?? "ET"}`;
+}
+
+/**
  * ISO 8601 timestamp to a clock time in the browser's own time zone ("7:00 PM EST").
  * Call it only on the client: on the server it would use the server's time zone.
  */

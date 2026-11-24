@@ -62,6 +62,8 @@ test.describe("example links fill in the inputs and show a result", () => {
     const main = page.getByRole("main");
     await expect(main.getByLabel("History from")).toHaveValue("2020-01-01");
     await expect(main.locator('[data-metric-value="latest:PAYEMS"]')).toContainText("157,995", COLD);
+    // The link lands on "Your series", several screens down, once the charts above have loaded.
+    await expect(main.getByTestId("custom-series").getByRole("heading", { name: "Your series" })).toBeInViewport();
   });
 
   test("Macro Dashboard: the US, China and India side by side", async ({ page }) => {

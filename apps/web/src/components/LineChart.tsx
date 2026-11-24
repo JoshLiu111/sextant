@@ -36,6 +36,9 @@ type Props = {
   height?: number;
 };
 
+/** A shaded range with no colour of its own: neutral, so it never reads as a series. */
+const BAND = "var(--color-muted)";
+
 const MARGIN = { top: 12, right: 16, bottom: 36, left: 56 };
 
 /**
@@ -109,7 +112,7 @@ export function LineChart({
         width={width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
-        className="block touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="block touch-none select-none rounded-sm"
         onPointerMove={onPointerMove}
         onPointerDown={onPointerMove}
         onPointerLeave={() => setHoverIndex(null)}
@@ -117,10 +120,10 @@ export function LineChart({
         onFocus={() => setHoverIndex((i) => i ?? Math.floor(xs.length / 2))}
         onBlur={() => setHoverIndex(null)}
       >
-        <g className="text-black/40 dark:text-white/40" fontSize={11} fill="currentColor">
+        <g className="text-muted" fontSize={12} fill="currentColor">
           {ticks(y0, y1).map((t) => (
             <g key={`y${t}`}>
-              <line x1={MARGIN.left} x2={width - MARGIN.right} y1={sy(t)} y2={sy(t)} stroke="currentColor" strokeOpacity={0.25} />
+              <line x1={MARGIN.left} x2={width - MARGIN.right} y1={sy(t)} y2={sy(t)} className="stroke-rule" />
               <text x={MARGIN.left - 6} y={sy(t)} textAnchor="end" dominantBaseline="middle">
                 {formatY(t)}
               </text>
@@ -148,8 +151,8 @@ export function LineChart({
               width={Math.max(right - left, 2)}
               y={MARGIN.top}
               height={innerH}
-              fill={b.color ?? "#f59e0b"}
-              fillOpacity={0.18}
+              style={{ fill: b.color ?? BAND }}
+              fillOpacity={0.14}
             >
               <title>{`${b.label}: ${formatX(b.start)} – ${formatX(b.end)}`}</title>
             </rect>
@@ -159,13 +162,13 @@ export function LineChart({
           // Stagger labels so nearby markers don't overlap; flip to the left near the right edge.
           const flip = sx(m.x) > MARGIN.left + innerW * 0.7;
           return (
-            <g key={`m${m.label}${m.x}`} data-testid="chart-marker" className="text-black/50 dark:text-white/50">
+            <g key={`m${m.label}${m.x}`} data-testid="chart-marker" className="text-muted">
               <line x1={sx(m.x)} x2={sx(m.x)} y1={MARGIN.top} y2={MARGIN.top + innerH} stroke="currentColor" strokeDasharray="2 3" />
               <text
                 x={sx(m.x) + (flip ? -4 : 4)}
                 y={MARGIN.top + 10 + i * 14}
                 textAnchor={flip ? "end" : "start"}
-                fontSize={11}
+                fontSize={12}
                 fill="currentColor"
               >
                 {m.label}
@@ -178,17 +181,17 @@ export function LineChart({
             key={s.id}
             d={linePath(s.points, sx, sy)}
             fill="none"
-            stroke={s.color}
+            style={{ stroke: s.color }}
             strokeWidth={2}
             strokeDasharray={s.dashed ? "6 4" : undefined}
           />
         ))}
         {hoverX !== null && (
           <g>
-            <line x1={sx(hoverX)} x2={sx(hoverX)} y1={MARGIN.top} y2={MARGIN.top + innerH} stroke="currentColor" strokeOpacity={0.4} />
+            <line x1={sx(hoverX)} x2={sx(hoverX)} y1={MARGIN.top} y2={MARGIN.top + innerH} className="stroke-muted" />
             {series.map((s) => {
               const p = pointAt(s.points, hoverX);
-              return p && p.y !== null ? <circle key={s.id} cx={sx(p.x)} cy={sy(p.y)} r={4} fill={s.color} /> : null;
+              return p && p.y !== null ? <circle key={s.id} cx={sx(p.x)} cy={sy(p.y)} r={4} style={{ fill: s.color }} /> : null;
             })}
           </g>
         )}
@@ -197,41 +200,41 @@ export function LineChart({
         <div
           data-testid="chart-tooltip"
           role="status"
-          className="pointer-events-none absolute top-2 rounded-md border border-black/10 bg-white/95 px-3 py-2 text-xs shadow-sm dark:border-white/15 dark:bg-black/90"
+          className="pointer-events-none absolute top-2 rounded-card border border-rule bg-paper-hi px-3 py-2 text-xs text-ink shadow-sheet"
           style={sx(hoverX) > width / 2 ? { right: width - sx(hoverX) + 8 } : { left: sx(hoverX) + 8 }}
         >
           <div className="font-medium">
-            {xLabel}: <span className="font-mono tabular-nums">{formatX(hoverX)}</span>
+            {xLabel}: <span className="tabular-nums">{formatX(hoverX)}</span>
           </div>
           {series.map((s) => {
             const p = pointAt(s.points, hoverX);
             return (
               <div key={s.id} className="flex items-center gap-2">
-                <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: s.color }} />
-                {s.label}: <span className="font-mono tabular-nums">{p && p.y !== null ? formatY(p.y) : "–"}</span>
+                <span aria-hidden className="inline-block h-0.5 w-3" style={{ background: s.color }} />
+                {s.label}: <span className="tabular-nums">{p && p.y !== null ? formatY(p.y) : "–"}</span>
               </div>
             );
           })}
           {hoverBands.map((b) => (
             <div key={`b${b.start}`} data-testid="chart-tooltip-band" className="mt-1 flex items-center gap-2">
-              <span aria-hidden className="inline-block h-2 w-2" style={{ background: b.color ?? "#f59e0b" }} />
+              <span aria-hidden className="inline-block h-2 w-2" style={{ background: b.color ?? BAND }} />
               {b.label}: {formatX(b.start)} – {formatX(b.end)}
             </div>
           ))}
         </div>
       )}
-      <ul className="mt-2 flex flex-wrap gap-4 text-xs">
+      <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-2">
         {series.map((s) => (
           <li key={s.id} className="flex items-center gap-2">
             <svg aria-hidden width={20} height={6}>
-              <line x1={0} x2={20} y1={3} y2={3} stroke={s.color} strokeWidth={2} strokeDasharray={s.dashed ? "6 4" : undefined} />
+              <line x1={0} x2={20} y1={3} y2={3} style={{ stroke: s.color }} strokeWidth={2} strokeDasharray={s.dashed ? "6 4" : undefined} />
             </svg>
             {s.label}
           </li>
         ))}
         {[...new Map(bands.map((b) => [b.label, b])).values()].map((b) => (
           <li key={`b${b.label}`} className="flex items-center gap-2">
-            <span aria-hidden className="inline-block h-3 w-5" style={{ background: b.color ?? "#f59e0b", opacity: 0.35 }} />
+            <span aria-hidden className="inline-block h-3 w-5" style={{ background: b.color ?? BAND, opacity: 0.35 }} />
             {b.label}
           </li>
         ))}

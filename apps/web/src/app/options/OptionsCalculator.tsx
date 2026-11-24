@@ -11,7 +11,9 @@ import { getMessages } from "@/i18n";
 import { formatChartNumber } from "@/lib/format";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { STICKY_INPUTS, toolColumns } from "@/lib/layout";
 import { chartPoints, isPercentField, toNumber } from "./form";
+import { series } from "@/lib/chartColors";
 
 type MetricId =
   | "call_price"
@@ -92,13 +94,13 @@ export function OptionsCalculator() {
           id: "payoff_at_expiry",
           label: o.chart.payoff,
           points: chartPoints(result.series.payoff_at_expiry),
-          color: "#2563eb",
+          color: series(0),
         },
         {
           id: "theoretical_value",
           label: o.chart.value,
           points: chartPoints(result.series.theoretical_value),
-          color: "#ea580c",
+          color: series(1),
           dashed: true,
         },
       ]
@@ -108,9 +110,9 @@ export function OptionsCalculator() {
   const chartSpot = Number(result?.meta.parameters.spot);
 
   return (
-    <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-      <form onSubmit={onSubmit} noValidate aria-labelledby="options-inputs" className="space-y-4">
-        <h2 id="options-inputs" className="text-lg font-semibold">
+    <div className={`mt-6 ${toolColumns("20rem")}`}>
+      <form onSubmit={onSubmit} noValidate aria-labelledby="options-inputs" className={`${STICKY_INPUTS} space-y-4`}>
+        <h2 id="options-inputs" className="text-xl">
           {o.inputsHeading}
         </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-1">
@@ -127,7 +129,7 @@ export function OptionsCalculator() {
           ))}
         </div>
         <div>
-          <label htmlFor="input-option_type" className="block text-sm font-medium">
+          <label htmlFor="input-option_type" className="label">
             {o.inputs.option_type.label}
           </label>
           <select
@@ -135,12 +137,12 @@ export function OptionsCalculator() {
             name="option_type"
             value={form.option_type}
             onChange={(e) => set("option_type")(e.target.value)}
-            className="mt-1 w-full rounded-md border border-black/20 px-3 py-2 dark:border-white/20 dark:bg-white/5"
+            className="field mt-1"
           >
             <option value="call">{o.optionTypes.call}</option>
             <option value="put">{o.optionTypes.put}</option>
           </select>
-          <p className="mt-1 text-xs text-black/50 dark:text-white/50">{o.inputs.option_type.hint}</p>
+          <p className="hint mt-1">{o.inputs.option_type.hint}</p>
           <FieldError name="option_type" message={fieldErrors.option_type} />
         </div>
         <NumberField
@@ -153,7 +155,7 @@ export function OptionsCalculator() {
         />
         <button
           type="submit"
-          className="w-full rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn btn-primary w-full"
         >
           {o.submit}
         </button>
@@ -167,14 +169,14 @@ export function OptionsCalculator() {
           />
         )}
         <div>
-          <h2 className="text-lg font-semibold">{o.sections.prices}</h2>
+          <h2 className="text-xl">{o.sections.prices}</h2>
           <div className="mt-2 grid gap-4 sm:grid-cols-2">
             <MetricCard id="call_price" explainer={o.metrics.call_price} values={[{ id: "call_price", result: m?.call_price }]} />
             <MetricCard id="put_price" explainer={o.metrics.put_price} values={[{ id: "put_price", result: m?.put_price }]} />
           </div>
         </div>
         <div>
-          <h2 className="text-lg font-semibold">{o.sections.greeks}</h2>
+          <h2 className="text-xl">{o.sections.greeks}</h2>
           <div className="mt-2 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <MetricCard
               id="delta"
@@ -205,8 +207,8 @@ export function OptionsCalculator() {
           </div>
         </div>
         <div>
-          <h2 className="text-lg font-semibold">{o.sections.iv}</h2>
-          <div className="mt-2">
+          <h2 className="text-xl">{o.sections.iv}</h2>
+          <div className="mt-2 grid gap-4 sm:grid-cols-2">
             <MetricCard
               id="implied_volatility"
               explainer={o.metrics.implied_volatility}
@@ -221,7 +223,7 @@ export function OptionsCalculator() {
           </div>
         </div>
         <div>
-          <h2 className="text-lg font-semibold">
+          <h2 className="text-xl">
             {o.sections.chart} ({o.optionTypes[chartType]})
           </h2>
           <div className="mt-2">

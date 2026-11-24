@@ -17,7 +17,7 @@ async function Greeting() {
   const user = await getCurrentUser();
   if (!user) redirect("/");
   return (
-    <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+    <h1 className="text-2xl sm:text-3xl">
       {t.dashboard.greeting(user.name || user.email)}
     </h1>
   );
@@ -25,19 +25,19 @@ async function Greeting() {
 
 export default function DashboardPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10">
+    <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-10 md:px-6">
       <Suspense fallback={<div className="h-9" aria-hidden />}>
         <Greeting />
       </Suspense>
       <DashboardDataProvider>
-        <div className="mt-6">
+        <div className="mt-8">
           <StatusStrip />
         </div>
-        <section aria-labelledby="dashboard-tools-heading" className="mt-10">
-          <h2 id="dashboard-tools-heading" className="text-xl font-semibold tracking-tight">
+        <section aria-labelledby="dashboard-tools-heading" className="mt-12">
+          <h2 id="dashboard-tools-heading" className="text-2xl">
             {t.dashboard.tools.heading}
           </h2>
-          <div className="mt-4">
+          <div className="mt-5">
             <ToolCardGroups
               action="open"
               personal={(tool) => (tool.slug === "portfolio" ? <SavedPortfolioCount /> : undefined)}

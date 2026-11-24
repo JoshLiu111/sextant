@@ -108,7 +108,7 @@ export function Tabs<Id extends string>({
         role="tablist"
         aria-label={label}
         onKeyDown={onKeyDown}
-        className="flex flex-wrap gap-1 border-b border-black/10 dark:border-white/15"
+        className="flex flex-wrap gap-x-1 border-b border-rule"
       >
         {tabs.map((id) => (
           <button
@@ -124,10 +124,8 @@ export function Tabs<Id extends string>({
             aria-controls={`${idPrefix}-panel-${id}`}
             tabIndex={active === id ? 0 : -1}
             onClick={() => onChange(id)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
-              active === id
-                ? "border-black dark:border-white"
-                : "border-transparent text-black/60 hover:text-black dark:text-white/60 dark:hover:text-white"
+            className={`-mb-px shrink-0 cursor-pointer whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors duration-[var(--dur-short)] focus-visible:outline-offset-[-2px] ${
+              active === id ? "border-tool text-ink" : "border-transparent text-muted hover:text-ink active:text-ink-2"
             }`}
           >
             {labels[id]}

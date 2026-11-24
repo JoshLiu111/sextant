@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: getMessages().tools["options"].name }
 export default function Page() {
   const t = getMessages();
   return (
-    <main className={TOOL_PAGE}>
+    <main data-tool="options" className={TOOL_PAGE}>
       <ToolPageHeader tool="options" intro={t.options.intro} />
       {/* Reads its inputs (and the open tab) from the query string (shareable links). */}
       <Suspense>
