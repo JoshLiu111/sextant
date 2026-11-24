@@ -6,8 +6,9 @@ import { expect, test, type Page } from "@playwright/test";
 // dividend tags) through e2e/fake-edgar.mjs. "Today" is pinned to 2026-11-22
 // (SCREENER_TODAY in playwright.config.ts).
 
-async function open(page: Page) {
-  await page.goto("/screener");
+// Each lives in its own tab of the page (issue #70).
+async function open(page: Page, tab: "earnings" | "dividends") {
+  await page.goto(`/screener?tab=${tab}`);
   return page.getByRole("main");
 }
 
@@ -16,7 +17,7 @@ const calendar = (main: Main) => main.getByRole("table", { name: "Earnings calen
 const dividends = (main: Main) => main.getByRole("table", { name: "Dividend history" });
 
 test("the earnings calendar lists recent releases with links to the 8-K and upcoming estimates", async ({ page }) => {
-  const main = await open(page);
+  const main = await open(page, "earnings");
 
   await expect(main.getByTestId("earnings-range")).toHaveText("Earnings releases from 2026-10-23 to 2027-01-21", { timeout: 30_000 });
   const aapl = calendar(main).locator('[data-ticker="AAPL"]');
@@ -36,7 +37,7 @@ test("the earnings calendar lists recent releases with links to the 8-K and upco
 });
 
 test("the calendar filters by date range and companies", async ({ page }) => {
-  const main = await open(page);
+  const main = await open(page, "earnings");
   await expect(main.getByTestId("earnings-range")).toBeVisible({ timeout: 30_000 });
 
   await main.getByLabel("Companies").fill("AAPL, MSFT");
@@ -56,7 +57,7 @@ test("the calendar filters by date range and companies", async ({ page }) => {
 });
 
 test("an inverted date range is shown on the field", async ({ page }) => {
-  const main = await open(page);
+  const main = await open(page, "earnings");
   await expect(main.getByTestId("earnings-range")).toBeVisible({ timeout: 30_000 });
 
   await main.getByLabel("From", { exact: true }).fill("2026-06-01");
@@ -67,7 +68,7 @@ test("an inverted date range is shown on the field", async ({ page }) => {
 });
 
 test("dividend history shows declared dividends per share by fiscal quarter and year", async ({ page }) => {
-  const main = await open(page);
+  const main = await open(page, "dividends");
 
   await expect(main.getByTestId("dividends-heading")).toHaveText("Apple Inc. (AAPL)", { timeout: 30_000 });
   const fy2026 = dividends(main).locator('[data-fiscal-year="2026"]');
@@ -84,7 +85,7 @@ test("dividend history shows declared dividends per share by fiscal quarter and 
 });
 
 test("a company that pays no dividend says so", async ({ page }) => {
-  const main = await open(page);
+  const main = await open(page, "dividends");
   await expect(main.getByTestId("dividends-heading")).toBeVisible({ timeout: 30_000 });
 
   await main.getByLabel("Dividend ticker").fill("AMZN");
@@ -97,7 +98,7 @@ test("a company that pays no dividend says so", async ({ page }) => {
 });
 
 test("an unknown dividend ticker is shown on the field", async ({ page }) => {
-  const main = await open(page);
+  const main = await open(page, "dividends");
   await expect(main.getByTestId("dividends-heading")).toBeVisible({ timeout: 30_000 });
 
   await main.getByLabel("Dividend ticker").fill("ZZZZ");
@@ -108,7 +109,7 @@ test("an unknown dividend ticker is shown on the field", async ({ page }) => {
 });
 
 test("dividend history and the calendar export to CSV", async ({ page }) => {
-  const main = await open(page);
+  const main = await open(page, "dividends");
   await expect(main.getByTestId("dividends-heading")).toHaveText("Apple Inc. (AAPL)", { timeout: 30_000 });
 
   const download = page.waitForEvent("download");
@@ -120,6 +121,7 @@ test("dividend history and the calendar export to CSV", async ({ page }) => {
   expect(text).toContain("FY2026,2025-09-28,2026-09-26,1.06,,10-K,2026-11-03");
   expect(text).toContain("Q4 FY2026,2026-06-28,2026-09-26,0.27,yes,10-K,2026-11-03");
 
+  await main.getByRole("tab", { name: "Earnings calendar" }).click();
   await expect(main.getByTestId("earnings-range")).toBeVisible({ timeout: 30_000 });
   const calendarDownload = page.waitForEvent("download");
   await main.getByRole("button", { name: "Export CSV: Earnings calendar" }).click();

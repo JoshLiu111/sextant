@@ -120,6 +120,13 @@ export const en = {
       heading: "Your tools",
     },
   },
+  /** Tool group names (`ToolGroup` in lib/tools.ts): the nav menus and the card sections. */
+  toolGroups: {
+    markets: "Markets",
+    companies: "Companies",
+    "portfolio-risk": "Portfolio & Risk",
+    "ai-analyst": "AI Analyst",
+  },
   /**
    * Per-tool copy. `question` is what the tool answers and `highlights` (2–3)
    * what it gives you; the landing page and dashboard cards read both. `howTo`
@@ -258,7 +265,7 @@ export const en = {
         ],
         examples: [
           { label: "Value Microsoft at 8% growth", params: { ticker: "MSFT", growth_rate: "8" } },
-          { label: "Override the cost of equity at 12%", params: { ticker: "MSFT", cost_of_equity: "12" } },
+          { label: "Override the cost of equity at 12%", params: { tab: "wacc", ticker: "MSFT", cost_of_equity: "12" } },
         ],
         signedInExtras: [
           "use the latest share price from your own Tiingo or FMP key",
@@ -304,8 +311,8 @@ export const en = {
         steps: [
           "Set criteria such as revenue growth, margins, return on equity or debt, choose a year, then press Run screen.",
           "Sort the results by any column, and open a company in the Company Health Check or the Valuation Calculator.",
-          "Below the screen, check who reports earnings next and look up a company's dividend history.",
-          "Follow the latest SEC filings market-wide, or for one company and form type.",
+          "In the Earnings calendar and Dividend history tabs, check who reports earnings next and look up a company's dividends.",
+          "In the Latest filings tab, follow the newest SEC filings market-wide, or for one company and form type.",
           "Copy the address bar to share or bookmark these exact inputs.",
         ],
         examples: [
@@ -313,7 +320,7 @@ export const en = {
             label: "Find growing companies with little debt",
             params: { criteria: "revenue_growth:min:10,debt_ratio:max:30", sort: "ticker", direction: "asc" },
           },
-          { label: "See JPMorgan's dividend history", params: { dividends_ticker: "JPM" } },
+          { label: "See JPMorgan's dividend history", params: { tab: "dividends", dividends_ticker: "JPM" } },
         ],
         signedInExtras: [
           "add 52-week price criteria, using your own Tiingo or FMP key",
@@ -363,6 +370,8 @@ export const en = {
       examplesLabel: "Try these examples",
       signedInExtras: "Signed-in users can also:",
     },
+    /** The row of headline figures at the top of a tool's results. */
+    keyFigures: "Key figures",
     explainer: {
       about: "About",
       what: "What it is",
@@ -703,6 +712,13 @@ export const en = {
       uploaded: (name: string) => `Uploaded ${name}.`,
       removed: (name: string) => `Removed ${name}.`,
       errorTitle: "Could not use this file",
+    },
+    tabs: {
+      label: "Risk & Performance results",
+      overview: "Overview",
+      rolling: "Rolling & distribution",
+      checks: "Model checks",
+      technical: "Technical analysis",
     },
     sections: {
       metrics: "Return and risk",
@@ -1062,6 +1078,12 @@ export const en = {
       benchmark: { hint: "A real ticker, e.g. SPY." },
       start: { hint: "Any range your provider has prices for." },
     },
+    tabs: {
+      label: "Portfolio results",
+      overview: "Overview",
+      rebalancing: "Rebalancing",
+      frontier: "Efficient frontier",
+    },
     portfolioLabel: "Portfolio",
     benchmarkSuffix: "(benchmark)",
     demoHeading: "Demo portfolio",
@@ -1233,6 +1255,7 @@ export const en = {
     intro:
       "The latest reading and history of four headline US indicators, from public-domain series on FRED; the US Treasury yield curve and 10Y–2Y spread, from the Treasury's daily par yield curve; a cross-country comparison from the World Bank; and euro area policy rates and inflation from the ECB. Hover a chart to see exact values.",
     sections: {
+      us: "United States",
       indicators: "US headline indicators",
       rates: "US Treasury yields",
       countries: "Compare countries",
@@ -1443,7 +1466,14 @@ export const en = {
   },
   screener: {
     intro:
-      "Screen US companies that file with the SEC on fundamentals from their annual reports, then open any of them in the Company Health Check or the Valuation Calculator. Below the screen: an earnings calendar, a company's dividend history, and the latest SEC filings, market-wide or for one company.",
+      "Screen US companies that file with the SEC on fundamentals from their annual reports, then open any of them in the Company Health Check or the Valuation Calculator. The other tabs hold an earnings calendar, a company's dividend history, and the latest SEC filings, market-wide or for one company.",
+    tabs: {
+      label: "Screener & Calendar sections",
+      screen: "Screen",
+      earnings: "Earnings calendar",
+      dividends: "Dividend history",
+      filings: "Latest filings",
+    },
     screenHeading: "Fundamental screen",
     criteriaLegend: "Criteria",
     year: {
@@ -1582,6 +1612,12 @@ export const en = {
       wacc_breakdown: "WACC breakdown",
       sensitivity: "Sensitivity: value per share",
       fcf: "Free cash flow",
+    },
+    tabs: {
+      label: "Valuation results",
+      overview: "Overview",
+      wacc: "WACC",
+      statement: "From the 10-K",
     },
     submit: "Value company",
     loading: "Loading the valuation…",
@@ -2289,7 +2325,7 @@ export const en = {
     rebalancing: {
       heading: "Rebalancing backtest",
       intro:
-        "Start at the target weights above and compare resetting them by a rule with buying and holding (weights drift with prices). Rebalancing is frictionless: no trading costs or taxes.",
+        "Start at the target weights in the inputs and compare resetting them by a rule with buying and holding (weights drift with prices). Rebalancing is frictionless: no trading costs or taxes.",
       rule: {
         label: "Rebalancing rule",
         hint: "Calendar rules rebalance at the last trading day of each period.",

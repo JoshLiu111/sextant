@@ -76,6 +76,8 @@ const URL_CODEC: UrlCodec<Form> = {
     ...VALUES_CODEC.write(form.values),
   }),
 };
+/** This panel's query params: a link with any of them and no `tab=` opens its tab. */
+export const TECHNICAL_PARAMS = URL_CODEC.keys;
 
 const COLORS: Record<SeriesId, string> = {
   price: "#0f172a",

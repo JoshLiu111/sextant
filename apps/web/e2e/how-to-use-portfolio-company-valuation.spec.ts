@@ -112,9 +112,11 @@ test.describe("Valuation Calculator", () => {
     await panel.getByRole("link", { name: "Try this: Override the cost of equity at 12%" }).click();
     const main = page.getByRole("main");
     await expect(main.getByLabel("Cost of equity (%)")).toHaveValue("12");
-    await expect(metric(page, "cost_of_equity")).toContainText("12.00%", COLD);
+    // The example opens the WACC tab, where the overridden cost of equity shows.
+    await expect(main.getByRole("tab", { name: "WACC" })).toHaveAttribute("aria-selected", "true");
+    await expect(metric(page, "cost_of_equity")).toHaveAttribute("data-status", "ok", COLD);
+    await expect(metric(page, "cost_of_equity")).toContainText("12.00%");
     await expect(metric(page, "cost_of_equity")).toContainText("Your override");
-    await expect(metric(page, "intrinsic_value_per_share")).toHaveAttribute("data-status", "ok");
   });
 
   test("a visitor sees what signing in adds", async ({ page }) => {

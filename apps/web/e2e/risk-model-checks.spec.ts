@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openRiskTab } from "./risk-helpers";
 
 // Defaults: DEMO-A, DEMO-B, DEMO-D vs DEMO-MKT, 2021-01-01 to 2025-12-31, 95% (synthetic demo data).
 const METHODS = ["backtest_var", "backtest_parametric_var", "backtest_cornish_fisher_var"];
@@ -9,6 +10,7 @@ async function openRisk(page: Page) {
   await page.goto("/risk");
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { level: 1, name: "Risk & Performance" })).toBeVisible();
+  await openRiskTab(main, "Model checks");
   const checks = main.getByTestId("model-checks");
   await expect(checks.locator('[data-backtest="backtest_var:DEMO-A"]')).toHaveAttribute("data-status", "ok", {
     timeout: FIRST_RESULT,
@@ -69,6 +71,7 @@ test("a range too short for the fit shows the reason instead of the GARCH chart"
 
   await expect(checks.getByTestId("garch-missing")).toContainText("needs at least 250 daily returns");
   await expect(checks.locator('[data-backtest="backtest_var:DEMO-A"]')).toHaveAttribute("data-status", "missing_data");
+  await openRiskTab(page.getByRole("main"), "Overview");
   await expect(page.getByRole("main").locator('[data-metric-value="var:DEMO-A"]')).toHaveAttribute(
     "data-status",
     "ok",

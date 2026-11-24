@@ -150,12 +150,28 @@ test.describe("Screener", () => {
     await expect(main.getByLabel("Companies")).toHaveValue("AAPL,MSFT");
     await expect(main.getByTestId("earnings-range")).toHaveText("Earnings releases from 2026-01-01 to 2026-06-30", COLD);
     await expect(main.getByRole("table", { name: "Earnings calendar" }).locator("tbody tr")).toHaveCount(4);
+    await main.getByRole("tab", { name: "Dividend history" }).click();
     await expect(main.getByTestId("dividends-heading")).toHaveText("JPMORGAN CHASE & CO (JPM)", COLD);
 
     await main.getByLabel("Dividend ticker").fill("msft");
     await main.getByRole("button", { name: "Show dividends" }).click();
     await expect(page).toHaveURL(/[?&]dividends_ticker=MSFT(&|$)/);
     await expect(page).toHaveURL(/[?&]earnings_start=2026-01-01(&|$)/);
+  });
+
+  // Links shared before the page had tabs carry no `tab=`: their params pick the tab.
+  test("a link with only a dividend ticker opens the dividend history", async ({ page }) => {
+    const main = await open(page, "/screener?dividends_ticker=JPM", "Screener & Calendar");
+    await expect(main.getByRole("tab", { name: "Dividend history" })).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByTestId("dividends-heading")).toHaveText("JPMORGAN CHASE & CO (JPM)", COLD);
+  });
+
+  test("an explicit tab in a link wins over another tab's params", async ({ page }) => {
+    const main = await open(page, "/screener?tab=dividends&filings_ticker=AAPL&dividends_ticker=JPM", "Screener & Calendar");
+    await expect(main.getByRole("tab", { name: "Dividend history" })).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByTestId("dividends-heading")).toHaveText("JPMORGAN CHASE & CO (JPM)", COLD);
+    await main.getByRole("tab", { name: "Latest filings" }).click();
+    await expect(main.getByLabel("Company ticker")).toHaveValue("AAPL");
   });
 
   test("a bad calendar range in a link shows the normal validation error", async ({ page }) => {

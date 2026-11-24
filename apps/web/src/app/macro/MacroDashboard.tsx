@@ -41,9 +41,9 @@ export function MacroDashboard({
 
   return (
     <section data-testid="results" aria-labelledby="macro-indicators" className="mt-6 space-y-6">
-      <h2 id="macro-indicators" className="text-lg font-semibold">
+      <h3 id="macro-indicators" className="text-lg font-semibold">
         {t.macro.sections.indicators}
-      </h2>
+      </h3>
       {error && <ErrorNotice title={t.common.errors.heading} message={error} />}
       <div className="grid gap-6 lg:grid-cols-2">
         {INDICATORS.map((key) => (

@@ -1,27 +1,20 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { HowToUsePanel } from "@/components/HowToUsePanel";
+import { ToolPageHeader } from "@/components/ToolPageHeader";
 import { getMessages } from "@/i18n";
-import { DividendHistory } from "./DividendHistory";
-import { EarningsCalendar } from "./EarningsCalendar";
-import { LatestFilings } from "./LatestFilings";
-import { Screener } from "./Screener";
+import { TOOL_PAGE } from "@/lib/layout";
+import { ScreenerTool } from "./ScreenerTool";
 
 export const metadata: Metadata = { title: getMessages().tools["screener"].name };
 
 export default function Page() {
   const t = getMessages();
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10">
-      <h1 className="text-2xl font-semibold">{t.tools.screener.name}</h1>
-      <p className="mt-2 text-black/70 dark:text-white/70">{t.screener.intro}</p>
-      <HowToUsePanel tool="screener" />
-      {/* All four read their inputs from the query string (shareable links). */}
+    <main className={TOOL_PAGE}>
+      <ToolPageHeader tool="screener" intro={t.screener.intro} />
+      {/* The open tab and every tab's inputs come from the query string (shareable links). */}
       <Suspense>
-        <Screener />
-        <EarningsCalendar />
-        <DividendHistory />
-        <LatestFilings />
+        <ScreenerTool />
       </Suspense>
     </main>
   );

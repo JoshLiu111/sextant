@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ToolCard } from "@/components/ToolCard";
+import { ToolCardGroups } from "@/components/ToolCardGroups";
 import { getMessages } from "@/i18n";
 import { getCurrentUser } from "@/lib/auth/session";
-import { TOOLS } from "@/lib/tools";
 import { DashboardDataProvider, SavedPortfolioCount, StatusStrip } from "./DashboardStatus";
 
 // The signed-in user's home. src/proxy.ts sends visitors without a session
@@ -38,17 +37,12 @@ export default function DashboardPage() {
           <h2 id="dashboard-tools-heading" className="text-xl font-semibold tracking-tight">
             {t.dashboard.tools.heading}
           </h2>
-          <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {TOOLS.map((tool) => (
-              <li key={tool.slug}>
-                <ToolCard
-                  tool={tool}
-                  action="open"
-                  personal={tool.slug === "portfolio" ? <SavedPortfolioCount /> : undefined}
-                />
-              </li>
-            ))}
-          </ul>
+          <div className="mt-4">
+            <ToolCardGroups
+              action="open"
+              personal={(tool) => (tool.slug === "portfolio" ? <SavedPortfolioCount /> : undefined)}
+            />
+          </div>
         </section>
       </DashboardDataProvider>
     </main>

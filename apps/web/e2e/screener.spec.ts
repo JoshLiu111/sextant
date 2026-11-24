@@ -6,8 +6,9 @@ import { expect, test, type Page } from "@playwright/test";
 // Default screen: revenue growth >= 10%, gross margin >= 40%, ROE >= 15%,
 // which matches 9 of the 37 recorded companies.
 
-async function openScreener(page: Page, { waitForResults = true } = {}) {
-  await page.goto("/screener");
+// `tab` opens another tab of the page (issue #70); the screen is the first tab.
+async function openScreener(page: Page, { waitForResults = true, tab = "" } = {}) {
+  await page.goto(tab ? `/screener?tab=${tab}` : "/screener");
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { level: 1, name: "Screener & Calendar" })).toBeVisible();
   // A cold screen fetches ~20 frames through the 5 requests/second EDGAR limiter.
@@ -116,10 +117,10 @@ test("the Valuation link opens the Valuation Calculator with that company's resu
 });
 
 test("the latest filings list works market-wide and for one company", async ({ page }) => {
-  const main = await openScreener(page);
+  const main = await openScreener(page, { tab: "filings", waitForResults: false });
   const filings = main.getByRole("table", { name: "Latest SEC filings" });
 
-  await expect(filings.getByRole("row")).toHaveCount(41); // header + 40 filings
+  await expect(filings.getByRole("row")).toHaveCount(41, { timeout: 30_000 }); // header + 40 filings
   const first = filings.getByRole("row").nth(1);
   await expect(first).toContainText("SCHEDULE 13D/A");
   await expect(first).toContainText("2026-11-20");
@@ -146,8 +147,8 @@ test("the latest filings list works market-wide and for one company", async ({ p
 });
 
 test("an unknown company ticker is shown inline", async ({ page }) => {
-  const main = await openScreener(page);
-  await expect(main.getByRole("table", { name: "Latest SEC filings" }).getByRole("row").nth(1)).toBeVisible();
+  const main = await openScreener(page, { tab: "filings", waitForResults: false });
+  await expect(main.getByRole("table", { name: "Latest SEC filings" }).getByRole("row").nth(1)).toBeVisible({ timeout: 30_000 });
 
   await main.getByLabel("One company").check();
   await main.getByLabel("Company ticker").fill("ZZZZ");
@@ -187,5 +188,44 @@ test.describe("mobile width", () => {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow).toBeLessThanOrEqual(0);
+  });
+});
+
+// The four tabs (issue #70): the screen, the earnings calendar, dividend history
+// and the latest filings share one URL-backed tablist.
+test.describe("tabs", () => {
+  test("the screen opens first, and each tab shows only its own section", async ({ page }) => {
+    const main = await openScreener(page);
+    const tabs = main.getByRole("tablist", { name: "Screener & Calendar sections" });
+    await expect(tabs.getByRole("tab")).toHaveText(["Screen", "Earnings calendar", "Dividend history", "Latest filings"]);
+    await expect(tabs.getByRole("tab", { name: "Screen" })).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByRole("tabpanel", { name: "Screen" })).toBeVisible();
+    await expect(main.getByRole("table", { name: "Latest SEC filings" })).toHaveCount(0);
+
+    await tabs.getByRole("tab", { name: "Latest filings" }).click();
+    await expect(page).toHaveURL(/[?&]tab=filings(&|$)/);
+    await expect(main.getByRole("table", { name: "Latest SEC filings" }).getByRole("row").nth(1)).toBeVisible();
+    await expect(results(main)).toHaveCount(0);
+
+    await page.reload();
+    await expect(main.getByRole("tab", { name: "Latest filings" })).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByRole("table", { name: "Latest SEC filings" }).getByRole("row").nth(1)).toBeVisible();
+  });
+
+  test("an unknown tab in the link opens the screen", async ({ page }) => {
+    await page.goto("/screener?tab=nonsense");
+    const main = page.getByRole("main");
+    await expect(main.getByRole("tab", { name: "Screen" })).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByTestId("screen-summary")).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("switching tabs keeps the other tabs' inputs in the URL", async ({ page }) => {
+    await page.goto("/screener?tab=dividends&dividends_ticker=JPM&filings_form=10-K");
+    const main = page.getByRole("main");
+    await expect(main.getByTestId("dividends-heading")).toHaveText("JPMORGAN CHASE & CO (JPM)", { timeout: 30_000 });
+
+    await main.getByRole("tab", { name: "Latest filings" }).click();
+    await expect(main.getByLabel("Form type")).toHaveValue("10-K");
+    await expect(page).toHaveURL(/[?&]dividends_ticker=JPM(&|$)/);
   });
 });

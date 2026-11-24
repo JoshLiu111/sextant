@@ -5,13 +5,16 @@ import { DataModeToggle } from "@/components/DataModeToggle";
 import { DemoBadge } from "@/components/DemoBadge";
 import { ErrorNotice, FieldError, fieldErrorId } from "@/components/ErrorNotice";
 import { NumberField } from "@/components/NumberField";
+import { Tabs, useUrlTab, type TabParams } from "@/components/Tabs";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
+import { STICKY_INPUTS, toolColumns } from "@/lib/layout";
 import { DEMO_SOURCE, useMyDataProviders, type PriceSource } from "@/lib/myData";
 import { decodeRows, encodeRows, fieldsCodec, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
-import { PortfolioConstruction } from "./PortfolioConstruction";
-import { PortfolioResults } from "./PortfolioResults";
+import { EfficientFrontier } from "./EfficientFrontier";
+import { PortfolioOverview, PortfolioCalculationAndExplain } from "./PortfolioResults";
+import { REBALANCING_PARAMS, RebalancingBacktest } from "./RebalancingBacktest";
 import { DEFAULT_HOLDINGS, PRESETS, type HoldingInput, type PresetId } from "./presets";
 
 // Weights, confidence and risk_free_rate are kept in percent; the API takes decimals.
@@ -44,6 +47,12 @@ const MY_DATA_DEFAULTS: Form = {
 };
 
 const defaultsFor = (source: PriceSource): Form => (source === DEMO_SOURCE ? DEFAULTS : MY_DATA_DEFAULTS);
+
+// The results views: `/portfolio?tab=frontier`. Only the open one is mounted, so the
+// rebalancing backtest and the frontier call the API only when their tab is open.
+const TABS = ["overview", "rebalancing", "frontier"] as const;
+// A link without `tab=` but with rebalancing params (shared before the tabs) opens Rebalancing.
+const TAB_PARAMS: TabParams<(typeof TABS)[number]> = { rebalancing: REBALANCING_PARAMS };
 
 // Shareable links: `/portfolio?holdings=DEMO-C:60,DEMO-E:40&start=2022-01-01`.
 // Only these demo inputs go in the URL; saved portfolios and My data inputs never do.
@@ -100,6 +109,7 @@ export function PortfolioTool() {
   const t = getMessages();
   const p = t.portfolio;
   const { initial, share } = useUrlInputs(URL_CODEC);
+  const [tab, setTab] = useUrlTab(TABS, { inferFrom: TAB_PARAMS });
   const providers = useMyDataProviders();
   const [chosen, setChosen] = useState<PriceSource>(DEMO_SOURCE);
   // A provider whose key is gone falls back to demo data.
@@ -125,8 +135,8 @@ export function PortfolioTool() {
   }
 
   return (
-    <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-      <form onSubmit={onSubmit} noValidate aria-labelledby="portfolio-inputs" className="min-w-0 space-y-4">
+    <div className={`mt-6 ${toolColumns("22rem")}`}>
+      <form onSubmit={onSubmit} noValidate aria-labelledby="portfolio-inputs" className={`${STICKY_INPUTS} space-y-4`}>
         <h2 id="portfolio-inputs" className="text-lg font-semibold">
           {p.inputsHeading}
         </h2>
@@ -281,18 +291,41 @@ export function PortfolioTool() {
       </form>
 
       <section data-testid="results" aria-label="Results" className="min-w-0 space-y-6">
-        <DemoBadge source={result?.source} />
-        {error && (
-          <ErrorNotice
-            title={Object.keys(fieldErrors).length ? t.common.errors.invalidHeading : t.common.errors.heading}
-            message={error}
-          />
-        )}
-        <PortfolioResults result={result} aiTool="portfolio" />
+        <Tabs
+          idPrefix="portfolio"
+          label={p.tabs.label}
+          tabs={TABS}
+          labels={p.tabs}
+          active={tab}
+          onChange={setTab}
+        >
+          {/* Each view shows its own data badge and errors; the backtest and frontier run on the same form. */}
+          {tab === "overview" && (
+            <div className="mt-4 space-y-6">
+              <DemoBadge source={result?.source} />
+              {error && (
+                <ErrorNotice
+                  title={Object.keys(fieldErrors).length ? t.common.errors.invalidHeading : t.common.errors.heading}
+                  message={error}
+                />
+              )}
+              <PortfolioOverview result={result} />
+            </div>
+          )}
+          {tab === "rebalancing" && (
+            <div className="mt-4">
+              <RebalancingBacktest portfolio={request} />
+            </div>
+          )}
+          {tab === "frontier" && (
+            <div className="mt-4">
+              <EfficientFrontier portfolio={request} />
+            </div>
+          )}
+        </Tabs>
+        {/* The metrics calculation's info and AI Explain stay reachable from every tab. */}
+        <PortfolioCalculationAndExplain result={result} aiTool="portfolio" />
       </section>
-      <div className="min-w-0 lg:col-span-2">
-        <PortfolioConstruction portfolio={request} />
-      </div>
     </div>
   );
 }

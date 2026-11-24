@@ -113,3 +113,19 @@ test.describe("mobile width", () => {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 });
+
+// Issue #70: Macro stays one page, in three sections, each with a heading and an anchor id.
+test("the page has three sections with headings and anchor ids", async ({ page }) => {
+  const main = await openMacro(page);
+  for (const [id, name] of [
+    ["us", "United States"],
+    ["countries", "Compare countries"],
+    ["euro-area", "Euro area"],
+  ]) {
+    await expect(main.locator(`section#${id}`).getByRole("heading", { level: 2 })).toHaveText(name);
+  }
+  await expect(main.locator("section#us").getByRole("heading", { level: 3, name: "US Treasury yields" })).toBeVisible();
+
+  await page.goto("/macro#euro-area");
+  await expect(main.locator("section#euro-area")).toBeInViewport();
+});
