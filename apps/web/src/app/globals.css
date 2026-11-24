@@ -121,10 +121,57 @@
   /* Display figures: Hedvig, the theme's figures face. */
   .figure-display { font-family: var(--font-display); font-weight: var(--display-weight); letter-spacing: -0.01em; line-height: 1.05; font-variant-numeric: tabular-nums; }
 
+  /* A metric's explainer: a dotted-underline trigger and a sheet anchored to it, so
+     opening one never reflows the table or card around it. Without anchor positioning
+     the browser centres the popover in the viewport. */
+  .explainer { anchor-name: var(--explainer-anchor); }
+  .explainer-trigger {
+    min-height: 24px;
+    font-size: var(--text-xs);
+    text-align: left;
+    color: var(--color-muted);
+    text-decoration: underline dotted var(--color-rule);
+    text-underline-offset: 2px;
+    cursor: pointer;
+    transition: color var(--dur-short) var(--ease-out), text-decoration-color var(--dur-short) var(--ease-out);
+  }
+  .explainer-trigger:hover, .explainer-trigger:focus-visible { color: var(--color-ink); text-decoration-color: var(--color-accent); }
+  .explainer-pop {
+    width: 24rem;
+    max-width: calc(100% - 2rem);
+    max-height: min(28rem, calc(100dvh - 2rem));
+    overflow-y: auto;
+    padding: var(--space-md);
+    border: var(--rule-hair) solid var(--color-rule);
+    border-radius: var(--radius-card);
+    background: var(--color-paper);
+    box-shadow: var(--shadow-sheet);
+    color: var(--color-ink);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: left;
+    white-space: normal;
+  }
+  .explainer-pop:popover-open {
+    transition: opacity var(--dur-short) var(--ease-out), transform var(--dur-short) var(--ease-out);
+  }
+  @starting-style { .explainer-pop:popover-open { opacity: 0; transform: translateY(-4px); } }
+  @supports (position-area: bottom) {
+    .explainer-pop {
+      position-anchor: var(--explainer-anchor);
+      position-area: bottom span-right;
+      position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+      inset: auto;
+      margin: var(--space-xs) 0;
+    }
+  }
+
   /* The thin rule by a tool's title, in the tool's own colour. */
   .tool-rule { display: block; width: var(--space-xl); height: 2px; background: var(--color-tool); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .btn:active { transform: none; }
+  .explainer-pop:popover-open { transition: none; }
 }
