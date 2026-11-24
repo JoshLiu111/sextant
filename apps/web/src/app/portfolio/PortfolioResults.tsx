@@ -3,6 +3,7 @@
 import { AiExplain } from "@/components/AiExplain";
 import { CalculationInfo } from "@/components/CalculationInfo";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
+import { KeyFiguresStrip } from "@/components/KeyFiguresStrip";
 import { LineChart, type ChartSeries } from "@/components/LineChart";
 import { MetricCard } from "@/components/MetricCard";
 import { getMessages } from "@/i18n";
@@ -22,10 +23,15 @@ const METRICS = [
   "beta",
 ] as const;
 
+/** The headline figures of the overview, picked from METRICS (the portfolio's, not the benchmark's). */
+const KEY_FIGURES = ["annualized_return", "annualized_volatility", "max_drawdown", "sharpe"] as const;
+
 /** Envelope ids: metrics `<metric>:<who>`, series `cumulative_return:<who>`. */
 const WHO = ["portfolio", "benchmark"] as const;
 
 export type PortfolioEnvelope = ResultEnvelope<string, string>;
+
+type AiTool = "portfolio" | "portfolio-saved";
 
 /** File-name input for a portfolio export: the saved name, else the holdings' tickers. */
 export function portfolioCsvInput(result: PortfolioEnvelope): string {
@@ -40,8 +46,8 @@ function chartPoints(series: SeriesResult | undefined) {
 
 /**
  * The performance and risk view of one portfolio result from `POST /portfolio/metrics` or `POST /portfolios/{id}/metrics`:
- * cumulative return vs the benchmark and the risk metric cards. Shared by the demo
- * portfolio and saved portfolios; `metricsNote` says how the return series was built.
+ * the overview, then the calculation info and AI Explain. Used by saved portfolios;
+ * the demo portfolio puts the two parts around its tabs. `metricsNote` says how the return series was built.
  */
 export function PortfolioResults({
   result,
@@ -51,7 +57,28 @@ export function PortfolioResults({
   result: PortfolioEnvelope | null;
   metricsNote?: string;
   /** The AI Explain endpoint for this result: `portfolio` (demo) or `portfolio-saved`. */
-  aiTool: "portfolio" | "portfolio-saved";
+  aiTool: AiTool;
+}) {
+  return (
+    <>
+      <PortfolioOverview result={result} metricsNote={metricsNote} />
+      <PortfolioResultDetails result={result} aiTool={aiTool} />
+    </>
+  );
+}
+
+/**
+ * Cumulative return vs the benchmark and the risk metric cards, optionally led by
+ * a strip of the portfolio's headline figures.
+ */
+export function PortfolioOverview({
+  result,
+  metricsNote,
+  keyFigures = false,
+}: {
+  result: PortfolioEnvelope | null;
+  metricsNote?: string;
+  keyFigures?: boolean;
 }) {
   const t = getMessages();
   const p = t.portfolio;
@@ -76,7 +103,17 @@ export function PortfolioResults({
     : [];
 
   return (
-    <>
+    <div className="space-y-6">
+      {keyFigures && (
+        <KeyFiguresStrip
+          figures={KEY_FIGURES.map((id) => ({
+            id: `${id}:portfolio`,
+            label: t.risk.metrics[id].name,
+            sublabel: labels.portfolio,
+            result: result?.metrics[`${id}:portfolio`],
+          }))}
+        />
+      )}
       <div>
         <h2 className="text-lg font-semibold">{p.sections.chart}</h2>
         <div className="mt-2">
@@ -125,8 +162,17 @@ export function PortfolioResults({
           ))}
         </div>
       </div>
-      {result && <CalculationInfo result={result} />}
-      {result && <AiExplain tool={aiTool} result={result} />}
+    </div>
+  );
+}
+
+/** Calculation info and AI Explain for one portfolio result. */
+export function PortfolioResultDetails({ result, aiTool }: { result: PortfolioEnvelope | null; aiTool: AiTool }) {
+  if (!result) return null;
+  return (
+    <>
+      <CalculationInfo result={result} />
+      <AiExplain tool={aiTool} result={result} />
     </>
   );
 }

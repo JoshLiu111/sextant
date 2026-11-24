@@ -331,7 +331,7 @@ test.describe("My Portfolio (demo)", () => {
   });
 
   test("the rebalancing rule and drift threshold round-trip through the URL", async ({ page }) => {
-    const main = await open(page, "/portfolio?rule=drift&drift_threshold=10", "My Portfolio");
+    const main = await open(page, "/portfolio?tab=rebalancing&rule=drift&drift_threshold=10", "My Portfolio");
     const rebalancing = main.getByRole("region", { name: "Rebalancing backtest" });
     await expect(rebalancing.getByLabel("Rebalancing rule")).toHaveValue("drift");
     await expect(rebalancing.getByLabel("Drift threshold (%)")).toHaveValue("10");
@@ -343,6 +343,7 @@ test.describe("My Portfolio (demo)", () => {
 
     await rebalancing.getByLabel("Rebalancing rule").selectOption("monthly");
     await expect(page).toHaveURL(/[?&]rule=monthly(&|$)/);
+    await expect(page).toHaveURL(/[?&]tab=rebalancing(&|$)/);
   });
 
   test("weights that don't add up show the normal validation error", async ({ page }) => {
