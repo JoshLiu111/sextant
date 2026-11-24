@@ -52,14 +52,24 @@ for (const tab of ["Strategy builder", "American (binomial)"]) {
   });
 }
 
-for (const { path, tools } of [
+for (const { path, tab, tools } of [
   { path: "/company", tools: ["company", "company"] },
   { path: "/valuation", tools: ["valuation"] },
   { path: "/macro", tools: ["macro", "macro"] },
-  { path: "/screener", tools: ["screener", "screener"] },
-]) {
-  test(`${path}: every result on the page has AI Explain, sharing one quota`, async ({ page }) => {
+  // One result per tab: the screen, and the latest filings.
+  { path: "/screener", tools: ["screener"] },
+  { path: "/screener", tab: "Latest filings", tools: ["screener"] },
+] as { path: string; tab?: string; tools: string[] }[]) {
+  test(`${path}${tab ? ` (${tab})` : ""}: every result on the page has AI Explain, sharing one quota`, async ({ page }) => {
     const ai = await signInOn(page, path);
+    if (tab) {
+      // A click before hydration is lost: retry until the tab is really selected.
+      const tabButton = page.getByRole("main").getByRole("tab", { name: tab });
+      await expect(async () => {
+        await tabButton.click();
+        await expect(tabButton).toHaveAttribute("aria-selected", "true", { timeout: 1000 });
+      }).toPass();
+    }
     // A cold screen over the recorded EDGAR frames can take a while.
     await expect(ai).toHaveCount(tools.length, { timeout: 30_000 });
     for (let i = 0; i < tools.length; i++) {

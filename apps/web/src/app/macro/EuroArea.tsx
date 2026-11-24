@@ -46,7 +46,7 @@ export function EuroArea() {
   const hicp = result?.metrics["latest:hicp_inflation"];
 
   return (
-    <section data-testid="euro-area" aria-labelledby="macro-euro-area" className="mt-10 space-y-6">
+    <section id="euro-area" data-testid="euro-area" aria-labelledby="macro-euro-area" className="mt-10 space-y-6">
       <div>
         <h2 id="macro-euro-area" className="text-lg font-semibold">
           {t.macro.sections.euroArea}

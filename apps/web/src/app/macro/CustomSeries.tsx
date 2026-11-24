@@ -90,9 +90,9 @@ export function CustomSeries({ start }: { start: string | undefined }) {
 
   return (
     <section data-testid="custom-series" aria-labelledby="macro-custom" className="mt-10 space-y-6">
-      <h2 id="macro-custom" className="text-lg font-semibold">
+      <h3 id="macro-custom" className="text-lg font-semibold">
         {c.heading}
-      </h2>
+      </h3>
       <p className="text-sm text-black/70 dark:text-white/70">{c.intro}</p>
       <form onSubmit={onSearch} noValidate role="search" className="flex flex-wrap items-start gap-4">
         <div className="w-full max-w-sm">

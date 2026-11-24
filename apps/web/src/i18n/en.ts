@@ -311,8 +311,8 @@ export const en = {
         steps: [
           "Set criteria such as revenue growth, margins, return on equity or debt, choose a year, then press Run screen.",
           "Sort the results by any column, and open a company in the Company Health Check or the Valuation Calculator.",
-          "Below the screen, check who reports earnings next and look up a company's dividend history.",
-          "Follow the latest SEC filings market-wide, or for one company and form type.",
+          "In the Earnings calendar and Dividend history tabs, check who reports earnings next and look up a company's dividends.",
+          "In the Latest filings tab, follow the newest SEC filings market-wide, or for one company and form type.",
           "Copy the address bar to share or bookmark these exact inputs.",
         ],
         examples: [
@@ -320,7 +320,7 @@ export const en = {
             label: "Find growing companies with little debt",
             params: { criteria: "revenue_growth:min:10,debt_ratio:max:30", sort: "ticker", direction: "asc" },
           },
-          { label: "See JPMorgan's dividend history", params: { dividends_ticker: "JPM" } },
+          { label: "See JPMorgan's dividend history", params: { tab: "dividends", dividends_ticker: "JPM" } },
         ],
         signedInExtras: [
           "add 52-week price criteria, using your own Tiingo or FMP key",
@@ -1242,6 +1242,7 @@ export const en = {
     intro:
       "The latest reading and history of four headline US indicators, from public-domain series on FRED; the US Treasury yield curve and 10Y–2Y spread, from the Treasury's daily par yield curve; a cross-country comparison from the World Bank; and euro area policy rates and inflation from the ECB. Hover a chart to see exact values.",
     sections: {
+      us: "United States",
       indicators: "US headline indicators",
       rates: "US Treasury yields",
       countries: "Compare countries",
@@ -1452,7 +1453,14 @@ export const en = {
   },
   screener: {
     intro:
-      "Screen US companies that file with the SEC on fundamentals from their annual reports, then open any of them in the Company Health Check or the Valuation Calculator. Below the screen: an earnings calendar, a company's dividend history, and the latest SEC filings, market-wide or for one company.",
+      "Screen US companies that file with the SEC on fundamentals from their annual reports, then open any of them in the Company Health Check or the Valuation Calculator. The other tabs hold an earnings calendar, a company's dividend history, and the latest SEC filings, market-wide or for one company.",
+    tabs: {
+      label: "Screener & Calendar sections",
+      screen: "Screen",
+      earnings: "Earnings calendar",
+      dividends: "Dividend history",
+      filings: "Latest filings",
+    },
     screenHeading: "Fundamental screen",
     criteriaLegend: "Criteria",
     year: {

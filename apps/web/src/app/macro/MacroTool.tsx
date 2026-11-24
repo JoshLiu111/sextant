@@ -44,9 +44,9 @@ export function MacroTool() {
   return (
     <>
       <form onSubmit={onSubmit} noValidate aria-labelledby="macro-inputs" className="mt-6 flex flex-wrap items-start gap-4">
-        <h2 id="macro-inputs" className="sr-only">
+        <h3 id="macro-inputs" className="sr-only">
           {m.inputsHeading}
-        </h2>
+        </h3>
         <div className="w-full max-w-sm">
           <TextField
             type="date"
