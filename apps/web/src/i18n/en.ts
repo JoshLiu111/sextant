@@ -120,6 +120,13 @@ export const en = {
       heading: "Your tools",
     },
   },
+  /** Tool group names (`ToolGroup` in lib/tools.ts): the nav menus and the card sections. */
+  toolGroups: {
+    markets: "Markets",
+    companies: "Companies",
+    "portfolio-risk": "Portfolio & Risk",
+    "ai-analyst": "AI Analyst",
+  },
   /**
    * Per-tool copy. `question` is what the tool answers and `highlights` (2–3)
    * what it gives you; the landing page and dashboard cards read both. `howTo`

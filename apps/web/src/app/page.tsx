@@ -1,8 +1,7 @@
 import { ComputeStatus } from "@/components/ComputeStatus";
 import { SignInLink } from "@/components/SignInLink";
-import { ToolCard } from "@/components/ToolCard";
+import { ToolCardGroups } from "@/components/ToolCardGroups";
 import { getMessages } from "@/i18n";
-import { TOOLS } from "@/lib/tools";
 
 // The landing page. It never reads the session, so it stays static and
 // cacheable; signing in from here starts at /auth/signin and returns to /.
@@ -33,13 +32,9 @@ export default function Home() {
           {t.home.tools.heading}
         </h2>
         <p className="mt-1 text-black/70 dark:text-white/70">{t.home.tools.intro}</p>
-        <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {TOOLS.map((tool) => (
-            <li key={tool.slug}>
-              <ToolCard tool={tool} action="openDemo" />
-            </li>
-          ))}
-        </ul>
+        <div className="mt-6">
+          <ToolCardGroups action="openDemo" />
+        </div>
       </section>
 
       <section aria-labelledby="unlocks-heading" className="mt-14">

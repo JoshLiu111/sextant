@@ -21,7 +21,9 @@ test("anonymous visitors see a sign-in link and can still open every tool", asyn
   await expect(
     page.getByRole("banner").getByRole("link", { name: "Sign in with Google" }),
   ).toBeVisible();
-  await page.getByRole("navigation", { name: "Tools" }).getByRole("link", { name: "My Portfolio" }).click();
+  const nav = page.getByRole("navigation", { name: "Tools" });
+  await nav.getByRole("button", { name: "Portfolio & Risk" }).click();
+  await nav.getByRole("link", { name: "My Portfolio" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "My Portfolio" })).toBeVisible();
 });
 

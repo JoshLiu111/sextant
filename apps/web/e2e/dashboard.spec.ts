@@ -64,6 +64,16 @@ test("with an invalid session cookie, / shows the landing page and nothing loops
   await expect(page.getByRole("region", { name: "Free, transparent finance tools" })).toBeVisible();
 });
 
+// The tool nav is unchanged by signing in: three group menus and the AI Analyst link.
+async function expectToolNav(page: Page) {
+  const nav = page.getByRole("navigation", { name: "Tools" });
+  await expect(nav.getByRole("button")).toHaveCount(3);
+  for (const group of ["Markets", "Companies", "Portfolio & Risk"]) {
+    await expect(nav.getByRole("button", { name: group, exact: true })).toBeVisible();
+  }
+  await expect(nav.getByRole("link")).toHaveText(["AI Analyst"]);
+}
+
 test("a signed-in user gets a Dashboard nav link, and the logo points to the dashboard", async ({ page }) => {
   await signInFromLanding(page, uniqueEmail("nav"));
   await page.goto("/risk");
@@ -73,8 +83,7 @@ test("a signed-in user gets a Dashboard nav link, and the logo points to the das
   await banner.getByRole("link", { name: "Dashboard", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 
-  // The tool list is unchanged.
-  await expect(page.getByRole("navigation", { name: "Tools" }).getByRole("link")).toHaveCount(8);
+  await expectToolNav(page);
 });
 
 test("a visitor gets no Dashboard link, and the logo points to the landing page", async ({ page }) => {
@@ -84,7 +93,24 @@ test("a visitor gets no Dashboard link, and the logo points to the landing page"
   await expect(banner.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
   await expect(banner.getByRole("link", { name: "Sextant", exact: true })).toHaveAttribute("href", "/");
   await expect(banner.getByRole("link", { name: "Dashboard", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Tools" }).getByRole("link")).toHaveCount(8);
+  await expectToolNav(page);
+});
+
+test("dashboard groups the tool cards under the nav's four groups", async ({ page }) => {
+  await signInFromLanding(page, uniqueEmail("groups"));
+
+  const tools = page.getByRole("main").getByRole("region", { name: "Your tools" });
+  const groups: Record<string, string[]> = {
+    Markets: ["Macro Dashboard", "Screener & Calendar"],
+    Companies: ["Company Health Check", "Valuation Calculator"],
+    "Portfolio & Risk": ["My Portfolio", "Risk & Performance", "Options Calculator"],
+    "AI Analyst": ["AI Analyst"],
+  };
+  for (const [group, names] of Object.entries(groups)) {
+    const section = tools.getByRole("region", { name: group, exact: true });
+    await expect(section.getByRole("article")).toHaveCount(names.length);
+    for (const name of names) await expect(section.getByRole("article", { name, exact: true })).toHaveCount(1);
+  }
 });
 
 test("dashboard tool cards open the tool, with no demo wording", async ({ page }) => {

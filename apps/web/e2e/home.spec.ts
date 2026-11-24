@@ -129,17 +129,82 @@ test("home page shows the compute service is online", async ({ page }) => {
   await expect(page.getByTestId("compute-status")).toHaveText(/Compute service: online/);
 });
 
-test("nav reaches every tool from any page, and unbuilt tools say coming soon", async ({ page }) => {
+// The nav's three menus and the tools each one opens onto (AI Analyst is a direct link).
+const NAV_GROUPS: Record<string, string[]> = {
+  Markets: ["Macro Dashboard", "Screener & Calendar"],
+  Companies: ["Company Health Check", "Valuation Calculator"],
+  "Portfolio & Risk": ["My Portfolio", "Risk & Performance", "Options Calculator"],
+};
+
+test("nav shows four groups: three disclosure menus and a direct AI Analyst link", async ({ page }) => {
   await page.goto("/");
   const nav = page.getByRole("navigation", { name: "Tools" });
 
+  for (const [group, tools] of Object.entries(NAV_GROUPS)) {
+    const button = nav.getByRole("button", { name: group, exact: true });
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    for (const name of tools) await expect(nav.getByRole("link", { name, exact: true })).toHaveCount(0);
+
+    await button.click();
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+    const menu = page.locator(`#${await button.getAttribute("aria-controls")}`);
+    await expect(menu.getByRole("link")).toHaveText(tools);
+
+    // Escape closes the menu and hands focus back to its button.
+    await page.keyboard.press("Escape");
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await expect(button).toBeFocused();
+  }
+
+  // With every menu closed, only the AI Analyst link sits directly in the bar.
+  await expect(nav.getByRole("link")).toHaveText(["AI Analyst"]);
+});
+
+test("opening one nav group closes the other, and clicking outside closes it", async ({ page }) => {
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Tools" });
+  const markets = nav.getByRole("button", { name: "Markets", exact: true });
+  const companies = nav.getByRole("button", { name: "Companies", exact: true });
+
+  await markets.click();
+  await companies.click();
+  await expect(markets).toHaveAttribute("aria-expanded", "false");
+  await expect(companies).toHaveAttribute("aria-expanded", "true");
+
+  await page.getByRole("heading", { level: 1 }).click();
+  await expect(companies).toHaveAttribute("aria-expanded", "false");
+});
+
+test("nav reaches every tool from any page, and unbuilt tools say coming soon", async ({ page }) => {
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Tools" });
+  const groupOf = (name: string) => Object.keys(NAV_GROUPS).find((g) => NAV_GROUPS[g].includes(name));
+
   for (const name of TOOLS) {
+    const group = groupOf(name);
+    if (group) await nav.getByRole("button", { name: group, exact: true }).click();
     await nav.getByRole("link", { name, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     const comingSoon = page.getByRole("main").getByText("Coming soon", { exact: true });
     if (LIVE_TOOLS.has(name)) await expect(comingSoon).toHaveCount(0);
     else await expect(comingSoon).toBeVisible();
     await expect(page.getByRole("contentinfo")).toContainText("Not investment advice");
+    // Following a link closes its menu.
+    if (group) {
+      await expect(nav.getByRole("button", { name: group, exact: true })).toHaveAttribute("aria-expanded", "false");
+    }
+  }
+});
+
+test("home groups the tool cards under the same four groups as the nav", async ({ page }) => {
+  await page.goto("/");
+
+  const tools = page.getByRole("region", { name: "Pick a question" });
+  const groups = { ...NAV_GROUPS, "AI Analyst": ["AI Analyst"] };
+  for (const [group, names] of Object.entries(groups)) {
+    const section = tools.getByRole("region", { name: group, exact: true });
+    await expect(section.getByRole("article")).toHaveCount(names.length);
+    for (const name of names) await expect(section.getByRole("article", { name, exact: true })).toHaveCount(1);
   }
 });
 
@@ -162,10 +227,14 @@ test.describe("mobile width", () => {
     expect(new Set(lefts).size).toBe(1);
 
     await page.getByRole("button", { name: "Menu" }).click();
-    await page
-      .getByRole("navigation", { name: "Tools" })
-      .getByRole("link", { name: "Macro Dashboard", exact: true })
-      .click();
+    const nav = page.getByRole("navigation", { name: "Tools" });
+    // The mobile menu lists the same four groups.
+    for (const group of Object.keys(NAV_GROUPS)) {
+      await expect(nav.getByRole("button", { name: group, exact: true })).toBeVisible();
+    }
+    await expect(nav.getByRole("link", { name: "AI Analyst", exact: true })).toBeVisible();
+    await nav.getByRole("button", { name: "Markets", exact: true }).click();
+    await nav.getByRole("link", { name: "Macro Dashboard", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Macro Dashboard" })).toBeVisible();
   });
 });
