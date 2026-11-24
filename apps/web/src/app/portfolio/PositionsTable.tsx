@@ -83,8 +83,8 @@ export function PositionsTable({ result, currency }: { result: PortfolioEnvelope
             {s.sections.positionsNote} {currency && `(${currency})`}
           </caption>
           <thead>
-            <tr className="border-b border-rule align-bottom">
-              <th scope="col" className="px-2 py-2 text-left font-medium">
+            <tr className="border-b border-rule align-bottom whitespace-nowrap text-muted">
+              <th scope="col" className="sticky left-0 bg-paper px-2 py-2 text-left font-medium">
                 {s.sections.columns.ticker}
               </th>
               {POSITION_COLUMNS.map((c) => (
@@ -97,7 +97,7 @@ export function PositionsTable({ result, currency }: { result: PortfolioEnvelope
           <tbody>
             {tickers.map((ticker) => (
               <tr key={ticker} data-ticker={ticker} className="border-b border-rule">
-                <th scope="row" className="px-2 py-1.5 text-left tabular-nums font-normal">
+                <th scope="row" className="sticky left-0 bg-paper px-2 py-1.5 text-left tabular-nums font-normal">
                   {ticker}
                 </th>
                 {POSITION_COLUMNS.map((c) => (
@@ -108,7 +108,7 @@ export function PositionsTable({ result, currency }: { result: PortfolioEnvelope
           </tbody>
           <tfoot>
             <tr className="border-t border-rule font-medium">
-              <th scope="row" className="px-2 py-1.5 text-left">
+              <th scope="row" className="sticky left-0 bg-paper px-2 py-1.5 text-left">
                 {s.sections.total}
               </th>
               {POSITION_COLUMNS.map((c: Column) => {

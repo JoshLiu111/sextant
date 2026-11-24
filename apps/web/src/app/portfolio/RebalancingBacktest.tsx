@@ -106,10 +106,10 @@ export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, u
       <h2 id="rebalancing-heading" className="text-2xl">
         {r.heading}
       </h2>
-      <p className="text-sm text-ink-2">{r.intro}</p>
+      <p className="max-w-[55ch] text-sm text-ink-2">{r.intro}</p>
       <div className="grid gap-4 sm:grid-cols-2 lg:max-w-xl">
         <div>
-          <label htmlFor="input-rule" className="block text-sm font-medium">
+          <label htmlFor="input-rule" className="label">
             {r.rule.label}
           </label>
           <select
@@ -118,7 +118,7 @@ export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, u
             value={rule}
             onChange={(e) => setRule(e.target.value as Rule)}
             aria-describedby={fieldErrors.rule ? fieldErrorId("rule") : "input-rule-hint"}
-            className="mt-1 w-full rounded-card border border-muted px-3 py-2"
+            className="field mt-1"
           >
             {RULES.map((id) => (
               <option key={id} value={id}>
@@ -126,7 +126,7 @@ export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, u
               </option>
             ))}
           </select>
-          <p id="input-rule-hint" className="mt-1 text-xs text-muted">
+          <p id="input-rule-hint" className="hint mt-1">
             {r.rule.hint}
           </p>
           <FieldError name="rule" message={fieldErrors.rule} />

@@ -56,7 +56,7 @@ function SourceLine({ source, unit, showPeriod }: { source: Source; unit: Unit; 
         </span>
       )}
       {source.url ? (
-        <a href={source.url} target="_blank" rel="noreferrer" className="underline decoration-dotted">
+        <a href={source.url} target="_blank" rel="noreferrer" className="link whitespace-nowrap">
           {source.form} {d.filed} {source.filed}
         </a>
       ) : (
@@ -108,18 +108,18 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
           <button
             type="button"
             onClick={() => ref.current?.close()}
-            className="btn btn-sm"
+            className="btn btn-sm shrink-0 whitespace-nowrap"
           >
             {d.close}
           </button>
         </div>
-        <dl className="space-y-2 text-sm">
+        <dl className="max-w-[75ch] space-y-2 text-sm">
           <div>
-            <dt className="font-medium">{d.formula}</dt>
+            <dt className="text-muted">{d.formula}</dt>
             <dd>{explainer.how}</dd>
           </div>
           <div>
-            <dt className="font-medium">{d.value}</dt>
+            <dt className="text-muted">{d.value}</dt>
             <dd>
               {!metric ? (
                 "…"
@@ -141,20 +141,20 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
                 {d.inputs}
               </h3>
               <p className="text-xs text-muted">{d.unitsNote}</p>
-              <div className="relative mt-2 max-h-[50vh] overflow-auto rounded-card border border-rule">
+              <div className="relative mt-2 max-h-[50vh] overflow-auto">
                 <table aria-labelledby="ratio-inputs-table" className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-rule text-left">
-                      <th scope="col" className="px-3 py-2 font-medium">
+                    <tr className="border-b border-ink text-left text-xs text-muted">
+                      <th scope="col" className="sticky left-0 top-0 z-20 whitespace-nowrap bg-paper py-2 pr-3 font-medium">
                         {d.input}
                       </th>
-                      <th scope="col" className="px-3 py-2 font-medium">
+                      <th scope="col" className="sticky top-0 z-10 whitespace-nowrap bg-paper px-3 py-2 font-medium">
                         {d.period}
                       </th>
-                      <th scope="col" className="px-3 py-2 text-right font-medium">
+                      <th scope="col" className="sticky top-0 z-10 whitespace-nowrap bg-paper px-3 py-2 text-right font-medium">
                         {d.amount}
                       </th>
-                      <th scope="col" className="px-3 py-2 font-medium">
+                      <th scope="col" className="sticky top-0 z-10 whitespace-nowrap bg-paper px-3 py-2 font-medium">
                         {d.source}
                       </th>
                     </tr>
@@ -165,10 +165,10 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
                         key={`${i.item}:${i.period_id}`}
                         className="border-b border-rule align-top last:border-0"
                       >
-                        <th scope="row" className="px-3 py-1.5 text-left font-normal">
+                        <th scope="row" className="sticky left-0 z-10 bg-paper py-1.5 pr-3 text-left font-normal">
                           {i.label}
                         </th>
-                        <td className="px-3 py-1.5">
+                        <td className="whitespace-nowrap px-3 py-1.5">
                           {i.period_label}
                           {i.basis === "ttm" && (
                             <span title={d.ttm} className="ml-1 text-xs text-muted">
@@ -176,7 +176,7 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-1.5 text-right tabular-nums">
+                        <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">
                           {i.value === null ? <span className="font-sans italic">{i.reason}</span> : formatStatementValue(i.value, i.unit)}
                         </td>
                         <td className="px-3 py-1.5">

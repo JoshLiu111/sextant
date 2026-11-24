@@ -85,7 +85,7 @@ export function CorrelationHeatmap({ selection }: { selection: RiskSelection }) 
           </tbody>
         </table>
       </div>
-      <p data-testid="heatmap-tooltip" role="status" className="mt-1 min-h-5 text-sm text-ink-2">
+      <p data-testid="heatmap-tooltip" role="status" className="mt-1 min-h-5 max-w-[55ch] text-sm text-ink-2">
         {hovered &&
           `${hovered[0]} ${t.versus} ${hovered[1]}: ${
             hoveredResult?.status === "ok" || !hoveredResult ? cellText(hoveredResult) : hoveredResult.reason

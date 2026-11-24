@@ -23,7 +23,7 @@ export default function Page({ searchParams }: PageProps<"/macro">) {
       <ToolPageHeader tool="macro" intro={t.macro.intro} />
       {/* Three sections, each with an anchor: #us, #countries (CrossCountry), #euro-area (EuroArea). */}
       <section id="us" aria-labelledby="macro-us" className="mt-6">
-        <h2 id="macro-us" className="text-xl">
+        <h2 id="macro-us" className="text-2xl">
           {t.macro.sections.us}
         </h2>
         {/* Reads the chart range and the added FRED series from the query string (shareable links). */}

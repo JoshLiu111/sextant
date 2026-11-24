@@ -140,7 +140,7 @@ export function PortfolioOverview({
             />
           )}
         </div>
-        <p className="mt-1 text-sm text-ink-2">{metricsNote ?? p.sections.metricsNote}</p>
+        <p className="mt-1 max-w-[55ch] text-sm text-ink-2">{metricsNote ?? p.sections.metricsNote}</p>
         <div className="mt-2 grid gap-4 xl:grid-cols-3">
           {METRICS.map((id) => (
             <MetricCard

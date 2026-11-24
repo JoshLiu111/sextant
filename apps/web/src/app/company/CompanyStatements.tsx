@@ -68,7 +68,7 @@ function Cell({ id, label, result }: { id: string; label: string; result: Metric
       data-metric-value={id}
       data-status="ok"
       title={source}
-      className="tabular-nums hover:underline"
+      className="tabular-nums underline decoration-transparent underline-offset-2 hover:decoration-accent"
     >
       {formatStatementValue(result.value, result.unit)}
     </a>
@@ -96,16 +96,16 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
           demo={result.source.is_demo}
         />
       </div>
-      <div className="mt-2 overflow-x-auto rounded-card border border-rule">
+      <div className="mt-3 overflow-x-auto">
         <table aria-labelledby={headingId} className="w-full min-w-[40rem] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-rule align-bottom">
-              <th scope="col" className="sticky left-0 bg-paper px-3 py-2 text-left font-medium">
+            <tr className="border-b border-ink align-bottom">
+              <th scope="col" className="sticky left-0 z-10 whitespace-nowrap bg-paper py-2 pr-3 text-left text-xs font-medium text-muted">
                 {c.lineItem}
               </th>
               {result.periods.map((p) => (
-                <th key={p.id} scope="col" className="px-3 py-2 text-right font-medium">
-                  <span className="block">{p.label}</span>
+                <th key={p.id} scope="col" className="whitespace-nowrap py-2 pl-4 text-right font-medium">
+                  <span className="block text-ink">{p.label}</span>
                   <span className="block text-xs font-normal text-muted">
                     {p.fiscal_quarter ? c.quarterEnded : c.yearEnded} {p.end}
                   </span>
@@ -113,7 +113,7 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
                     href={p.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="block text-xs font-normal text-muted underline decoration-dotted"
+                    className="link block text-xs font-normal text-muted"
                   >
                     {p.form} {c.filed} {p.filed}
                   </a>
@@ -126,14 +126,14 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
               <tr key={item.id} className="border-b border-rule last:border-0">
                 <th
                   scope="row"
-                  className="sticky left-0 bg-paper px-3 py-1.5 text-left font-normal"
+                  className="sticky left-0 z-10 w-40 min-w-40 bg-paper py-1.5 pr-3 text-left font-normal sm:w-56 sm:min-w-56"
                 >
                   {item.label}
                 </th>
                 {result.periods.map((p) => {
                   const id = `${item.id}:${p.id}`;
                   return (
-                    <td key={p.id} className="px-3 py-1.5 text-right">
+                    <td key={p.id} className="whitespace-nowrap py-1.5 pl-4 text-right">
                       <Cell id={id} label={item.label} result={result.metrics[id]} />
                     </td>
                   );
@@ -168,12 +168,12 @@ export function CompanyStatements() {
   }
 
   return (
-    <div className="mt-6 space-y-6">
+    <div className="mt-12 space-y-6 border-t border-rule pt-8">
       <form
         onSubmit={onSubmit}
         noValidate
         aria-labelledby="company-inputs"
-        className="flex flex-wrap items-end gap-4"
+        className="flex flex-wrap items-start gap-x-3 gap-y-2"
       >
         <h2 id="company-inputs" className="sr-only">
           {c.inputsHeading}
@@ -190,7 +190,7 @@ export function CompanyStatements() {
         </div>
         <button
           type="submit"
-          className="btn btn-primary mb-6"
+          className="btn whitespace-nowrap sm:mt-6"
         >
           {c.submit}
         </button>
@@ -206,12 +206,12 @@ export function CompanyStatements() {
         {statements ? (
           <>
             <div>
-              <h2 className="text-xl">{statements.company.name}</h2>
-              <p className="text-sm text-muted">
-                {statements.company.ticker} · CIK {statements.company.cik} · {c.unitsNote}
+              <h2 className="text-2xl">{statements.company.name}</h2>
+              <p className="mt-1 text-sm text-muted">
+                {statements.company.ticker} · CIK <span className="tabular-nums">{statements.company.cik}</span> · {c.unitsNote}
               </p>
               {statements.periods.some((p) => p.fiscal_quarter) && (
-                <p className="mt-1 text-xs text-muted">{c.quarterlyNote}</p>
+                <p className="mt-1 max-w-[75ch] text-xs text-muted">{c.quarterlyNote}</p>
               )}
               <MetricExplainer explainer={c.explainer} />
             </div>

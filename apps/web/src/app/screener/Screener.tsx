@@ -175,20 +175,35 @@ function SortHeader({
     <th
       scope="col"
       aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : undefined}
-      className={`px-2 py-2 font-medium ${align === "left" ? "text-left" : "text-right"}`}
+      className={`whitespace-nowrap px-2 py-1 font-normal ${align === "left" ? "text-left" : "text-right"} ${
+        column === "ticker" ? "sticky left-0 z-10 bg-paper" : ""
+      }`}
     >
-      <button type="button" onClick={() => onSort(column)} className="inline-flex items-center gap-1 hover:underline">
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={`inline-flex min-h-8 cursor-pointer items-center gap-1.5 transition-colors duration-[var(--dur-short)] hover:text-ink active:text-ink-2 ${
+          active ? "font-medium text-ink" : "text-muted"
+        }`}
+      >
         {label}
-        <span aria-hidden="true" className="text-xs text-muted">
-          {active ? (direction === "asc" ? "▲" : "▼") : "↕"}
-        </span>
+        <SortIcon state={active ? direction : null} />
       </button>
     </th>
   );
 }
 
-const inputClass =
-  "mt-1 w-full min-w-0 rounded-card border border-muted px-2 py-2";
+/** Two stacked carets; the sorted direction's is solid, the other faint. */
+function SortIcon({ state }: { state: Direction | null }) {
+  return (
+    <svg aria-hidden="true" width="8" height="12" viewBox="0 0 8 12" className="shrink-0" fill="currentColor">
+      <path d="M4 1 7.5 5h-7Z" opacity={state === "asc" ? 1 : 0.35} />
+      <path d="M4 11 .5 7h7Z" opacity={state === "desc" ? 1 : 0.35} />
+    </svg>
+  );
+}
+
+const inputClass = "field mt-1";
 
 export function Screener() {
   const t = getMessages();
@@ -250,9 +265,9 @@ export function Screener() {
       <h2 id="screen-heading" className="text-2xl">
         {s.screenHeading}
       </h2>
-      <form onSubmit={onSubmit} noValidate className="space-y-4">
-        <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">{s.criteriaLegend}</legend>
+      <form onSubmit={onSubmit} noValidate className="max-w-3xl space-y-5">
+        <fieldset className="space-y-2">
+          <legend className="label mb-2">{s.criteriaLegend}</legend>
           {rows.map((row, i) => {
             const n = i + 1;
             const valueName = `criteria.${i}.value`;
@@ -276,7 +291,7 @@ export function Screener() {
                     ))}
                   </select>
                 </div>
-                <div className="w-28">
+                <div className="w-28 shrink-0">
                   <label htmlFor={`criterion-op-${row.key}`} className="sr-only">
                     {s.opLabel} {n}
                   </label>
@@ -290,7 +305,7 @@ export function Screener() {
                     <option value="max">{s.ops.max}</option>
                   </select>
                 </div>
-                <div className="w-36">
+                <div className="w-36 shrink-0">
                   <label htmlFor={`criterion-value-${row.key}`} className="sr-only">
                     {s.valueLabel} {n}
                   </label>
@@ -307,14 +322,14 @@ export function Screener() {
                       aria-describedby={valueError ? fieldErrorId(valueName) : undefined}
                       className={`${inputClass} tabular-nums ${valueError ? "border-error" : ""}`}
                     />
-                    <span className="mt-1 text-sm text-muted">{s.valueUnits[UNIT[row.metric]]}</span>
+                    <span className="mt-1 w-4 text-sm text-muted">{s.valueUnits[UNIT[row.metric]]}</span>
                   </div>
                 </div>
                 <button
                   type="button"
                   aria-label={`${s.removeLabel} ${n}`}
                   onClick={() => setRows((rs) => rs.filter((r) => r.key !== row.key))}
-                  className="btn mb-0.5"
+                  className="btn"
                 >
                   {s.remove}
                 </button>
@@ -326,7 +341,7 @@ export function Screener() {
           })}
           <FieldError name="criteria" message={fieldErrors.criteria} />
         </fieldset>
-        <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-3 border-t border-rule pt-4">
           <button
             type="button"
             onClick={() => {
@@ -337,8 +352,8 @@ export function Screener() {
           >
             {s.add}
           </button>
-          <div className="w-48">
-            <label htmlFor="input-year" className="block text-sm font-medium">
+          <div className="w-60 max-w-full">
+            <label htmlFor="input-year" className="label">
               {s.year.label}
             </label>
             <select id="input-year" value={year} onChange={(e) => setYear(e.target.value)} className={inputClass}>
@@ -359,7 +374,7 @@ export function Screener() {
           </button>
         </div>
         {priceSource && providers.length > 1 && (
-          <label className="block text-sm font-medium">
+          <label className="label">
             {s.priceCriteria.provider}
             <select
               name="price_source"
@@ -375,12 +390,12 @@ export function Screener() {
             </select>
           </label>
         )}
-        <p data-testid="price-criteria-note" className="text-xs text-muted">
+        <p data-testid="price-criteria-note" className="hint max-w-[75ch]">
           {priceSource ? s.priceCriteria.myData(PROVIDER_NAMES[priceSource], MAX_PRICED) : s.priceCriteria.signIn}
         </p>
       </form>
 
-      <div data-testid="results" aria-busy={pending} className="min-w-0 space-y-4">
+      <div data-testid="results" aria-busy={pending} className="min-w-0 space-y-4 border-t border-rule pt-6">
         {error && (
           <ErrorNotice
             title={Object.keys(fieldErrors).length ? t.common.errors.invalidHeading : t.common.errors.heading}
@@ -389,22 +404,24 @@ export function Screener() {
         )}
         {screen ? (
           <>
-            <div data-testid="screen-summary" className="space-y-1 text-sm">
-              <p className="font-medium">
+            <div data-testid="screen-summary" className="max-w-[75ch] space-y-2 text-sm">
+              <p className="font-medium tabular-nums">
                 {s.match(screen.matched, screen.universe)}
                 {screen.rows.length < screen.matched ? s.showing(screen.rows.length) : ""} · {screen.frames.flow}.{" "}
                 {screen.excluded.total ? `${s.excluded(screen.excluded.total)}:` : s.noneExcluded}
               </p>
               {screen.excluded.total > 0 && (
-                <ul className="list-disc pl-5 text-ink-2">
+                <ul className="space-y-1.5 border-l border-rule pl-3 text-ink-2">
                   {screen.excluded.by_criterion
                     .filter((e) => e.count > 0)
                     .map((e) => (
                       <li key={e.metric}>
-                        <span>
+                        <span className="font-medium tabular-nums text-ink">
                           {e.label}: {e.count}
-                        </span>{" "}
-                        — {e.reasons.map((r) => `${r.reason} (${r.count})`).join("; ")}
+                        </span>
+                        <span className="block text-muted">
+                          {e.reasons.map((r) => `${r.reason} (${r.count})`).join("; ")}
+                        </span>
                       </li>
                     ))}
                 </ul>
@@ -438,43 +455,43 @@ export function Screener() {
               </div>
             )}
             {screen.rows.length > 0 && (
-              <div className="overflow-x-auto rounded-card border border-rule">
+              <div className="overflow-x-auto">
                 <table aria-label={s.resultsLabel} className="w-full min-w-[40rem] border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-rule align-bottom">
+                    <tr className="border-b border-ink align-bottom">
                       <SortHeader column="ticker" label={s.ticker} align="left" {...sortProps} />
                       <SortHeader column="name" label={s.company} align="left" {...sortProps} />
                       {screen.columns.map((c) => (
                         <SortHeader key={c.id} column={c.id} label={c.label} {...sortProps} />
                       ))}
-                      <th scope="col" className="px-2 py-2 text-right font-medium">
-                        {s.fiscalYearEnd}
+                      <th scope="col" className="whitespace-nowrap px-2 py-1 text-right font-normal text-muted">
+                        <span className="inline-flex min-h-8 items-center">{s.fiscalYearEnd}</span>
                       </th>
-                      <th scope="col" className="px-2 py-2 text-left font-medium">
-                        {s.open}
+                      <th scope="col" className="whitespace-nowrap px-2 py-1 text-left font-normal text-muted">
+                        <span className="inline-flex min-h-8 items-center">{s.open}</span>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {screen.rows.map((r) => (
-                      <tr key={r.cik} data-ticker={r.ticker} className="border-b border-rule last:border-0">
-                        <td className="px-2 py-1.5 tabular-nums">{r.ticker}</td>
+                      <tr key={r.cik} data-ticker={r.ticker} className="border-b border-rule">
+                        <td className="sticky left-0 z-10 bg-paper px-2 py-1.5 font-medium tabular-nums">{r.ticker}</td>
                         <td className="px-2 py-1.5">{r.name}</td>
                         {screen.columns.map((c) => (
                           <td key={c.id} data-metric-value={c.id} className="px-2 py-1.5 text-right tabular-nums">
                             {formatCell(r.values[c.id], c.unit)}
                           </td>
                         ))}
-                        <td className="px-2 py-1.5 text-right tabular-nums text-xs">{r.period_end ?? "–"}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-muted">{r.period_end ?? "–"}</td>
                         <td className="whitespace-nowrap px-2 py-1.5">
                           <Link
                             href={`/company?companies=${encodeURIComponent(r.ticker)}&ticker=${encodeURIComponent(r.ticker)}`}
-                            className="underline"
+                            className="link"
                           >
                             {s.healthCheck}
                           </Link>{" "}
                           ·{" "}
-                          <Link href={`/valuation?ticker=${encodeURIComponent(r.ticker)}`} className="underline">
+                          <Link href={`/valuation?ticker=${encodeURIComponent(r.ticker)}`} className="link">
                             {s.valuation}
                           </Link>
                         </td>
@@ -484,7 +501,7 @@ export function Screener() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-muted">{s.unitsNote}</p>
+            <p className="hint">{s.unitsNote}</p>
             <CalculationInfo result={screen} />
             <AiExplain tool="screener" result={screen} />
           </>

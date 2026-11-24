@@ -78,7 +78,7 @@
    none of them the cadmium action orange. Each tool owns one as --color-tool. */
 @theme static {
   --color-chart-1: oklch(52% 0.150 262);
-  --color-chart-2: oklch(54% 0.110 215);
+  --color-chart-2: oklch(46% 0.075 45);
   --color-chart-3: oklch(53% 0.100 178);
   --color-chart-4: oklch(52% 0.130 142);
   --color-chart-5: oklch(58% 0.120 88);
@@ -107,7 +107,7 @@
     --color-success: oklch(74% 0.130 150);
     --color-warning: oklch(80% 0.120 80);
     --color-chart-1: oklch(72% 0.120 262);
-    --color-chart-2: oklch(74% 0.095 215);
+    --color-chart-2: oklch(72% 0.075 50);
     --color-chart-3: oklch(74% 0.090 178);
     --color-chart-4: oklch(74% 0.120 142);
     --color-chart-5: oklch(80% 0.110 88);

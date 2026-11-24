@@ -11,6 +11,7 @@ import { getMessages } from "@/i18n";
 import { formatChartNumber } from "@/lib/format";
 import { decodeRows, encodeRows, fieldsCodec, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { STICKY_INPUTS, toolColumns } from "@/lib/layout";
 import { chartPoints, MARKET_DEFAULTS, MARKET_FIELDS, marketRequest, toNumber, type MarketForm } from "./form";
 import {
   DEFAULT_PRESET,
@@ -77,11 +78,9 @@ function toRequest(market: MarketForm, legs: LegForm[]) {
   };
 }
 
-const inputClass = (error: string | undefined) =>
-  `w-full min-w-0 rounded-card border px-2 py-1.5 tabular-nums disabled:opacity-40 ${
-    error ? "border-error" : "border-muted"
-  }`;
-const selectClass = "w-full min-w-0 rounded-card border border-muted px-2 py-1.5";
+// `.field` draws the error border from aria-invalid; the class only adds it for the first paint.
+const inputClass = (error: string | undefined) => `field mt-1 text-sm text-ink ${error ? "border-error" : ""}`;
+const selectClass = "field mt-1 text-sm text-ink";
 
 export function StrategyBuilder() {
   const t = getMessages();
@@ -135,12 +134,12 @@ export function StrategyBuilder() {
     : [];
 
   return (
-    <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-      <form onSubmit={onSubmit} noValidate aria-labelledby="strategy-inputs" className="min-w-0 space-y-6">
-        <p className="text-sm text-ink-2">{s.intro}</p>
+    <div className={`mt-6 ${toolColumns("22rem")}`}>
+      <form onSubmit={onSubmit} noValidate aria-labelledby="strategy-inputs" className={`${STICKY_INPUTS} space-y-6`}>
+        <p className="max-w-[55ch] text-sm text-ink-2">{s.intro}</p>
         <fieldset className="min-w-0">
-          <legend className="text-sm font-medium">{s.presets.heading}</legend>
-          <p className="mt-1 text-xs text-muted">{s.presets.hint}</p>
+          <legend className="label">{s.presets.heading}</legend>
+          <p className="hint mt-1">{s.presets.hint}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {PRESET_IDS.map((id) => (
               <button
@@ -157,8 +156,8 @@ export function StrategyBuilder() {
         </fieldset>
 
         <fieldset className="min-w-0" aria-describedby={fieldErrors.legs ? fieldErrorId("legs") : undefined}>
-          <legend className="text-sm font-medium">{s.legs.heading}</legend>
-          <ol className="mt-2 space-y-3">
+          <legend className="label">{s.legs.heading}</legend>
+          <ol className="mt-2 space-y-3 border-t border-rule pt-3">
             {legs.map((leg, i) => {
               const n = i + 1;
               const name = (field: string) => `legs.${i}.${field}`;
@@ -168,7 +167,7 @@ export function StrategyBuilder() {
                 <li
                   key={i}
                   data-testid="strategy-leg"
-                  className="min-w-0 rounded-card border border-rule p-2"
+                  className="min-w-0 border-b border-rule pb-3"
                 >
                   <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-end gap-2">
                     <label className="min-w-0 text-xs text-muted">
@@ -208,7 +207,7 @@ export function StrategyBuilder() {
                       aria-label={`${s.legs.remove} ${n}`}
                       disabled={legs.length === 1}
                       onClick={() => setLegs((ls) => ls.filter((_, j) => j !== i))}
-                      className="rounded-card px-2 py-1 text-lg leading-none text-muted hover:bg-paper-2 disabled:opacity-30"
+                      className="btn btn-sm w-8 px-0 text-lg leading-none"
                     >
                       ×
                     </button>
@@ -265,7 +264,7 @@ export function StrategyBuilder() {
         </fieldset>
 
         <fieldset className="min-w-0">
-          <legend id="strategy-inputs" className="text-sm font-medium">
+          <legend id="strategy-inputs" className="label">
             {s.marketHeading}
           </legend>
           <div className="mt-2 grid grid-cols-2 gap-4">
@@ -331,13 +330,13 @@ export function StrategyBuilder() {
         <div>
           <h2 className="text-xl">{s.sections.curves}</h2>
           <div className="mt-2 flex flex-wrap gap-4">
-            <div className="text-sm">
+            <div className="text-sm text-muted">
               <label htmlFor="strategy-greek">{s.curves.greek}</label>
               <select
                 id="strategy-greek"
                 value={greek}
                 onChange={(e) => setGreek(e.target.value as Greek)}
-                className={`${selectClass} mt-1`}
+                className={`${selectClass} w-auto`}
               >
                 {GREEKS.map((g) => (
                   <option key={g} value={g}>
@@ -346,13 +345,13 @@ export function StrategyBuilder() {
                 ))}
               </select>
             </div>
-            <div className="text-sm">
+            <div className="text-sm text-muted">
               <label htmlFor="strategy-axis">{s.curves.against}</label>
               <select
                 id="strategy-axis"
                 value={axis}
                 onChange={(e) => setAxis(e.target.value as Axis)}
-                className={`${selectClass} mt-1`}
+                className={`${selectClass} w-auto`}
               >
                 <option value="spot">{s.curves.spot}</option>
                 <option value="time">{s.curves.time}</option>

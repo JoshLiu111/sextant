@@ -30,9 +30,9 @@ async function SettingsBody() {
     return (
       <div
         data-testid="key-sign-in-prompt"
-        className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-rule p-4 text-sm"
+        className="card mt-8 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 p-4 text-sm md:p-5"
       >
-        <p className="min-w-0 flex-1 text-ink-2">{t.settings.signInPrompt}</p>
+        <p className="min-w-0 max-w-[65ch] flex-1 basis-48 text-ink-2">{t.settings.signInPrompt}</p>
         <SignInLink className="btn btn-primary" />
       </div>
     );
@@ -49,9 +49,9 @@ async function SettingsBody() {
 
 export default function SettingsPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-10">
+    <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-10 md:px-6">
       <h1 className="text-3xl">{t.settings.heading}</h1>
-      <p className="mt-2 text-ink-2">{t.settings.intro}</p>
+      <p className="mt-3 max-w-[65ch] text-ink-2">{t.settings.intro}</p>
       <Suspense fallback={null}>
         <SettingsBody />
       </Suspense>

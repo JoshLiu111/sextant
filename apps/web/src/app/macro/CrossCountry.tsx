@@ -43,28 +43,29 @@ export function CrossCountry({ initialCountries }: { initialCountries: CountryCo
   }
 
   return (
-    <section id="countries" data-testid="countries" aria-labelledby="macro-countries" className="mt-10 space-y-6">
+    <section id="countries" data-testid="countries" aria-labelledby="macro-countries" className="mt-12 space-y-6 border-t border-rule pt-8">
       <div>
-        <h2 id="macro-countries" className="text-xl">
+        <h2 id="macro-countries" className="text-2xl">
           {t.macro.sections.countries}
         </h2>
-        <p className="mt-1 text-sm text-ink-2">{c.intro}</p>
+        <p className="mt-2 max-w-[75ch] text-sm text-ink-2">{c.intro}</p>
       </div>
       <fieldset>
-        <legend className="text-sm font-medium">
+        <legend className="label">
           {c.picker} <span className="font-normal text-muted">({c.pickerHint})</span>
         </legend>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+        <div className="mt-1 flex flex-wrap gap-x-5">
           {COUNTRIES.map((code) => {
             const checked = countries.includes(code);
             const disabled = checked ? countries.length === 1 : countries.length >= MAX_COUNTRIES;
             return (
-              <label key={code} className={`flex items-center gap-1.5 text-sm ${disabled ? "opacity-50" : ""}`}>
+              <label key={code} className={`flex min-h-10 items-center gap-2 text-sm ${disabled ? "cursor-not-allowed text-muted" : "cursor-pointer"}`}>
                 <input
                   type="checkbox"
                   checked={checked}
                   disabled={disabled}
                   onChange={(e) => toggle(code, e.target.checked)}
+                  className="size-4 cursor-[inherit] accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus active:scale-95 disabled:opacity-50"
                 />
                 {c.names[code]}
               </label>
@@ -150,7 +151,7 @@ function WorldBankMeta({ details }: { details: MetricResult["details"] }) {
               {t.countries.dataset},{" "}
               <a
                 href={`https://data.worldbank.org/indicator/${encodeURIComponent(indicator)}`}
-                className="tabular-nums underline"
+                className="link tabular-nums"
                 target="_blank"
                 rel="noreferrer"
               >

@@ -29,7 +29,7 @@ export async function SavedPortfoliosSection() {
         className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-rule p-4 text-sm"
       >
         <p className="min-w-0 flex-1 text-ink-2">{t.savePrompt.body}</p>
-        <SignInLink className="btn btn-primary" />
+        <SignInLink className="btn" />
       </div>
     );
   }

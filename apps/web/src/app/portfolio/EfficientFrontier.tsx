@@ -67,7 +67,7 @@ export function EfficientFrontier({ portfolio }: { portfolio: Record<string, unk
       <h2 id="frontier-heading" className="text-2xl">
         {f.heading}
       </h2>
-      <p className="text-sm text-ink-2">{f.intro}</p>
+      <p className="max-w-[55ch] text-sm text-ink-2">{f.intro}</p>
       <DemoBadge source={result?.source} />
       {error && (
         <ErrorNotice
@@ -93,12 +93,12 @@ export function EfficientFrontier({ portfolio }: { portfolio: Record<string, unk
             <span className="block text-xs font-normal text-muted">{f.weightsCaption}</span>
           </caption>
           <thead>
-            <tr className="border-b border-rule">
-              <th scope="col" className="px-3 py-1.5 text-left font-medium">
+            <tr className="border-b border-rule whitespace-nowrap text-muted">
+              <th scope="col" className="sticky left-0 bg-paper px-3 py-2 text-left font-medium">
                 {f.tickerColumn}
               </th>
               {WHO.map((who) => (
-                <th key={who} scope="col" className="px-3 py-1.5 text-right font-medium">
+                <th key={who} scope="col" className="px-3 py-2 text-right font-medium">
                   <span aria-hidden className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ background: COLORS[who] }} />
                   {f.who[who]}
                 </th>
@@ -108,7 +108,7 @@ export function EfficientFrontier({ portfolio }: { portfolio: Record<string, unk
           <tbody>
             {tickers.map((ticker) => (
               <tr key={ticker} className="border-b border-rule">
-                <td className="px-3 py-1.5 tabular-nums">{ticker}</td>
+                <td className="sticky left-0 bg-paper px-3 py-2 tabular-nums">{ticker}</td>
                 {WHO.map((who) => (
                   <Cell key={who} id={`weight:${ticker}:${who}`} result={result?.metrics[`weight:${ticker}:${who}`]} />
                 ))}
@@ -116,7 +116,7 @@ export function EfficientFrontier({ portfolio }: { portfolio: Record<string, unk
             ))}
             {STATS.map((stat) => (
               <tr key={stat} className="border-b border-rule">
-                <th scope="row" className="px-3 py-1.5 text-left font-medium">
+                <th scope="row" className="sticky left-0 bg-paper px-3 py-2 text-left font-medium">
                   {f.rows[stat]}
                 </th>
                 {WHO.map((who) => (
@@ -127,7 +127,7 @@ export function EfficientFrontier({ portfolio }: { portfolio: Record<string, unk
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted">{f.method}</p>
+      <p className="max-w-[55ch] text-xs text-muted">{f.method}</p>
     </section>
   );
 }

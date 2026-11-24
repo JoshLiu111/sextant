@@ -100,10 +100,8 @@ function weightTotal(holdings: HoldingInput[]): string {
   return `${Math.round(total * 100) / 100}%`;
 }
 
-const inputClass = (error: string | undefined) =>
-  `w-full min-w-0 rounded-card border px-3 py-2 tabular-nums ${
-    error ? "border-error" : "border-muted"
-  }`;
+// `.field` draws the error border from aria-invalid; the class only adds it for the first paint.
+const inputClass = (error: string | undefined) => `field ${error ? "border-error" : ""}`;
 
 export function PortfolioTool() {
   const t = getMessages();
@@ -145,8 +143,8 @@ export function PortfolioTool() {
         {/* The presets are made of demo tickers, so My data has none. */}
         {!myData && (
           <fieldset className="min-w-0">
-            <legend className="text-sm font-medium">{p.presets.heading}</legend>
-            <p className="mt-1 text-xs text-muted">{p.presets.hint}</p>
+            <legend className="label">{p.presets.heading}</legend>
+            <p className="hint mt-1">{p.presets.hint}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {(Object.keys(PRESETS) as PresetId[]).map((id) => (
                 <button
@@ -164,8 +162,8 @@ export function PortfolioTool() {
         )}
 
         <fieldset className="min-w-0" aria-describedby={fieldErrors.holdings ? fieldErrorId("holdings") : undefined}>
-          <legend className="text-sm font-medium">{p.holdings.heading}</legend>
-          <p className="mt-1 text-xs text-muted">
+          <legend className="label">{p.holdings.heading}</legend>
+          <p className="hint mt-1">
             {myData ? p.myDataInputs.holdings.hint : p.holdings.hint}
           </p>
           <div aria-hidden className="mt-2 grid grid-cols-[minmax(0,1fr)_6rem_2rem] gap-2 text-xs text-muted">
@@ -210,7 +208,7 @@ export function PortfolioTool() {
                       aria-label={`${p.holdings.remove} ${n}`}
                       disabled={form.holdings.length === 1}
                       onClick={() => setHoldings((hs) => hs.filter((_, j) => j !== i))}
-                      className="rounded-card px-2 py-1 text-lg leading-none text-muted hover:bg-paper-2 disabled:opacity-30"
+                      className="btn btn-sm w-8 px-0 text-lg leading-none"
                     >
                       ×
                     </button>

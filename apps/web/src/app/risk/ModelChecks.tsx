@@ -79,12 +79,12 @@ export function ModelChecks({
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h2 className="text-xl">{t.heading}</h2>
         {symbols.length > 0 && (
-          <label className="text-sm">
-            <span className="mr-2">{t.select}</span>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <span>{t.select}</span>
             <select
               value={ticker}
               onChange={(e) => setPicked(e.target.value)}
-              className="rounded-card border border-muted px-2 py-1 tabular-nums"
+              className="field w-auto text-ink"
             >
               {symbols.map((s) => (
                 <option key={s} value={s}>
@@ -96,20 +96,20 @@ export function ModelChecks({
         )}
       </div>
 
-      <div className="rounded-card border border-rule p-4">
+      <div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <caption className="text-left font-medium">
+            <caption className="pb-2 text-left font-medium">
               {t.backtest.caption} {ticker ? `(${ticker})` : ""}
             </caption>
             <thead>
-              <tr className="text-left text-muted">
-                <th scope="col" className="py-1 pr-3 font-medium">{t.backtest.columns.method}</th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">{t.backtest.columns.breaches}</th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">{t.backtest.columns.expected}</th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">{t.backtest.columns.statistic}</th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">{t.backtest.columns.pValue}</th>
-                <th scope="col" className="py-1 font-medium">{t.backtest.columns.reading}</th>
+              <tr className="whitespace-nowrap text-left text-muted">
+                <th scope="col" className="sticky left-0 bg-paper py-2 pr-3 font-medium">{t.backtest.columns.method}</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">{t.backtest.columns.breaches}</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">{t.backtest.columns.expected}</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">{t.backtest.columns.statistic}</th>
+                <th scope="col" className="py-2 pr-3 text-right font-medium">{t.backtest.columns.pValue}</th>
+                <th scope="col" className="py-2 font-medium">{t.backtest.columns.reading}</th>
               </tr>
             </thead>
             <tbody>
@@ -123,29 +123,29 @@ export function ModelChecks({
                     data-status={r?.status ?? "pending"}
                     className="border-t border-rule"
                   >
-                    <th scope="row" className="py-1 pr-3 text-left font-normal">{t.backtest.methods[method]}</th>
+                    <th scope="row" className="sticky left-0 bg-paper py-2 pr-3 text-left font-normal">{t.backtest.methods[method]}</th>
                     {r?.status === "ok" && r.value !== null ? (
                       <>
-                        <td className="py-1 pr-3 text-right tabular-nums">{r.value}</td>
-                        <td className="py-1 pr-3 text-right tabular-nums">
+                        <td className="py-2 pr-3 text-right tabular-nums">{r.value}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">
                           {show(num(r, "expected_breaches"), (n) => ONE.format(n))}
                         </td>
-                        <td className="py-1 pr-3 text-right tabular-nums">
+                        <td className="py-2 pr-3 text-right tabular-nums">
                           {show(num(r, "kupiec_statistic"), (n) => TWO.format(n))}
                         </td>
-                        <td className="py-1 pr-3 text-right tabular-nums">
+                        <td className="py-2 pr-3 text-right tabular-nums">
                           {show(num(r, "p_value"), pValue)}
                         </td>
                         <td
                           data-testid="reading"
-                          className={r.details.result === "reject" ? "py-1 text-red-700" : "py-1"}
+                          className={r.details.result === "reject" ? "whitespace-nowrap py-2 text-red-700" : "whitespace-nowrap py-2"}
                         >
                           {r.details.result === "reject" ? t.backtest.reject : t.backtest.accept} {t.backtest.at}{" "}
                           {level}
                         </td>
                       </>
                     ) : (
-                      <td colSpan={5} className="py-1 text-muted">
+                      <td colSpan={5} className="py-2 text-muted">
                         {r ? r.reason : getMessages().common.status.pending}
                       </td>
                     )}
@@ -158,7 +158,7 @@ export function ModelChecks({
         <MetricExplainer explainer={t.backtest.explainer} />
       </div>
 
-      <div className="rounded-card border border-rule p-4">
+      <div className="border-t border-rule pt-6">
         <h3 className="font-body text-sm font-medium tracking-normal">
           {t.garch.heading} {ticker ? `(${ticker})` : ""}
         </h3>

@@ -191,12 +191,12 @@ export function TechnicalAnalysis({ selection }: { selection: RiskSelection }) {
       <div>
         <div className="flex flex-wrap items-end justify-between gap-2">
           <h2 className="text-xl">{t.heading}</h2>
-          <label className="text-sm">
-            <span className="mr-2">{t.select}</span>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <span>{t.select}</span>
             <select
               value={ticker}
               onChange={(e) => setChosen(e.target.value)}
-              className="rounded-card border border-muted px-2 py-1 tabular-nums"
+              className="field w-auto text-ink"
             >
               {symbols.map((symbol) => (
                 <option key={symbol} value={symbol}>
@@ -206,7 +206,7 @@ export function TechnicalAnalysis({ selection }: { selection: RiskSelection }) {
             </select>
           </label>
         </div>
-        <p className="mt-1 text-sm text-ink-2">{t.intro}</p>
+        <p className="mt-1 max-w-[55ch] text-sm text-ink-2">{t.intro}</p>
         {error && (
           <ErrorNotice
             title={Object.keys(fieldErrors).length ? common.errors.invalidHeading : common.errors.heading}

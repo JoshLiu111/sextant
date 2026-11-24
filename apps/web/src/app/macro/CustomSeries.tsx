@@ -90,11 +90,11 @@ export function CustomSeries({ start }: { start: string | undefined }) {
   const full = ids.length >= MAX_SERIES;
 
   return (
-    <section data-testid="custom-series" aria-labelledby="macro-custom" className="mt-10 space-y-6">
+    <section data-testid="custom-series" aria-labelledby="macro-custom" className="mt-12 space-y-6">
       <h3 id="macro-custom" className="text-xl">
         {c.heading}
       </h3>
-      <p className="text-sm text-ink-2">{c.intro}</p>
+      <p className="max-w-[75ch] text-sm text-ink-2">{c.intro}</p>
       <form onSubmit={onSearch} noValidate role="search" className="flex flex-wrap items-start gap-4">
         <div className="w-full max-w-sm">
           <TextField
@@ -109,7 +109,7 @@ export function CustomSeries({ start }: { start: string | undefined }) {
         <button
           type="submit"
           disabled={search.kind === "pending"}
-          className="btn btn-primary mt-6"
+          className="btn mt-6"
         >
           {c.submit}
         </button>
@@ -121,16 +121,16 @@ export function CustomSeries({ start }: { start: string | undefined }) {
             {c.empty(search.query)}
           </p>
         ) : (
-          <ul aria-label={c.results} className="divide-y divide-rule rounded-card border border-rule">
+          <ul aria-label={c.results} className="divide-y divide-rule border-y border-rule">
             {search.results.map((hit) => {
               const added = ids.includes(hit.id);
               return (
-                <li key={hit.id} data-series-hit={hit.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
+                <li key={hit.id} data-series-hit={hit.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">
                       {hit.title} <span className="tabular-nums text-muted">{hit.id}</span>
                     </p>
-                    <p className="text-muted">
+                    <p className="tabular-nums text-muted">
                       {hit.units} · {hit.frequency} ({hit.seasonal_adjustment}) · {t.macro.meta.lastUpdated}{" "}
                       {formatTimestampUtc(hit.last_updated)}
                     </p>

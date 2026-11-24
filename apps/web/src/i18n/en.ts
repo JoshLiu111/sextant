@@ -1586,6 +1586,7 @@ export const en = {
       intro: "Declared dividends per share by fiscal quarter and year, from the company's 10-Q and 10-K filings (XBRL).",
       ticker: { label: "Dividend ticker", hint: "e.g. AAPL" },
       submit: "Show dividends",
+      missing: "n/a",
       companyHeading: (name: string, ticker: string) => `${name} (${ticker})`,
       basis: { declared: "Dividends declared per share, USD", paid: "Dividends paid per share, USD" },
       tableLabel: "Dividend history",

@@ -11,6 +11,7 @@ import { getMessages } from "@/i18n";
 import { formatChartNumber } from "@/lib/format";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { STICKY_INPUTS, toolColumns } from "@/lib/layout";
 import { chartPoints, MARKET_DEFAULTS, MARKET_FIELDS, marketRequest, toNumber, type MarketForm } from "./form";
 import { REFERENCE, series } from "@/lib/chartColors";
 
@@ -69,9 +70,9 @@ export function AmericanPricer() {
     : [];
 
   return (
-    <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-      <form onSubmit={onSubmit} noValidate aria-labelledby="american-inputs" className="space-y-4">
-        <p className="text-sm text-ink-2">{a.intro}</p>
+    <div className={`mt-6 ${toolColumns("20rem")}`}>
+      <form onSubmit={onSubmit} noValidate aria-labelledby="american-inputs" className={`${STICKY_INPUTS} space-y-4`}>
+        <p className="max-w-[55ch] text-sm text-ink-2">{a.intro}</p>
         <h2 id="american-inputs" className="text-xl">
           {o.inputsHeading}
         </h2>
@@ -130,15 +131,15 @@ export function AmericanPricer() {
         </div>
         <div>
           <h2 className="text-xl">{a.sections.chart}</h2>
-          <div className="mt-2">
-            <label htmlFor="american-chart-kind" className="text-sm">
+          <div className="mt-2 flex items-center gap-2">
+            <label htmlFor="american-chart-kind" className="text-sm text-muted">
               {a.chart.select}
             </label>{" "}
             <select
               id="american-chart-kind"
               value={chartKind}
               onChange={(e) => setChartKind(e.target.value as Kind)}
-              className="rounded-card border border-muted px-2 py-1 text-sm"
+              className="field w-auto"
             >
               {KINDS.map((k) => (
                 <option key={k} value={k}>

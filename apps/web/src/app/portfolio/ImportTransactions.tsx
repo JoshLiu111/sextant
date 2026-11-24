@@ -15,7 +15,7 @@ import {
 
 const buttonClass =
   "btn btn-sm";
-const selectClass = "mt-1 w-full min-w-0 rounded-card border px-2 py-1.5 text-sm";
+const selectClass = "field mt-1 text-sm";
 const cellClass = "border-b border-rule px-2 py-1 text-left tabular-nums text-xs whitespace-nowrap";
 
 /**
@@ -109,10 +109,10 @@ export function ImportTransactions({
       <h3 id="import-transactions" className="text-xl">
         {s.heading}
       </h3>
-      <p className="mt-1 text-sm text-ink-2">{s.intro}</p>
+      <p className="mt-1 max-w-[55ch] text-sm text-ink-2">{s.intro}</p>
 
       <div className="mt-3">
-        <label htmlFor="import-csv-file" className="block text-sm font-medium">
+        <label htmlFor="import-csv-file" className="label">
           {s.file}
         </label>
         <input
@@ -137,8 +137,8 @@ export function ImportTransactions({
       {preview && (
         <div className="mt-4 space-y-5">
           <fieldset className="min-w-0">
-            <legend className="text-sm font-medium">{s.mappingHeading}</legend>
-            <p className="mt-1 text-xs text-muted">{s.mappingHint}</p>
+            <legend className="label">{s.mappingHeading}</legend>
+            <p className="hint mt-1">{s.mappingHint}</p>
             <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {IMPORT_FIELDS.map((field) => {
                 const name = `mapping.${field}`;
@@ -160,9 +160,7 @@ export function ImportTransactions({
                       onChange={(e) => onMap(field, e.target.value)}
                       aria-invalid={message || unmapped ? true : undefined}
                       aria-describedby={message ? fieldErrorId(name) : undefined}
-                      className={`${selectClass} ${
-                        message || unmapped ? "border-error" : "border-muted"
-                      }`}
+                      className={`${selectClass} ${message || unmapped ? "border-error" : ""}`}
                     >
                       <option value="">{s.notInFile}</option>
                       {preview.columns.map((c) => (
@@ -256,7 +254,7 @@ export function ImportTransactions({
                 type="button"
                 disabled={busy}
                 onClick={onImport}
-                className="btn btn-primary"
+                className="btn"
               >
                 {busy ? s.importing : s.confirm(importable)}
               </button>

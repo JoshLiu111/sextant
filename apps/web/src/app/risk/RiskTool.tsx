@@ -45,6 +45,11 @@ const TABS = ["overview", "rolling", "checks", "technical"] as const;
 // A link without `tab=` but with indicator params (shared before the tabs) opens Technical analysis.
 const TAB_PARAMS: TabParams<(typeof TABS)[number]> = { technical: TECHNICAL_PARAMS };
 
+/** Card columns by group size, so no group leaves a lone card on its last row:
+ * four cards sit two by two, three or six three across, five three then two. */
+const DEFAULT_COLUMNS = "sm:grid-cols-2 xl:grid-cols-3";
+const GROUP_COLUMNS: Record<number, string> = { 4: "sm:grid-cols-2" };
+
 /** The factor sections; their values carry a t-statistic or an observation count. */
 const FACTOR_GROUPS: ReadonlySet<string> = new Set(["ff3", "carhart"]);
 
@@ -342,12 +347,12 @@ export function RiskTool() {
                   <div className="flex flex-wrap items-end justify-between gap-2">
                     <h2 className="text-xl">{r.sections.chart}</h2>
                     {symbols.length > 0 && (
-                      <label className="text-sm">
-                        <span className="mr-2">{r.chart.select}</span>
+                      <label className="flex items-center gap-2 text-sm text-muted">
+                        <span>{r.chart.select}</span>
                         <select
                           value={selected}
                           onChange={(e) => setChartTicker(e.target.value)}
-                          className="rounded-card border border-muted px-2 py-1 tabular-nums"
+                          className="field w-auto text-ink"
                         >
                           {symbols.map((ticker) => (
                             <option key={ticker} value={ticker}>
@@ -372,7 +377,7 @@ export function RiskTool() {
                     )}
                   </div>
                   {mdd?.status === "ok" && mdd.value !== null && (
-                    <p data-testid="drawdown-window" className="mt-1 text-sm text-ink-2">
+                    <p data-testid="drawdown-window" className="mt-1 max-w-[55ch] text-sm text-ink-2">
                       {r.chart.window} ({selected}): {formatValue(mdd.value, mdd.unit)} {r.chart.from}{" "}
                       {mdd.details.peak} {r.chart.to} {mdd.details.trough};{" "}
                       {mdd.details.recovery ? `${r.chart.recovered} ${mdd.details.recovery}` : r.chart.notRecovered}.
@@ -380,14 +385,14 @@ export function RiskTool() {
                   )}
                 </div>
                 {(Object.keys(METRIC_GROUPS) as (keyof typeof METRIC_GROUPS)[]).map((group) => (
-                  <div key={group}>
+                  <div key={group} className="border-t border-rule pt-6">
                     <h2 className="text-xl">{r.sections[group]}</h2>
                     {group === "ff3" && factorSourceText && (
-                      <p data-testid="factor-source" className="mt-1 text-sm text-ink-2">
+                      <p data-testid="factor-source" className="mt-1 max-w-[55ch] text-sm text-ink-2">
                         {factorSourceText}
                       </p>
                     )}
-                    <div className="mt-2 grid gap-4 xl:grid-cols-3">
+                    <div className={`mt-3 grid gap-4 ${GROUP_COLUMNS[METRIC_GROUPS[group].length] ?? DEFAULT_COLUMNS}`}>
                       {METRIC_GROUPS[group].map((id: MetricId) => (
                         <MetricCard
                           key={id}

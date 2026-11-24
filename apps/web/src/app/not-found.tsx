@@ -4,9 +4,9 @@ import { getMessages } from "@/i18n";
 export default function NotFound() {
   const t = getMessages();
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-10">
+    <main className="mx-auto w-full max-w-3xl px-4 py-16">
       <h1 className="text-3xl">{t.notFound.heading}</h1>
-      <Link href="/" className="mt-6 inline-block underline">
+      <Link href="/" className="btn mt-8">
         {t.notFound.back}
       </Link>
     </main>

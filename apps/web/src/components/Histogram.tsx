@@ -125,7 +125,7 @@ export function Histogram({ label, bins, binWidth, xLabel, formatX, formatCount,
           <div className="font-medium">
             {xLabel}:{" "}
             <span className="tabular-nums">
-              {formatX(hovered.x - binWidth / 2)} – {formatX(hovered.x + binWidth / 2)}
+              {formatX(hovered.x - binWidth / 2)} to {formatX(hovered.x + binWidth / 2)}
             </span>
           </div>
           <div className="tabular-nums">{formatCount(hovered.count)}</div>

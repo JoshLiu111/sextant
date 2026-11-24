@@ -47,12 +47,12 @@ export function EuroArea() {
   const hicp = result?.metrics["latest:hicp_inflation"];
 
   return (
-    <section id="euro-area" data-testid="euro-area" aria-labelledby="macro-euro-area" className="mt-10 space-y-6">
+    <section id="euro-area" data-testid="euro-area" aria-labelledby="macro-euro-area" className="mt-12 space-y-6 border-t border-rule pt-8">
       <div>
-        <h2 id="macro-euro-area" className="text-xl">
+        <h2 id="macro-euro-area" className="text-2xl">
           {t.macro.sections.euroArea}
         </h2>
-        <p className="mt-1 text-sm text-ink-2">{e.intro}</p>
+        <p className="mt-2 max-w-[75ch] text-sm text-ink-2">{e.intro}</p>
       </div>
       {error && <ErrorNotice title={t.common.errors.heading} message={error} />}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -123,7 +123,7 @@ function EcbMeta({ details }: { details: MetricResult["details"] }) {
           value: (
             <>
               {text("source")},{" "}
-              <a href={href} className="underline" target="_blank" rel="noreferrer">
+              <a href={href} className="link" target="_blank" rel="noreferrer">
                 {text("title")}
               </a>{" "}
               (<span className="tabular-nums">{text("series_id")}</span>)

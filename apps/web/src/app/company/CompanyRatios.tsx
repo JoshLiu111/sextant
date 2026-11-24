@@ -10,6 +10,7 @@ import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
 import { csvFilename, type CsvTable } from "@/lib/csv";
 import { decodeRows, encodeRows, useUrlInputs, type UrlCodec } from "@/lib/urlInputs";
+import { STICKY_INPUTS, toolColumns } from "@/lib/layout";
 import { useCompute } from "@/lib/useCompute";
 import { useFrequency } from "./FrequencyToggle";
 import { RatioInputs, type Selection } from "./RatioInputs";
@@ -96,7 +97,7 @@ function Value(props: { id: string; result: MetricResult | undefined; attr: Valu
       aria-label={drill}
       title={props.result.status === "ok" ? drill : undefined}
       onClick={onDrill}
-      className="rounded-card text-right hover:bg-paper-2 focus-visible:outline focus-visible:outline-2"
+      className="-mx-1.5 inline-flex min-h-8 flex-col items-end justify-center whitespace-nowrap rounded-card px-1.5 text-right hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-focus active:bg-paper-3"
     >
       {value}
     </button>
@@ -192,23 +193,23 @@ function RatioTable({
         />
       </div>
       {category === "valuation" && result.companies.some((c) => c.price === null) && (
-        <p className="mt-1 text-xs text-muted">{r.priceNote}</p>
+        <p className="mt-1 max-w-[75ch] text-xs text-muted">{r.priceNote}</p>
       )}
-      {note && <p className="mt-1 text-xs text-muted">{note}</p>}
-      <div className="relative mt-2 overflow-x-auto rounded-card border border-rule">
+      {note && <p className="mt-1 max-w-[75ch] text-xs text-muted">{note}</p>}
+      <div className="relative mt-3 overflow-x-auto">
         <table aria-labelledby={headingId} className="w-full min-w-[40rem] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-rule">
-              <th scope="col" className="px-3 py-2 text-left font-medium">
+            <tr className="border-b border-ink">
+              <th scope="col" className="sticky left-0 z-10 whitespace-nowrap bg-paper py-2 pr-3 text-left text-xs font-medium text-muted">
                 {r.ratio}
               </th>
               {many && (
-                <th scope="col" className="px-3 py-2 text-left font-medium">
+                <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium text-muted">
                   {r.companyColumn}
                 </th>
               )}
               {columns.map((col) => (
-                <th key={col.key} scope="col" className="px-3 py-2 text-right font-medium">
+                <th key={col.key} scope="col" className="whitespace-nowrap py-2 pl-3 text-right text-xs font-medium text-muted">
                   {col.label}
                 </th>
               ))}
@@ -227,13 +228,13 @@ function RatioTable({
                       <th
                         scope="row"
                         rowSpan={result.companies.length}
-                        className="w-56 px-3 py-1.5 text-left font-normal"
+                        className="sticky left-0 z-10 w-36 min-w-36 bg-paper py-1.5 pr-3 text-left font-normal sm:w-44 sm:min-w-44"
                       >
                         {r.ratios[ratio.id].name}
                         {ratio.basis === "ttm" && (
                           <abbr
                             title={r.ttmTitle}
-                            className="ml-1.5 rounded-card border border-muted px-1 text-[10px] font-medium no-underline"
+                            className="ml-1.5 text-xs text-muted no-underline"
                           >
                             {r.ttm}
                           </abbr>
@@ -241,12 +242,12 @@ function RatioTable({
                         <MetricExplainer explainer={r.ratios[ratio.id]} />
                       </th>
                     )}
-                    {many && <td className="px-3 py-1.5 tabular-nums text-xs">{company.ticker}</td>}
+                    {many && <td className="px-3 py-1.5 text-xs tabular-nums text-muted">{company.ticker}</td>}
                     {columns.map((col) => {
                       const period = byColumn.get(col.key);
                       const id = period ? `${ratio.id}:${company.ticker}:${period.id}` : null;
                       return (
-                        <td key={col.key} className="px-3 py-1.5 text-right">
+                        <td key={col.key} className="whitespace-nowrap py-1 pl-3 text-right">
                           {period && id ? (
                             <Value
                               id={id}
@@ -313,154 +314,155 @@ export function CompanyRatios() {
       ].sort((a, b) => a.key - b.key)
     : [];
   const quarterly = ratios?.companies.some((c) => c.periods.some((p) => p.fiscal_quarter)) ?? false;
-  const inputClass = (err: string | undefined) =>
-    `w-full min-w-0 rounded-card border px-3 py-2 tabular-nums ${
-      err ? "border-error" : "border-muted"
-    }`;
+  const inputClass = (err: string | undefined) => `field ${err ? "border-error" : ""}`;
 
   return (
-    <section data-testid="ratios" aria-labelledby="ratios-heading" className="mt-8 space-y-6">
+    <section data-testid="ratios" aria-labelledby="ratios-heading" className="mt-10 space-y-6">
       <div>
         <h2 id="ratios-heading" className="text-2xl">
           {r.heading}
         </h2>
-        <p className="mt-1 text-sm text-ink-2">{r.intro}</p>
+        <p className="mt-1 max-w-[75ch] text-sm text-ink-2">{r.intro}</p>
       </div>
-      <form onSubmit={onSubmit} noValidate className="max-w-xl space-y-3">
-        <fieldset className="min-w-0" aria-describedby={fieldErrors.companies ? fieldErrorId("companies") : undefined}>
-          <legend className="text-sm font-medium">{r.inputsHeading}</legend>
-          <p className="mt-1 text-xs text-muted">{r.inputsHint}</p>
-          <div aria-hidden className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 text-xs text-muted">
-            <span>{r.companyColumn}</span>
-            <span>
-              {r.price} {r.priceUnit}
-            </span>
+      <div className={toolColumns("20rem")}>
+        <form onSubmit={onSubmit} noValidate className={`${STICKY_INPUTS} space-y-4`}>
+          <fieldset className="min-w-0" aria-describedby={fieldErrors.companies ? fieldErrorId("companies") : undefined}>
+            <legend className="text-sm font-medium">{r.inputsHeading}</legend>
+            <p className="hint mt-1">{r.inputsHint}</p>
+            <div aria-hidden className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] gap-2 text-xs text-muted">
+              <span>{r.companyColumn}</span>
+              <span>
+                {r.price} {r.priceUnit}
+              </span>
+            </div>
+            <ol className="mt-1 space-y-2">
+              {rows.map((row, i) => {
+                const n = i + 1;
+                const tickerName = `companies.${i}.ticker`;
+                const priceName = `companies.${i}.price`;
+                return (
+                  <li key={i} className="min-w-0">
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] items-center gap-2">
+                      <input
+                        name={tickerName}
+                        aria-label={`${r.company} ${n}`}
+                        autoCapitalize="characters"
+                        spellCheck={false}
+                        value={row.ticker}
+                        onChange={(e) => setRow(i, "ticker", e.target.value)}
+                        aria-invalid={fieldErrors[tickerName] ? true : undefined}
+                        aria-describedby={fieldErrors[tickerName] ? fieldErrorId(tickerName) : undefined}
+                        className={inputClass(fieldErrors[tickerName])}
+                      />
+                      <input
+                        name={priceName}
+                        aria-label={`${r.price} ${n}`}
+                        inputMode="decimal"
+                        value={row.price}
+                        onChange={(e) => setRow(i, "price", e.target.value)}
+                        aria-invalid={fieldErrors[priceName] ? true : undefined}
+                        aria-describedby={fieldErrors[priceName] ? fieldErrorId(priceName) : undefined}
+                        className={inputClass(fieldErrors[priceName])}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`${r.remove} ${n}`}
+                        disabled={rows.length === 1}
+                        onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
+                        className="inline-flex size-10 items-center justify-center rounded-card text-lg leading-none text-muted hover:bg-paper-2 hover:text-ink active:bg-paper-3 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <FieldError name={tickerName} message={fieldErrors[tickerName]} />
+                    <FieldError name={priceName} message={fieldErrors[priceName]} />
+                  </li>
+                );
+              })}
+            </ol>
+            <FieldError name="companies" message={fieldErrors.companies} />
+          </fieldset>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={rows.length >= MAX_COMPANIES}
+              onClick={() => setRows((rs) => [...rs, { ticker: "", price: "" }])}
+              className="btn whitespace-nowrap"
+            >
+              {r.add}
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary grow whitespace-nowrap"
+            >
+              {r.submit}
+            </button>
           </div>
-          <ol className="mt-1 space-y-2">
-            {rows.map((row, i) => {
-              const n = i + 1;
-              const tickerName = `companies.${i}.ticker`;
-              const priceName = `companies.${i}.price`;
-              return (
-                <li key={i} className="min-w-0">
-                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-center gap-2">
-                    <input
-                      name={tickerName}
-                      aria-label={`${r.company} ${n}`}
-                      autoCapitalize="characters"
-                      spellCheck={false}
-                      value={row.ticker}
-                      onChange={(e) => setRow(i, "ticker", e.target.value)}
-                      aria-invalid={fieldErrors[tickerName] ? true : undefined}
-                      aria-describedby={fieldErrors[tickerName] ? fieldErrorId(tickerName) : undefined}
-                      className={inputClass(fieldErrors[tickerName])}
-                    />
-                    <input
-                      name={priceName}
-                      aria-label={`${r.price} ${n}`}
-                      inputMode="decimal"
-                      value={row.price}
-                      onChange={(e) => setRow(i, "price", e.target.value)}
-                      aria-invalid={fieldErrors[priceName] ? true : undefined}
-                      aria-describedby={fieldErrors[priceName] ? fieldErrorId(priceName) : undefined}
-                      className={inputClass(fieldErrors[priceName])}
-                    />
-                    <button
-                      type="button"
-                      aria-label={`${r.remove} ${n}`}
-                      disabled={rows.length === 1}
-                      onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
-                      className="rounded-card px-2 py-1 text-lg leading-none text-muted hover:bg-paper-2 disabled:opacity-30"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <FieldError name={tickerName} message={fieldErrors[tickerName]} />
-                  <FieldError name={priceName} message={fieldErrors[priceName]} />
-                </li>
-              );
-            })}
-          </ol>
-          <FieldError name="companies" message={fieldErrors.companies} />
-        </fieldset>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={rows.length >= MAX_COMPANIES}
-            onClick={() => setRows((rs) => [...rs, { ticker: "", price: "" }])}
-            className="btn"
-          >
-            {r.add}
-          </button>
-          <button
-            type="submit"
-            className="btn btn-primary"
-          >
-            {r.submit}
-          </button>
-        </div>
-      </form>
+        </form>
 
-      <div data-testid="ratio-results" aria-busy={pending} className="min-w-0 space-y-6">
-        {error && (
-          <ErrorNotice
-            title={Object.keys(fieldErrors).length ? t.common.errors.invalidHeading : t.common.errors.heading}
-            message={error}
-          />
-        )}
-        {ratios ? (
-          <>
-            <p className="text-sm text-muted">
-              {ratios.companies.map((c) => `${c.name} (${c.ticker})`).join(" · ")}
-            </p>
-            <p className="text-xs text-muted">{r.averageNote}</p>
-            {quarterly && <p className="text-xs text-muted">{r.quarterlyNote}</p>}
-            <RatioTable
-              category="scores"
-              ratios={ratios.models.filter((x) => x.category === "scores")}
-              result={ratios}
-              columns={columns}
-              onDrill={drill}
-              note={r.scoresNote}
+        <div data-testid="ratio-results" aria-busy={pending} className="min-w-0 space-y-6">
+          {error && (
+            <ErrorNotice
+              title={Object.keys(fieldErrors).length ? t.common.errors.invalidHeading : t.common.errors.heading}
+              message={error}
             />
-            <RatioTable
-              category="piotroski"
-              ratios={ratios.models.filter((x) => x.category === "piotroski")}
-              result={ratios}
-              columns={columns}
-              onDrill={drill}
-              note={r.piotroskiNote}
-            />
-            {CATEGORIES.map((category) => (
+          )}
+          {ratios ? (
+            <>
+              <div className="space-y-1">
+                <p className="text-base text-ink">
+                  {ratios.companies.map((c) => `${c.name} (${c.ticker})`).join(" · ")}
+                </p>
+                <p className="max-w-[75ch] text-xs text-muted">{r.averageNote}</p>
+                {quarterly && <p className="max-w-[75ch] text-xs text-muted">{r.quarterlyNote}</p>}
+              </div>
               <RatioTable
-                key={category}
-                category={category}
-                ratios={ratios.ratios.filter((x) => x.category === category)}
+                category="scores"
+                ratios={ratios.models.filter((x) => x.category === "scores")}
                 result={ratios}
                 columns={columns}
                 onDrill={drill}
+                note={r.scoresNote}
               />
-            ))}
-            {(["dupont3", "dupont5"] as const).map((category) => {
-              const byId = new Map([...ratios.ratios, ...ratios.models].map((x) => [x.id, x]));
-              return (
+              <RatioTable
+                category="piotroski"
+                ratios={ratios.models.filter((x) => x.category === "piotroski")}
+                result={ratios}
+                columns={columns}
+                onDrill={drill}
+                note={r.piotroskiNote}
+              />
+              {CATEGORIES.map((category) => (
                 <RatioTable
                   key={category}
                   category={category}
-                  ratios={DUPONT[category].flatMap((id) => byId.get(id) ?? [])}
+                  ratios={ratios.ratios.filter((x) => x.category === category)}
                   result={ratios}
                   columns={columns}
-                  note={r.dupontNotes[category]}
-                  attr="data-dupont-value"
+                  onDrill={drill}
                 />
-              );
-            })}
-            <CalculationInfo result={ratios} />
-            <AiExplain tool="company-ratios" result={ratios} />
-          </>
-        ) : (
-          !error && <p className="text-sm text-muted">{r.loading}</p>
-        )}
+              ))}
+              {(["dupont3", "dupont5"] as const).map((category) => {
+                const byId = new Map([...ratios.ratios, ...ratios.models].map((x) => [x.id, x]));
+                return (
+                  <RatioTable
+                    key={category}
+                    category={category}
+                    ratios={DUPONT[category].flatMap((id) => byId.get(id) ?? [])}
+                    result={ratios}
+                    columns={columns}
+                    note={r.dupontNotes[category]}
+                    attr="data-dupont-value"
+                  />
+                );
+              })}
+              <CalculationInfo result={ratios} />
+              <AiExplain tool="company-ratios" result={ratios} />
+            </>
+          ) : (
+            !error && <p className="text-sm text-muted">{r.loading}</p>
+          )}
+        </div>
       </div>
       {selection && (
         <RatioInputs

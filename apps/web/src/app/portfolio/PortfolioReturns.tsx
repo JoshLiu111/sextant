@@ -68,9 +68,9 @@ export function PortfolioReturns({
           />
         ))}
       </div>
-      <div className="mt-3 rounded-card bg-paper-2 p-3 text-sm">
+      <div className="well mt-3 p-3 text-sm">
         <h3 className="text-lg">{r.whichHeading}</h3>
-        <p className="mt-1 text-ink-2">{r.which}</p>
+        <p className="mt-1 max-w-[55ch] text-ink-2">{r.which}</p>
       </div>
     </section>
   );

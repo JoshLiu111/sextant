@@ -117,7 +117,7 @@ export function AiExplain({ tool, result }: { tool: string; result: ResultEnvelo
               {shown.advice_notice && (
                 <p
                   data-testid="ai-advice-notice"
-                  className="rounded-card bg-paper-2 p-2 text-ink"
+                  className="border-l-2 border-accent pl-3 text-ink"
                 >
                   {shown.advice_notice}
                 </p>

@@ -72,7 +72,7 @@ export function DividendHistory() {
   }
 
   function cell(p: DividendPeriod | undefined) {
-    if (!p) return <span className="text-muted">–</span>;
+    if (!p) return <span className="text-muted">{m.missing}</span>;
     return (
       <a
         href={p.filing.url}
@@ -80,7 +80,7 @@ export function DividendHistory() {
         rel="noreferrer"
         data-period={p.label}
         title={m.cellTitle(p.label, p.filing.form, p.filing.filed)}
-        className="underline decoration-dotted"
+        className="link"
       >
         {money(p.value)}
         {p.derived ? "*" : ""}
@@ -94,7 +94,7 @@ export function DividendHistory() {
       <h2 id="dividends-section" className="text-2xl">
         {m.heading}
       </h2>
-      <p className="text-sm text-ink-2">{m.intro}</p>
+      <p className="max-w-[75ch] text-sm text-ink-2">{m.intro}</p>
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-4">
         <div className="w-full max-w-[12rem]">
           <TextField name="dividend-ticker" label={m.ticker.label} hint={m.ticker.hint} value={ticker} onChange={setTicker} error={fieldErrors.ticker} />
@@ -107,7 +107,7 @@ export function DividendHistory() {
         </button>
       </form>
 
-      <div aria-busy={pending} className="min-w-0 space-y-3">
+      <div aria-busy={pending} className="min-w-0 space-y-3 border-t border-rule pt-6">
         {error && (
           <ErrorNotice
             title={Object.keys(fieldErrors).length ? t.common.errors.invalidHeading : t.common.errors.heading}
@@ -133,47 +133,47 @@ export function DividendHistory() {
               )}
             </div>
             {!history.pays_dividends ? (
-              <p data-testid="dividends-note" className="text-sm text-ink-2">
+              <p data-testid="dividends-note" className="max-w-[75ch] text-sm text-ink-2">
                 {history.note}
               </p>
             ) : (
               <>
-                {history.basis && <p className="text-xs text-muted">{m.basis[history.basis]}</p>}
-                <div className="overflow-x-auto rounded-card border border-rule">
+                {history.basis && <p className="hint">{m.basis[history.basis]}</p>}
+                <div className="overflow-x-auto">
                   <table aria-label={m.tableLabel} className="w-full min-w-[32rem] border-collapse text-sm">
                     <thead>
-                      <tr className="border-b border-rule text-left">
-                        <th scope="col" className="px-2 py-2 font-medium">
+                      <tr className="border-b border-ink text-left">
+                        <th scope="col" className="sticky left-0 z-10 whitespace-nowrap bg-paper px-2 py-2 font-normal text-muted">
                           {m.fiscalYear}
                         </th>
                         {m.quarters.map((q) => (
-                          <th key={q} scope="col" className="px-2 py-2 text-right font-medium">
+                          <th key={q} scope="col" className="whitespace-nowrap px-2 py-2 text-right font-normal text-muted">
                             {q}
                           </th>
                         ))}
-                        <th scope="col" className="px-2 py-2 text-right font-medium">
+                        <th scope="col" className="whitespace-nowrap px-2 py-2 text-right font-normal text-muted">
                           {m.year}
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((row) => (
-                        <tr key={row.fiscalYear} data-fiscal-year={row.fiscalYear} className="border-b border-rule last:border-0">
-                          <th scope="row" className="px-2 py-1.5 text-left tabular-nums text-xs font-normal">
+                        <tr key={row.fiscalYear} data-fiscal-year={row.fiscalYear} className="border-b border-rule">
+                          <th scope="row" className="sticky left-0 z-10 bg-paper px-2 py-1.5 text-left font-medium tabular-nums">
                             FY{row.fiscalYear}
                           </th>
                           {row.quarters.map((q, i) => (
-                            <td key={i} className="px-2 py-1.5 text-right tabular-nums text-xs">
+                            <td key={i} className="px-2 py-1.5 text-right tabular-nums">
                               {cell(q)}
                             </td>
                           ))}
-                          <td className="px-2 py-1.5 text-right tabular-nums text-xs font-medium">{cell(row.year)}</td>
+                          <td className="px-2 py-1.5 text-right font-medium tabular-nums">{cell(row.year)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                {history.periods.some((p) => p.derived) && <p className="text-xs text-muted">{m.derivedNote}</p>}
+                {history.periods.some((p) => p.derived) && <p className="hint">{m.derivedNote}</p>}
               </>
             )}
             <CalculationInfo result={history} />

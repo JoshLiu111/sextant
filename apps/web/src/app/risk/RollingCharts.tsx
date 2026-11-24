@@ -44,7 +44,7 @@ export function RollingCharts({
           {r.heading}
         </h2>
         {typeof window === "number" && (
-          <p data-testid="rolling-window-note" className="mt-1 text-sm text-ink-2">
+          <p data-testid="rolling-window-note" className="mt-1 max-w-[55ch] text-sm text-ink-2">
             {r.windowNote(window)}
           </p>
         )}

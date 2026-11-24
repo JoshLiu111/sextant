@@ -166,16 +166,16 @@ function SensitivityTable({ result }: { result: ValuationResult }) {
           }}
         />
       </div>
-      <p className="mt-1 text-sm text-muted">{v.sensitivityCaption}</p>
-      <div className="mt-2 overflow-x-auto rounded-card border border-rule">
+      <p className="mt-1 max-w-[75ch] text-sm text-muted">{v.sensitivityCaption}</p>
+      <div className="mt-3 overflow-x-auto">
         <table aria-labelledby="sensitivity-heading" className="w-full min-w-[28rem] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-rule">
-              <th scope="col" className="px-3 py-2 text-left font-medium">
+            <tr className="border-b border-ink">
+              <th scope="col" className="sticky left-0 z-10 whitespace-nowrap bg-paper py-2 pr-3 text-left text-xs font-medium text-muted">
                 {v.growthAxis} \ {v.discountAxis}
               </th>
               {columns.map((r, j) => (
-                <th key={j} scope="col" className="px-3 py-2 text-right font-medium">
+                <th key={j} scope="col" className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium tabular-nums text-muted">
                   {r === null ? "—" : PERCENT_AXIS.format(r)}
                 </th>
               ))}
@@ -184,7 +184,7 @@ function SensitivityTable({ result }: { result: ValuationResult }) {
           <tbody>
             {growth_rates.map((g, i) => (
               <tr key={i} className="border-b border-rule last:border-0">
-                <th scope="row" className="px-3 py-1.5 text-left font-medium">
+                <th scope="row" className="sticky left-0 z-10 bg-paper py-2 pr-3 text-left font-medium tabular-nums">
                   {PERCENT_AXIS.format(g)}
                 </th>
                 {columns.map((_, j) => {
@@ -198,8 +198,8 @@ function SensitivityTable({ result }: { result: ValuationResult }) {
                       data-metric-value={id}
                       data-status={cell?.status ?? "pending"}
                       title={ok ? undefined : (cell?.reason ?? undefined)}
-                      className={`px-3 py-1.5 text-right tabular-nums ${
-                        isBase ? "bg-paper-2 font-medium" : ""
+                      className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${
+                        isBase ? "bg-paper-2 font-medium text-ink shadow-[inset_0_-2px_0_var(--color-ink)]" : ""
                       } ${ok ? "" : "text-muted"}`}
                     >
                       {ok ? formatMoneyValue(cell.value as number, cell.unit) : "—"}
@@ -237,14 +237,14 @@ function FcfTable({ result }: { result: ValuationResult }) {
           table={{ columns: [v.fcfTable.year, v.fcfTable.value], rows: rows.map((row) => [row.year, row.y]) }}
         />
       </div>
-      <div className="mt-2 overflow-x-auto rounded-card border border-rule">
+      <div className="mt-3 overflow-x-auto">
         <table aria-labelledby="fcf-heading" className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-rule">
-              <th scope="col" className="px-3 py-2 text-left font-medium">
+            <tr className="border-b border-ink">
+              <th scope="col" className="whitespace-nowrap py-2 pr-3 text-left text-xs font-medium text-muted">
                 {v.fcfTable.year}
               </th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">
+              <th scope="col" className="whitespace-nowrap py-2 pl-3 text-right text-xs font-medium text-muted">
                 {v.fcfTable.value}
               </th>
             </tr>
@@ -252,10 +252,10 @@ function FcfTable({ result }: { result: ValuationResult }) {
           <tbody>
             {rows.map((row) => (
               <tr key={row.key} className="border-b border-rule last:border-0">
-                <th scope="row" className="px-3 py-1.5 text-left font-normal">
+                <th scope="row" className="whitespace-nowrap py-2 pr-3 text-left font-normal tabular-nums">
                   {row.year}
                 </th>
-                <td className="px-3 py-1.5 text-right tabular-nums">
+                <td className="whitespace-nowrap py-2 pl-3 text-right tabular-nums">
                   {row.y === null ? v.notReported : formatMoneyValue(row.y, "currency")}
                 </td>
               </tr>
@@ -324,12 +324,12 @@ export function ValuationCalculator() {
   return (
     <div className={`mt-6 ${toolColumns("20rem")}`}>
       <div className={`${STICKY_INPUTS} space-y-8`}>
-        <form onSubmit={onSubmit} noValidate aria-labelledby="valuation-inputs" className="min-w-0 space-y-6">
+        <form onSubmit={onSubmit} noValidate aria-labelledby="valuation-inputs" className="min-w-0 space-y-8">
           <h2 id="valuation-inputs" className="sr-only">
             {v.inputsHeading}
           </h2>
           <fieldset className="space-y-3">
-            <legend className="text-lg font-medium">{v.sections.company}</legend>
+            <legend className="mb-1 text-base font-medium text-ink">{v.sections.company}</legend>
             <DataModeToggle providers={providers} value={priceSource} onChange={setChosen} />
             <div>
               <TextField
@@ -344,17 +344,17 @@ export function ValuationCalculator() {
             </div>
             <button
               type="submit"
-              className="btn btn-primary w-full"
+              className="btn btn-primary w-full whitespace-nowrap"
             >
               {v.submit}
             </button>
           </fieldset>
           <fieldset className="space-y-3">
-            <legend className="text-lg font-medium">{v.sections.dcf}</legend>
+            <legend className="mb-1 text-base font-medium text-ink">{v.sections.dcf}</legend>
             {DCF_FIELDS.map(field)}
           </fieldset>
           <fieldset className="space-y-3">
-            <legend className="text-lg font-medium">{v.sections.wacc}</legend>
+            <legend className="mb-1 text-base font-medium text-ink">{v.sections.wacc}</legend>
             {WACC_FIELDS.map(field)}
           </fieldset>
         </form>
@@ -375,10 +375,10 @@ export function ValuationCalculator() {
         {valuation ? (
           <>
             <div>
-              <h2 className="text-xl">{valuation.company.name}</h2>
-              <p className="text-sm text-muted">
+              <h2 className="text-2xl">{valuation.company.name}</h2>
+              <p className="mt-1 text-sm text-muted">
                 {valuation.company.ticker} · {v.baseYear} {valuation.base_period.label} ·{" "}
-                <a href={valuation.base_period.url} target="_blank" rel="noreferrer" className="underline decoration-dotted">
+                <a href={valuation.base_period.url} target="_blank" rel="noreferrer" className="link text-muted">
                   {v.filed} {valuation.base_period.filed}
                 </a>
               </p>
@@ -410,7 +410,7 @@ export function ValuationCalculator() {
                     <SensitivityTable result={valuation} />
                     <div data-testid="market-comparison">
                       <h2 className="text-xl">{v.sections.market}</h2>
-                      <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                      <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         <Card
                           id="share_price"
                           explainer={v.metrics.share_price}
@@ -426,7 +426,7 @@ export function ValuationCalculator() {
                     </div>
                     <div>
                       <h2 className="text-xl">{v.sections.valuation}</h2>
-                      <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                      <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         <Card
                           id="intrinsic_value_per_share"
                           explainer={v.metrics.intrinsic_value_per_share}
@@ -459,7 +459,7 @@ export function ValuationCalculator() {
                 {tab === "wacc" && (
                   <div>
                     <h2 className="text-xl">{v.sections.wacc_breakdown}</h2>
-                    <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       <Card
                         id="cost_of_equity"
                         explainer={v.metrics.cost_of_equity}
@@ -498,7 +498,7 @@ export function ValuationCalculator() {
                 {tab === "statement" && (
                   <div>
                     <h2 className="text-xl">{v.sections.statementInputs}</h2>
-                    <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       <Card
                         id="free_cash_flow"
                         explainer={v.metrics.free_cash_flow}

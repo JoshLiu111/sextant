@@ -94,7 +94,7 @@ export function SiteNav({ account, logo }: { account?: ReactNode; logo: ReactNod
                   </button>
                   <ul
                     id={menuId}
-                    className={`${expanded ? "flex" : "hidden"} flex-col gap-0.5 pb-1 pl-4 md:absolute md:left-0 md:top-full md:z-[var(--z-dropdown)] md:mt-2 md:min-w-max md:rounded-card md:border md:border-rule md:bg-paper-hi md:p-1.5 md:shadow-sheet`}
+                    className={`${expanded ? "flex" : "hidden"} flex-col gap-0.5 pb-1 pl-4 md:absolute md:left-0 md:top-full md:z-[var(--z-dropdown)] md:mt-2 md:min-w-max md:bg-paper-hi md:p-1.5 md:shadow-sheet`}
                   >
                     {tools.map((tool) => (
                       <li key={tool.slug}>

@@ -43,7 +43,7 @@ export function TreasuryRates({
   const t = getMessages();
 
   return (
-    <section data-testid="rates" aria-labelledby="macro-rates" className="mt-10 space-y-6">
+    <section data-testid="rates" aria-labelledby="macro-rates" className="mt-12 space-y-6">
       <h3 id="macro-rates" className="text-xl">
         {t.macro.sections.rates}
       </h3>
@@ -186,22 +186,22 @@ function TreasuryMeta({ details }: { details: MetricResult["details"] }) {
   return (
     <dl
       data-testid="series-meta"
-      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-ink-2"
+      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm text-ink-2"
     >
-      <dt className="font-medium">{m.source}</dt>
+      <dt className="text-muted">{m.source}</dt>
       <dd>
         {text("source")},{" "}
-        <a href={TREASURY_PAGE} className="underline" target="_blank" rel="noreferrer">
+        <a href={TREASURY_PAGE} className="link" target="_blank" rel="noreferrer">
           {text("title")}
         </a>
       </dd>
-      <dt className="font-medium">{m.units}</dt>
+      <dt className="text-muted">{m.units}</dt>
       <dd>{text("units")}</dd>
-      <dt className="font-medium">{m.frequency}</dt>
+      <dt className="text-muted">{m.frequency}</dt>
       <dd>{text("frequency")}</dd>
-      <dt className="font-medium">{m.latestPeriod}</dt>
+      <dt className="text-muted">{m.latestPeriod}</dt>
       <dd>{text("date")}</dd>
-      <dt className="font-medium">{m.lastUpdated}</dt>
+      <dt className="text-muted">{m.lastUpdated}</dt>
       <dd>
         {formatTimestampUtc(text("last_updated"))} ({m.retrieved})
       </dd>

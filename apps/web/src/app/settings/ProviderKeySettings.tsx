@@ -59,19 +59,19 @@ export function ProviderKeySettings({ provider, initial }: { provider: Provider;
   return (
     <section
       aria-labelledby={`${provider}-key-heading`}
-      className="mt-8 rounded-card border border-rule p-4"
+      className="mt-8 border-t border-rule pt-6"
     >
       <h2 id={`${provider}-key-heading`} className="text-lg">
         {t.heading}
       </h2>
-      <p className="mt-1 text-sm text-ink-2">{t.body}</p>
+      <p className="mt-2 max-w-[65ch] text-sm text-ink-2">{t.body}</p>
       <p data-testid="key-status" className="mt-3 text-sm font-medium">
         {saved ? shared.saved(saved.hint) : shared.none}
       </p>
 
-      <form onSubmit={onSave} className="mt-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-0 flex-1">
-          <label htmlFor={inputId} className="block text-sm font-medium">
+      <form onSubmit={onSave} className="mt-5 flex max-w-xl flex-wrap items-start gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1 basis-56">
+          <label htmlFor={inputId} className="label">
             {t.label}
           </label>
           <input
@@ -84,11 +84,9 @@ export function ProviderKeySettings({ provider, initial }: { provider: Provider;
             onChange={(e) => setKey(e.target.value)}
             aria-invalid={fieldError ? true : undefined}
             aria-describedby={[`${inputId}-hint`, fieldError ? fieldErrorId(errorName) : null].filter(Boolean).join(" ")}
-            className={`mt-1 w-full min-w-0 rounded-card border px-3 py-2 tabular-nums ${
-              fieldError ? "border-error" : "border-muted"
-            }`}
+            className="field mt-1"
           />
-          <p id={`${inputId}-hint`} className="mt-1 text-xs text-muted">
+          <p id={`${inputId}-hint`} className="hint mt-1">
             {t.hint}
           </p>
           <FieldError name={errorName} message={fieldError} />
@@ -96,7 +94,7 @@ export function ProviderKeySettings({ provider, initial }: { provider: Provider;
         <button
           type="submit"
           disabled={busy}
-          className="btn btn-primary"
+          className="btn sm:mt-[1.625rem]"
         >
           {saved ? shared.replace : shared.save}
         </button>
@@ -131,7 +129,7 @@ export function ProviderKeySettings({ provider, initial }: { provider: Provider;
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="rounded-card border border-rule px-3 py-1.5 text-sm"
+              className="btn"
             >
               {shared.cancel}
             </button>
@@ -140,7 +138,7 @@ export function ProviderKeySettings({ provider, initial }: { provider: Provider;
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="mt-4 rounded-card border border-error px-3 py-1.5 text-sm font-medium text-red-700"
+            className="btn btn-danger mt-5"
           >
             {shared.delete}
           </button>

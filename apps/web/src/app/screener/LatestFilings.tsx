@@ -53,13 +53,14 @@ export function LatestFilings() {
         <fieldset className="flex flex-wrap gap-4">
           <legend className="sr-only">{f.scopeLegend}</legend>
           {(["market", "company"] as const).map((value) => (
-            <label key={value} className="flex items-center gap-2 text-sm">
+            <label key={value} className="flex min-h-10 cursor-pointer items-center gap-2 text-sm">
               <input
                 type="radio"
                 name="filings-scope"
                 value={value}
                 checked={scope === value}
                 onChange={() => setScope(value)}
+                className="size-4 accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               />
               {value === "market" ? f.market : f.company}
             </label>
@@ -78,14 +79,14 @@ export function LatestFilings() {
           </div>
         )}
         <div className="w-40">
-          <label htmlFor="input-form" className="block text-sm font-medium">
+          <label htmlFor="input-form" className="label">
             {f.form}
           </label>
           <select
             id="input-form"
             value={form}
             onChange={(e) => setForm(e.target.value)}
-            className="mt-1 w-full rounded-card border border-muted px-2 py-2"
+            className="field mt-1"
           >
             <option value="">{f.allForms}</option>
             {FORMS.map((value) => (
@@ -103,7 +104,7 @@ export function LatestFilings() {
         </button>
       </form>
 
-      <div aria-busy={pending} className="min-w-0 space-y-3">
+      <div aria-busy={pending} className="min-w-0 space-y-3 border-t border-rule pt-6">
         {error && (
           <ErrorNotice
             title={Object.keys(fieldErrors).length ? t.common.errors.invalidHeading : t.common.errors.heading}
@@ -135,35 +136,35 @@ export function LatestFilings() {
             {list.filings.length === 0 ? (
               <p className="text-sm text-muted">{f.none}</p>
             ) : (
-              <div className="overflow-x-auto rounded-card border border-rule">
+              <div className="overflow-x-auto">
                 <table aria-label={f.tableLabel} className="w-full min-w-[36rem] border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-rule text-left">
-                      <th scope="col" className="px-2 py-2 font-medium">
+                    <tr className="border-b border-ink text-left">
+                      <th scope="col" className="sticky left-0 z-10 whitespace-nowrap bg-paper px-2 py-2 font-normal text-muted">
                         {f.formColumn}
                       </th>
-                      <th scope="col" className="px-2 py-2 font-medium">
+                      <th scope="col" className="whitespace-nowrap px-2 py-2 font-normal text-muted">
                         {f.title}
                       </th>
-                      <th scope="col" className="px-2 py-2 font-medium">
+                      <th scope="col" className="whitespace-nowrap px-2 py-2 font-normal text-muted">
                         {f.companyColumn}
                       </th>
-                      <th scope="col" className="px-2 py-2 font-medium">
+                      <th scope="col" className="whitespace-nowrap px-2 py-2 font-normal text-muted">
                         {f.filed}
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {list.filings.map((row, i) => (
-                      <tr key={`${row.accession}-${row.cik}-${i}`} className="border-b border-rule last:border-0">
-                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-xs">{row.form}</td>
+                      <tr key={`${row.accession}-${row.cik}-${i}`} className="border-b border-rule">
+                        <td className="sticky left-0 z-10 whitespace-nowrap bg-paper px-2 py-1.5 font-medium tabular-nums">{row.form}</td>
                         <td className="px-2 py-1.5">
-                          <a href={row.url} target="_blank" rel="noreferrer" className="underline decoration-dotted">
+                          <a href={row.url} target="_blank" rel="noreferrer" className="link">
                             {row.title}
                           </a>
                         </td>
                         <td className="px-2 py-1.5">{row.company}</td>
-                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-xs">{row.filed}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted">{row.filed}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -11,6 +11,7 @@ import { getMessages } from "@/i18n";
 import { formatChartNumber } from "@/lib/format";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
+import { STICKY_INPUTS, toolColumns } from "@/lib/layout";
 import { chartPoints, isPercentField, toNumber } from "./form";
 import { series } from "@/lib/chartColors";
 
@@ -109,8 +110,8 @@ export function OptionsCalculator() {
   const chartSpot = Number(result?.meta.parameters.spot);
 
   return (
-    <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-      <form onSubmit={onSubmit} noValidate aria-labelledby="options-inputs" className="space-y-4">
+    <div className={`mt-6 ${toolColumns("20rem")}`}>
+      <form onSubmit={onSubmit} noValidate aria-labelledby="options-inputs" className={`${STICKY_INPUTS} space-y-4`}>
         <h2 id="options-inputs" className="text-xl">
           {o.inputsHeading}
         </h2>
@@ -128,7 +129,7 @@ export function OptionsCalculator() {
           ))}
         </div>
         <div>
-          <label htmlFor="input-option_type" className="block text-sm font-medium">
+          <label htmlFor="input-option_type" className="label">
             {o.inputs.option_type.label}
           </label>
           <select
@@ -136,12 +137,12 @@ export function OptionsCalculator() {
             name="option_type"
             value={form.option_type}
             onChange={(e) => set("option_type")(e.target.value)}
-            className="mt-1 w-full rounded-card border border-muted px-3 py-2"
+            className="field mt-1"
           >
             <option value="call">{o.optionTypes.call}</option>
             <option value="put">{o.optionTypes.put}</option>
           </select>
-          <p className="mt-1 text-xs text-muted">{o.inputs.option_type.hint}</p>
+          <p className="hint mt-1">{o.inputs.option_type.hint}</p>
           <FieldError name="option_type" message={fieldErrors.option_type} />
         </div>
         <NumberField
@@ -207,7 +208,7 @@ export function OptionsCalculator() {
         </div>
         <div>
           <h2 className="text-xl">{o.sections.iv}</h2>
-          <div className="mt-2">
+          <div className="mt-2 grid gap-4 sm:grid-cols-2">
             <MetricCard
               id="implied_volatility"
               explainer={o.metrics.implied_volatility}

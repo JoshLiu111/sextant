@@ -43,7 +43,7 @@ export function ToolCard({
       </ul>
       {personal && <div className="mt-3 text-sm">{personal}</div>}
       {tool.status === "coming-soon" && (
-        <span className="mt-3 self-start rounded-card bg-paper-2 px-2 py-0.5 text-xs font-medium text-ink">
+        <span className="mt-3 self-start text-xs font-medium text-muted">
           {t.comingSoon.badge}
         </span>
       )}

@@ -101,11 +101,11 @@ export function SavedAssumptions({
       </h2>
       {sets === null ? null : sets === "signed_out" ? (
         <p className="text-sm text-ink-2">
-          {v.signInPrompt} <SignInLink className="font-medium underline" />
+          {v.signInPrompt} <SignInLink className="link font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-focus" />
         </p>
       ) : (
         <>
-          <p className="text-sm text-muted">
+          <p className="max-w-[65ch] text-sm text-muted">
             {v.intro(ticker)}
           </p>
           <form
@@ -124,7 +124,7 @@ export function SavedAssumptions({
             />
             <button
               type="submit"
-              className="btn"
+              className="btn whitespace-nowrap"
             >
               {v.save}
             </button>
@@ -150,12 +150,12 @@ export function SavedAssumptions({
           ) : (
             <ul
               aria-label={v.listLabel(ticker)}
-              className="divide-y divide-rule rounded-card border border-rule"
+              className="divide-y divide-rule border-y border-rule"
             >
               {sets.map((set) => (
                 <li
                   key={set.id}
-                  className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-2 py-2 text-sm"
                 >
                   <span className="min-w-0 truncate font-medium">
                     {set.name}
@@ -165,7 +165,7 @@ export function SavedAssumptions({
                       type="button"
                       onClick={() => onLoadSet(set)}
                       aria-label={v.loadNamed(set.name)}
-                      className="btn btn-sm"
+                      className="btn btn-sm whitespace-nowrap"
                     >
                       {v.load}
                     </button>
@@ -173,7 +173,7 @@ export function SavedAssumptions({
                       type="button"
                       onClick={() => onDelete(set)}
                       aria-label={v.deleteNamed(set.name)}
-                      className="btn btn-sm text-error"
+                      className="btn btn-sm btn-danger whitespace-nowrap"
                     >
                       {v.delete}
                     </button>

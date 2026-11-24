@@ -39,12 +39,12 @@ export function ReturnDistribution({
           {d.heading}
         </h2>
         {symbols.length > 0 && (
-          <label className="text-sm">
-            <span className="mr-2">{d.select}</span>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <span>{d.select}</span>
             <select
               value={selected}
               onChange={(e) => setChoice(e.target.value)}
-              className="rounded-card border border-muted px-2 py-1 tabular-nums"
+              className="field w-auto text-ink"
             >
               {symbols.map((ticker) => (
                 <option key={ticker} value={ticker}>
@@ -79,7 +79,7 @@ export function ReturnDistribution({
             formatX={formatChartPercent}
             formatCount={(n) => d.count(n, adjective)}
           />
-          <p data-testid="distribution-summary" className="mt-1 text-sm text-ink-2">
+          <p data-testid="distribution-summary" className="mt-1 max-w-[55ch] text-sm text-ink-2">
             {selected}: {d.summary(observations, adjective, formatChartPercent(binWidth))}
           </p>
         </div>
