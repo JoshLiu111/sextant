@@ -1605,6 +1605,12 @@ export const en = {
       sensitivity: "Sensitivity: value per share",
       fcf: "Free cash flow",
     },
+    tabs: {
+      label: "Valuation results",
+      overview: "Overview",
+      wacc: "WACC",
+      statement: "From the 10-K",
+    },
     submit: "Value company",
     loading: "Loading the valuation…",
     blankDerives: "Leave blank to derive it.",

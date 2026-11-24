@@ -6,14 +6,17 @@ import { CalculationInfo } from "@/components/CalculationInfo";
 import { DataModeToggle } from "@/components/DataModeToggle";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
+import { KeyFiguresStrip } from "@/components/KeyFiguresStrip";
 import { MetricCard, type MetricCardValue } from "@/components/MetricCard";
 import { MetricExplainer, type Explainer } from "@/components/MetricExplainer";
 import { NumberField } from "@/components/NumberField";
+import { Tabs, useUrlTab } from "@/components/Tabs";
 import { TextField } from "@/components/TextField";
 import { getMessages } from "@/i18n";
 import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
 import { csvFilename } from "@/lib/csv";
 import { formatMoneyValue } from "@/lib/format";
+import { STICKY_INPUTS, toolColumns } from "@/lib/layout";
 import { DEMO_SOURCE, PROVIDER_NAMES, useMyDataProviders, type PriceSource } from "@/lib/myData";
 import type { AssumptionSetBody, ValuationAssumptions } from "@/lib/valuationAssumptions";
 import { fieldsCodec, useUrlInputs } from "@/lib/urlInputs";
@@ -66,6 +69,8 @@ const DEFAULTS: Form = {
 // Shareable links: `/valuation?ticker=MSFT&growth_rate=8` (the screener links
 // with just the ticker). Submitting writes the ticker and every assumption.
 const URL_CODEC = fieldsCodec({ ticker: DEFAULT_TICKER, ...DEFAULTS });
+// The open results tab is `?tab=` (`/valuation?ticker=MSFT&tab=wacc`); an unknown one opens the overview.
+const TABS = ["overview", "wacc", "statement"] as const;
 
 const DCF_FIELDS: NumberFieldId[] = ["forecast_years", "growth_rate", "terminal_growth", "discount_rate"];
 const WACC_FIELDS: NumberFieldId[] = [
@@ -284,6 +289,7 @@ export function ValuationCalculator() {
   const valuation = result as ValuationResult | null;
   const m = valuation?.metrics;
   const set = (field: NumberFieldId) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
+  const [tab, setTab] = useUrlTab(TABS);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -316,8 +322,8 @@ export function ValuationCalculator() {
   }
 
   return (
-    <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-      <div className="min-w-0 space-y-8">
+    <div className={toolColumns("20rem")}>
+      <div className={`${STICKY_INPUTS} space-y-8`}>
         <form onSubmit={onSubmit} noValidate aria-labelledby="valuation-inputs" className="min-w-0 space-y-6">
           <h2 id="valuation-inputs" className="sr-only">
             {v.inputsHeading}
@@ -377,131 +383,163 @@ export function ValuationCalculator() {
                 </a>
               </p>
             </div>
-            <div data-testid="market-comparison">
-              <h2 className="text-lg font-semibold">{v.sections.market}</h2>
-              <div className="mt-2 grid gap-4 sm:grid-cols-2">
-                <Card
-                  id="share_price"
-                  explainer={v.metrics.share_price}
-                  values={[{ id: "share_price", result: m?.share_price, note: priceNote(valuation) }]}
-                />
-                <Card id="market_cap" explainer={v.metrics.market_cap} values={[{ id: "market_cap", result: m?.market_cap }]} />
-                <Card
-                  id="margin_of_safety"
-                  explainer={v.metrics.margin_of_safety}
-                  values={[{ id: "margin_of_safety", result: m?.margin_of_safety }]}
-                />
+            <Tabs
+              idPrefix="valuation"
+              label={v.tabs.label}
+              tabs={TABS.map((id) => ({ id, label: v.tabs[id] }))}
+              active={tab}
+              onChange={setTab}
+              className=""
+            >
+              <div className="mt-4 space-y-6">
+                {tab === "overview" && (
+                  <>
+                    <KeyFiguresStrip
+                      format={formatMoneyValue}
+                      figures={[
+                        {
+                          id: "intrinsic_value_per_share",
+                          label: v.metrics.intrinsic_value_per_share.name,
+                          result: m?.intrinsic_value_per_share,
+                        },
+                        { id: "share_price", label: v.metrics.share_price.name, result: m?.share_price },
+                        { id: "margin_of_safety", label: v.metrics.margin_of_safety.name, result: m?.margin_of_safety },
+                        { id: "discount_rate", label: v.metrics.discount_rate.name, result: m?.discount_rate },
+                      ]}
+                    />
+                    <SensitivityTable result={valuation} />
+                    <div data-testid="market-comparison">
+                      <h2 className="text-lg font-semibold">{v.sections.market}</h2>
+                      <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                        <Card
+                          id="share_price"
+                          explainer={v.metrics.share_price}
+                          values={[{ id: "share_price", result: m?.share_price, note: priceNote(valuation) }]}
+                        />
+                        <Card id="market_cap" explainer={v.metrics.market_cap} values={[{ id: "market_cap", result: m?.market_cap }]} />
+                        <Card
+                          id="margin_of_safety"
+                          explainer={v.metrics.margin_of_safety}
+                          values={[{ id: "margin_of_safety", result: m?.margin_of_safety }]}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold">{v.sections.valuation}</h2>
+                      <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                        <Card
+                          id="intrinsic_value_per_share"
+                          explainer={v.metrics.intrinsic_value_per_share}
+                          values={[{ id: "intrinsic_value_per_share", result: m?.intrinsic_value_per_share }]}
+                        />
+                        <Card id="equity_value" explainer={v.metrics.equity_value} values={[{ id: "equity_value", result: m?.equity_value }]} />
+                        <Card
+                          id="enterprise_value"
+                          explainer={v.metrics.enterprise_value}
+                          values={[{ id: "enterprise_value", result: m?.enterprise_value }]}
+                        />
+                        <Card
+                          id="pv_forecast_fcf"
+                          explainer={v.metrics.pv_forecast_fcf}
+                          values={[{ id: "pv_forecast_fcf", result: m?.pv_forecast_fcf }]}
+                        />
+                        <Card
+                          id="pv_terminal_value"
+                          explainer={v.metrics.pv_terminal_value}
+                          values={[
+                            { id: "pv_terminal_value", label: v.labels.presentValue, result: m?.pv_terminal_value },
+                            { id: "terminal_value", label: v.labels.atYearN, result: m?.terminal_value },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                    <FcfTable result={valuation} />
+                  </>
+                )}
+                {tab === "wacc" && (
+                  <div>
+                    <h2 className="text-lg font-semibold">{v.sections.wacc_breakdown}</h2>
+                    <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                      <Card
+                        id="cost_of_equity"
+                        explainer={v.metrics.cost_of_equity}
+                        values={[{ id: "cost_of_equity", result: m?.cost_of_equity, note: basisNote(m?.cost_of_equity) }]}
+                      />
+                      <Card
+                        id="cost_of_debt"
+                        explainer={v.metrics.cost_of_debt}
+                        values={[
+                          { id: "cost_of_debt", label: v.labels.preTax, result: m?.cost_of_debt, note: basisNote(m?.cost_of_debt) },
+                          { id: "after_tax_cost_of_debt", label: v.labels.afterTax, result: m?.after_tax_cost_of_debt },
+                        ]}
+                      />
+                      <Card
+                        id="tax_rate"
+                        explainer={v.metrics.tax_rate}
+                        values={[{ id: "tax_rate", result: m?.tax_rate, note: basisNote(m?.tax_rate) }]}
+                      />
+                      <Card
+                        id="capital_structure"
+                        explainer={v.metrics.capital_structure}
+                        values={[
+                          { id: "equity_weight", label: v.labels.equity, result: m?.equity_weight },
+                          { id: "debt_weight", label: v.labels.debt, result: m?.debt_weight, note: basisNote(m?.debt_weight) },
+                        ]}
+                      />
+                      <Card id="wacc" explainer={v.metrics.wacc} values={[{ id: "wacc", result: m?.wacc }]} />
+                      <Card
+                        id="discount_rate"
+                        explainer={v.metrics.discount_rate}
+                        values={[{ id: "discount_rate", result: m?.discount_rate, note: basisNote(m?.discount_rate) }]}
+                      />
+                    </div>
+                  </div>
+                )}
+                {tab === "statement" && (
+                  <div>
+                    <h2 className="text-lg font-semibold">{v.sections.statementInputs}</h2>
+                    <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                      <Card
+                        id="free_cash_flow"
+                        explainer={v.metrics.free_cash_flow}
+                        values={[{ id: "free_cash_flow", result: m?.free_cash_flow }]}
+                      />
+                      <Card
+                        id="interest_expense"
+                        explainer={v.metrics.interest_expense}
+                        values={[
+                          {
+                            id: "interest_expense",
+                            label: v.labels.preTax,
+                            result: m?.interest_expense,
+                            note: basisNote(m?.interest_expense),
+                          },
+                          { id: "after_tax_interest", label: v.labels.afterTax, result: m?.after_tax_interest },
+                        ]}
+                      />
+                      <Card id="cash" explainer={v.metrics.cash} values={[{ id: "cash", result: m?.cash }]} />
+                      <Card
+                        id="short_term_investments"
+                        explainer={v.metrics.short_term_investments}
+                        values={[
+                          {
+                            id: "short_term_investments",
+                            result: m?.short_term_investments,
+                            note: basisNote(m?.short_term_investments),
+                          },
+                        ]}
+                      />
+                      <Card id="total_debt" explainer={v.metrics.total_debt} values={[{ id: "total_debt", result: m?.total_debt }]} />
+                      <Card
+                        id="shares_outstanding"
+                        explainer={v.metrics.shares_outstanding}
+                        values={[{ id: "shares_outstanding", result: m?.shares_outstanding }]}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold">{v.sections.valuation}</h2>
-              <div className="mt-2 grid gap-4 sm:grid-cols-2">
-                <Card
-                  id="intrinsic_value_per_share"
-                  explainer={v.metrics.intrinsic_value_per_share}
-                  values={[{ id: "intrinsic_value_per_share", result: m?.intrinsic_value_per_share }]}
-                />
-                <Card id="equity_value" explainer={v.metrics.equity_value} values={[{ id: "equity_value", result: m?.equity_value }]} />
-                <Card
-                  id="enterprise_value"
-                  explainer={v.metrics.enterprise_value}
-                  values={[{ id: "enterprise_value", result: m?.enterprise_value }]}
-                />
-                <Card
-                  id="pv_forecast_fcf"
-                  explainer={v.metrics.pv_forecast_fcf}
-                  values={[{ id: "pv_forecast_fcf", result: m?.pv_forecast_fcf }]}
-                />
-                <Card
-                  id="pv_terminal_value"
-                  explainer={v.metrics.pv_terminal_value}
-                  values={[
-                    { id: "pv_terminal_value", label: v.labels.presentValue, result: m?.pv_terminal_value },
-                    { id: "terminal_value", label: v.labels.atYearN, result: m?.terminal_value },
-                  ]}
-                />
-              </div>
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold">{v.sections.wacc_breakdown}</h2>
-              <div className="mt-2 grid gap-4 sm:grid-cols-2">
-                <Card
-                  id="cost_of_equity"
-                  explainer={v.metrics.cost_of_equity}
-                  values={[{ id: "cost_of_equity", result: m?.cost_of_equity, note: basisNote(m?.cost_of_equity) }]}
-                />
-                <Card
-                  id="cost_of_debt"
-                  explainer={v.metrics.cost_of_debt}
-                  values={[
-                    { id: "cost_of_debt", label: v.labels.preTax, result: m?.cost_of_debt, note: basisNote(m?.cost_of_debt) },
-                    { id: "after_tax_cost_of_debt", label: v.labels.afterTax, result: m?.after_tax_cost_of_debt },
-                  ]}
-                />
-                <Card
-                  id="tax_rate"
-                  explainer={v.metrics.tax_rate}
-                  values={[{ id: "tax_rate", result: m?.tax_rate, note: basisNote(m?.tax_rate) }]}
-                />
-                <Card
-                  id="capital_structure"
-                  explainer={v.metrics.capital_structure}
-                  values={[
-                    { id: "equity_weight", label: v.labels.equity, result: m?.equity_weight },
-                    { id: "debt_weight", label: v.labels.debt, result: m?.debt_weight, note: basisNote(m?.debt_weight) },
-                  ]}
-                />
-                <Card id="wacc" explainer={v.metrics.wacc} values={[{ id: "wacc", result: m?.wacc }]} />
-                <Card
-                  id="discount_rate"
-                  explainer={v.metrics.discount_rate}
-                  values={[{ id: "discount_rate", result: m?.discount_rate, note: basisNote(m?.discount_rate) }]}
-                />
-              </div>
-            </div>
-            <SensitivityTable result={valuation} />
-            <div>
-              <h2 className="text-lg font-semibold">{v.sections.statementInputs}</h2>
-              <div className="mt-2 grid gap-4 sm:grid-cols-2">
-                <Card
-                  id="free_cash_flow"
-                  explainer={v.metrics.free_cash_flow}
-                  values={[{ id: "free_cash_flow", result: m?.free_cash_flow }]}
-                />
-                <Card
-                  id="interest_expense"
-                  explainer={v.metrics.interest_expense}
-                  values={[
-                    {
-                      id: "interest_expense",
-                      label: v.labels.preTax,
-                      result: m?.interest_expense,
-                      note: basisNote(m?.interest_expense),
-                    },
-                    { id: "after_tax_interest", label: v.labels.afterTax, result: m?.after_tax_interest },
-                  ]}
-                />
-                <Card id="cash" explainer={v.metrics.cash} values={[{ id: "cash", result: m?.cash }]} />
-                <Card
-                  id="short_term_investments"
-                  explainer={v.metrics.short_term_investments}
-                  values={[
-                    {
-                      id: "short_term_investments",
-                      result: m?.short_term_investments,
-                      note: basisNote(m?.short_term_investments),
-                    },
-                  ]}
-                />
-                <Card id="total_debt" explainer={v.metrics.total_debt} values={[{ id: "total_debt", result: m?.total_debt }]} />
-                <Card
-                  id="shares_outstanding"
-                  explainer={v.metrics.shares_outstanding}
-                  values={[{ id: "shares_outstanding", result: m?.shares_outstanding }]}
-                />
-              </div>
-            </div>
-            <FcfTable result={valuation} />
+            </Tabs>
             <CalculationInfo result={valuation} />
             <AiExplain tool="valuation" result={valuation} />
           </>
