@@ -62,9 +62,13 @@ test("cited numbers are checked against the result, and uncited ones are marked 
 
 test("a cited number that doesn't match the result is flagged in red", async ({ page }) => {
   const ai = await signInOnOptions(page);
+  const callPrice = page.getByRole("main").locator('[data-metric-value="call_price"]');
+  // The default result first, so the form has hydrated and won't reset the new spot.
+  await expect(callPrice).toContainText("10.45");
   // With a spot of 99 the fake model miscites the call price as 12.00.
   await page.getByRole("main").getByRole("spinbutton", { name: "Spot price" }).fill("99");
-  await expect(page.getByRole("main").locator('[data-metric-value="call_price"]')).not.toContainText("10.45");
+  // The S = 99 price itself: "Calculating…" would also pass a not-10.45 check.
+  await expect(callPrice).toContainText(/^9\.82/);
   await ai.getByRole("button", { name: "AI Explain" }).click();
 
   const cited = ai.getByTestId("ai-explanation").getByTestId("citation");
@@ -84,7 +88,7 @@ test("the explanation follows the result on screen", async ({ page }) => {
   await expect(ai.getByTestId("ai-explanation")).toBeVisible();
 
   await main.getByRole("spinbutton", { name: "Spot price" }).fill("120");
-  await expect(main.locator('[data-metric-value="call_price"]')).not.toContainText("10.45");
+  await expect(main.locator('[data-metric-value="call_price"]')).toContainText(/^26\.1/);
 
   await expect(ai.getByTestId("ai-explanation")).toHaveCount(0);
   await ai.getByRole("button", { name: "AI Explain" }).click();

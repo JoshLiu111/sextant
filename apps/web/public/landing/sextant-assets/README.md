@@ -15,4 +15,4 @@ PNG dimensions verified. Existing assets resized proportionally with background 
 - `states/error.png`: 640 × 400 PNG
 - `states/empty.png`: 480 × 300 PNG
 - `states/not-found.png`: 640 × 400 PNG
-- `brand/og-image.png`: 1200 × 630 PNG
+- `brand/favicon-64x64.png`: the nav mark. The site icons and the Open Graph image live in `src/app/` (`icon.png`, `apple-icon.png`, `favicon.ico`, `opengraph-image.png`).

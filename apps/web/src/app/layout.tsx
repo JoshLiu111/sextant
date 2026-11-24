@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
-import { Geist, Geist_Mono, Hedvig_Letters_Serif } from "next/font/google";
+import { Geist, Hedvig_Letters_Serif } from "next/font/google";
 import { AccountMenu } from "@/components/AccountMenu";
 import { NavLogo } from "@/components/NavLogo";
 import { PageSourcesProvider } from "@/components/PageSources";
@@ -19,11 +19,6 @@ const hedvig = Hedvig_Letters_Serif({
   variable: "--font-hedvig",
   subsets: ["latin"],
   weight: "400",
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
 });
 
 const t = getMessages();
@@ -46,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${hedvig.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${hedvig.variable} h-full antialiased`}
       // data-theme is set by THEME_SCRIPT before hydration.
       suppressHydrationWarning
     >
