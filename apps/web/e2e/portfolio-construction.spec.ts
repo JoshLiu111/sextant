@@ -2,10 +2,12 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const RISK_METRICS = ["annualized_return", "annualized_volatility", "max_drawdown", "var", "cvar", "sharpe", "sortino", "beta"];
 
-async function openPortfolio(page: Page) {
+/** Opens the page on one of the results tabs (the backtest and the frontier each have their own). */
+async function openPortfolio(page: Page, tab: "Rebalancing" | "Efficient frontier") {
   await page.goto("/portfolio");
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { level: 1, name: "My Portfolio" })).toBeVisible();
+  await main.getByRole("tab", { name: tab }).click();
   return main;
 }
 
@@ -17,7 +19,7 @@ const COLD = { timeout: 20_000 };
 const percent = (text: string | null) => Number((text ?? "").replace(/[^\d.-]/g, ""));
 
 test("the rebalancing backtest shows both strategies side by side on demo data, signed out", async ({ page }) => {
-  const main = await openPortfolio(page);
+  const main = await openPortfolio(page, "Rebalancing");
   const backtest = main.getByRole("region", { name: "Rebalancing backtest" });
 
   for (const who of ["rebalanced", "buy_and_hold"]) {
@@ -40,7 +42,7 @@ test("the rebalancing backtest shows both strategies side by side on demo data, 
 });
 
 test("a drift threshold no holding reaches never rebalances, so the two strategies match", async ({ page }) => {
-  const main = await openPortfolio(page);
+  const main = await openPortfolio(page, "Rebalancing");
   const backtest = main.getByRole("region", { name: "Rebalancing backtest" });
   await expect(metric(backtest, "rebalance_count:rebalanced")).toHaveAttribute("data-status", "ok", COLD);
 
@@ -59,7 +61,7 @@ test("a drift threshold no holding reaches never rebalances, so the two strategi
 });
 
 test("the efficient frontier marks the max-Sharpe, min-variance and current portfolios", async ({ page }) => {
-  const main = await openPortfolio(page);
+  const main = await openPortfolio(page, "Efficient frontier");
   const frontier = main.getByRole("region", { name: "Efficient frontier" });
 
   const chart = frontier.getByRole("img", { name: /efficient frontier/i });
@@ -94,7 +96,7 @@ test("the efficient frontier marks the max-Sharpe, min-variance and current port
 });
 
 test("a frontier with a single holding explains that it needs two", async ({ page }) => {
-  const main = await openPortfolio(page);
+  const main = await openPortfolio(page, "Efficient frontier");
   const frontier = main.getByRole("region", { name: "Efficient frontier" });
   await expect(metric(frontier, "volatility:min_variance")).toHaveAttribute("data-status", "ok", COLD);
 
