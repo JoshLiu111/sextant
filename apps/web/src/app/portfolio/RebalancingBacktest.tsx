@@ -85,7 +85,7 @@ export function RebalancingBacktest({ portfolio }: { portfolio: Record<string, u
     rule,
     drift_threshold: rule === "drift" ? thresholdValue : 0.05,
   });
-  // Holding and date errors belong to the demo form above; only this section's fields show here.
+  // Holding and date errors belong to the demo form; only this section's fields show here.
   const ownErrors = fieldErrors.rule || fieldErrors.drift_threshold;
   const otherErrors = Object.keys(fieldErrors).some((k) => k !== "rule" && k !== "drift_threshold");
 
