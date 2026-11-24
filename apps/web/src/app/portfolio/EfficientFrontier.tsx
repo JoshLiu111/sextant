@@ -53,7 +53,7 @@ export function EfficientFrontier({ portfolio }: { portfolio: Record<string, unk
   const t = getMessages();
   const f = t.portfolioConstruction.frontier;
   const { result, fieldErrors, error } = useCompute<string, string>("/portfolio/frontier", portfolio);
-  // The inputs live in the demo form above, so name what is wrong here rather than "fix the highlighted fields".
+  // The inputs live in the demo form, so name what is wrong here rather than "fix the highlighted fields".
   const fieldMessages = [...new Set(Object.values(fieldErrors))].join(" ");
   const tickers = ((result?.meta.parameters as { holdings?: { ticker: string }[] } | undefined)?.holdings ?? []).map(
     (h) => h.ticker,

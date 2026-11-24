@@ -67,20 +67,25 @@ test("the demo portfolio computes on the user's Tiingo prices and refuses demo t
   await expect(footer.locator('[data-attribution="tiingo"]')).toBeVisible();
   await expect(footer.locator('[data-attribution="demo"]')).toHaveCount(0);
   await expect(footer.locator('[data-attribution="frankfurter"]')).toHaveCount(0);
-  // The rebalancing backtest and efficient frontier below run on the same My data holdings.
+  // The rebalancing backtest and efficient frontier (their own tabs) run on the same My data holdings.
   const main = page.getByRole("main");
   const backtest = main.getByRole("region", { name: "Rebalancing backtest" });
   const frontier = main.getByRole("region", { name: "Efficient frontier" });
+  const openTab = (name: string) => demo.getByRole("tab", { name }).click();
+  await openTab("Rebalancing");
   await expect(backtest.locator('[data-metric-value="turnover:rebalanced"]')).toHaveAttribute("data-status", "ok");
   await expect(backtest.getByTestId("demo-badge")).toHaveCount(0);
+  await openTab("Efficient frontier");
   await expect(frontier.getByRole("cell", { name: "AAPL" })).toBeVisible();
   await expect(frontier.getByTestId("demo-badge")).toHaveCount(0);
 
   await demo.getByLabel("Ticker 2").fill("DEMO-A");
   await demo.getByRole("button", { name: "Calculate" }).click();
-  await expect(demo.getByText(/DEMO-A is a demo ticker/).first()).toBeVisible();
-  await expect(backtest.getByText(/DEMO-A is a demo ticker/).first()).toBeVisible();
   await expect(frontier.getByText(/DEMO-A is a demo ticker/).first()).toBeVisible();
+  await openTab("Rebalancing");
+  await expect(backtest.getByText(/DEMO-A is a demo ticker/).first()).toBeVisible();
+  await openTab("Overview");
+  await expect(demo.getByText(/DEMO-A is a demo ticker/).first()).toBeVisible();
 
   await toggle.getByText("Demo data").click();
   await expect(demo.getByRole("textbox", { name: "Benchmark" })).toHaveValue("DEMO-MKT");
