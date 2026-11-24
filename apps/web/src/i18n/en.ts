@@ -1,6 +1,7 @@
 // All user-facing English strings. Keep UI copy here (not inline in components)
 // so a second locale can be added later by providing another object of the
 // same `Messages` shape.
+import type { HowToUse } from "@/lib/howToUse";
 import { riskTechnical } from "./en-technical";
 
 export const en = {
@@ -122,7 +123,8 @@ export const en = {
   },
   /**
    * Per-tool copy. `question` is what the tool answers and `highlights` (2–3)
-   * what it gives you; the landing page and dashboard cards read both.
+   * what it gives you; the landing page and dashboard cards read both. `howTo`
+   * is the tool page's "How to use" panel (`HowToUse` in lib/howToUse.ts).
    */
   tools: {
     options: {
@@ -134,6 +136,23 @@ export const en = {
         "The Greeks and implied volatility",
         "Payoff charts for multi-leg strategies",
       ],
+      howTo: {
+        steps: [
+          "Pick a tab: a single option, a multi-leg strategy, or an American option priced on a binomial tree.",
+          "Enter the spot price, strike, time to expiry, volatility and rates, then press Calculate.",
+          "Read the prices and Greeks. Open \"About\" under any number to see what it means and how it was computed.",
+          "On a single option, enter a market price to back out the implied volatility.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          { label: "Price a call at 30% volatility", params: { volatility: "30" } },
+          {
+            label: "Build an iron condor",
+            params: { tab: "strategy", legs: "put:long:1:80,put:short:1:90,call:short:1:110,call:long:1:120" },
+          },
+        ],
+        signedInExtras: [],
+      } satisfies HowToUse,
     },
     risk: {
       name: "Risk & Performance",
@@ -144,6 +163,27 @@ export const en = {
         "Value at Risk, Sharpe ratio and Beta",
         "Several tickers against one benchmark",
       ],
+      howTo: {
+        steps: [
+          "Enter a few tickers and a benchmark. Demo tickers (DEMO-A to DEMO-I, benchmark DEMO-MKT) run on synthetic prices.",
+          "Choose the date range, VaR confidence level and return period, then press Calculate.",
+          "Compare return, volatility, worst fall, VaR, Sharpe and Beta side by side; pick a ticker to see its drawdown chart.",
+          "Scroll down for rolling metrics, factor models, model checks and technical indicators.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          {
+            label: "Measure a 45% crash",
+            params: { tickers: "DEMO-D", start: "2022-02-28", end: "2022-04-11" },
+          },
+          { label: "Compare two stocks at 99% VaR", params: { tickers: "DEMO-A,DEMO-B", confidence: "99" } },
+        ],
+        signedInExtras: [
+          "run it on real prices with your own Tiingo or FMP key",
+          "upload your own Fama-French factor files",
+          "get a plain-English AI explanation of the results",
+        ],
+      } satisfies HowToUse,
     },
     portfolio: {
       name: "My Portfolio",
@@ -206,6 +246,13 @@ export const en = {
     },
   },
   common: {
+    howToUse: {
+      heading: "How to use",
+      stepsLabel: "Getting started",
+      tryThis: "Try this:",
+      examplesLabel: "Try these examples",
+      signedInExtras: "Signed-in users can also:",
+    },
     explainer: {
       about: "About",
       what: "What it is",
