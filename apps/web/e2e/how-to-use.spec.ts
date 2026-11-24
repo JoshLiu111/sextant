@@ -1,24 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { metric, openTool, steps, uniqueEmail, untilPanelIsLive } from "./how-to-use-helpers";
 
 // The "How to use" panel at the top of tool pages (spec 02, issue #66): steps,
 // one-click example links, and for visitors the things signing in adds on that tool.
 // Open or collapsed is remembered per tool in the browser.
-
-const metric = (page: Page, id: string) => page.getByRole("main").locator(`[data-metric-value="${id}"]`);
-
-/** The panel on a tool page; its steps are visible only while it's open. */
-async function openTool(page: Page, url: string) {
-  await page.goto(url);
-  const panel = page.getByRole("main").getByRole("region", { name: "How to use" });
-  await expect(panel).toBeVisible();
-  return panel;
-}
-
-const steps = (panel: ReturnType<Page["getByRole"]>) => panel.getByRole("list", { name: "Getting started" });
-
-function uniqueEmail(label: string) {
-  return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
-}
 
 test.describe("on the first visit", () => {
   for (const [url, tool] of [
@@ -44,19 +29,22 @@ test.describe("without JavaScript", () => {
 });
 
 test("a collapsed panel stays collapsed after a reload, and only on that tool", async ({ page }) => {
-  const options = await openTool(page, "/options");
-  await options.getByText("How to use", { exact: true }).click();
-  await expect(steps(options)).toBeHidden();
-
-  await page.reload();
-  await expect(options).toBeVisible();
-  await expect(steps(options)).toBeHidden();
-
   const risk = await openTool(page, "/risk");
-  await expect(steps(risk)).toBeVisible();
+  await untilPanelIsLive(risk);
+  await risk.getByText("How to use", { exact: true }).click();
+  await expect(steps(risk)).toBeHidden();
+
+  // It renders open until the page reads the remembered state.
+  await page.reload();
+  await untilPanelIsLive(risk);
+  await expect(steps(risk)).toBeHidden();
+
+  const options = await openTool(page, "/options");
+  await expect(steps(options)).toBeVisible();
 
   // Opening it again is remembered too.
-  const reopened = await openTool(page, "/options");
+  const reopened = await openTool(page, "/risk");
+  await untilPanelIsLive(reopened);
   await reopened.getByText("How to use", { exact: true }).click();
   await expect(steps(reopened)).toBeVisible();
   await page.reload();
@@ -65,8 +53,7 @@ test("a collapsed panel stays collapsed after a reload, and only on that tool", 
 
 test("the panel toggles from the keyboard", async ({ page }) => {
   const panel = await openTool(page, "/risk");
-  // Wait until the page can react (the visitor-only line comes from a client check).
-  await expect(panel.getByText("Signed-in users can also")).toBeVisible();
+  await untilPanelIsLive(panel);
   const toggle = panel.getByText("How to use", { exact: true });
   await toggle.focus();
   await page.keyboard.press("Enter");
@@ -125,11 +112,15 @@ test.describe("the signed-in extras line", () => {
     );
   });
 
-  test("a visitor on the Options Calculator sees no such line", async ({ page }) => {
+  test("a visitor on the Options Calculator sees that signing in adds AI Explain", async ({ page }) => {
     const panel = await openTool(page, "/options");
-    // AI Explain's sign-in prompt shows once the client has checked the session.
-    await expect(page.getByRole("main").getByText("Sign in to use AI Explain")).toBeVisible();
-    await expect(panel.getByText("Signed-in users can also")).toHaveCount(0);
+    const extras = panel.getByTestId("signed-in-extras");
+    await expect(extras).toContainText("Signed-in users can also");
+    await expect(extras).toContainText("get a plain-English AI explanation of the result");
+    await expect(extras.getByRole("link", { name: "Sign in with Google" })).toHaveAttribute(
+      "href",
+      "/auth/signin?returnTo=%2Foptions",
+    );
   });
 
   test("a signed-in user on Risk & Performance sees no such line", async ({ page }) => {

@@ -82,7 +82,6 @@ export const en = {
     tools: {
       heading: "Pick a question",
       intro: "Every tool opens on demo data, so you can try it without signing in.",
-      openDemo: "Open demo",
     },
     unlocks: {
       heading: "Free account unlocks",
@@ -151,7 +150,7 @@ export const en = {
             params: { tab: "strategy", legs: "put:long:1:80,put:short:1:90,call:short:1:110,call:long:1:120" },
           },
         ],
-        signedInExtras: [],
+        signedInExtras: ["get a plain-English AI explanation of the result"],
       } satisfies HowToUse,
     },
     risk: {
@@ -352,6 +351,11 @@ export const en = {
     },
   },
   common: {
+    /** The tool cards' link: "Open demo" on the landing page, "Open" on the dashboard. */
+    toolCard: {
+      openDemo: "Open demo",
+      open: "Open",
+    },
     howToUse: {
       heading: "How to use",
       stepsLabel: "Getting started",

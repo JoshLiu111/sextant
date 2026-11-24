@@ -1,15 +1,25 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { getMessages } from "@/i18n";
+import { getMessages, type Messages } from "@/i18n";
 import type { Tool } from "@/lib/tools";
 
 /**
  * One tool as a card: the question it answers, its highlights and a link that
- * opens it. Shared by the landing page and the dashboard; `personal` is an
- * optional slot for the signed-in user's own info about this tool.
+ * opens it. Shared by the landing page (`action="openDemo"`) and the dashboard
+ * (`action="open"`); `personal` is an optional slot for the signed-in user's
+ * own info about this tool.
  */
-export function ToolCard({ tool, personal }: { tool: Tool; personal?: ReactNode }) {
+export function ToolCard({
+  tool,
+  action,
+  personal,
+}: {
+  tool: Tool;
+  action: keyof Messages["common"]["toolCard"];
+  personal?: ReactNode;
+}) {
   const t = getMessages();
+  const label = t.common.toolCard[action];
   const copy = t.tools[tool.slug];
   const headingId = `tool-card-${tool.slug}`;
   return (
@@ -37,11 +47,11 @@ export function ToolCard({ tool, personal }: { tool: Tool; personal?: ReactNode 
       )}
       <Link
         href={tool.href}
-        aria-label={`${t.home.tools.openDemo}: ${copy.name}`}
+        aria-label={`${label}: ${copy.name}`}
         className="mt-auto self-start pt-4"
       >
         <span className="inline-block rounded border border-black/15 px-3 py-1 text-sm font-medium hover:border-black/40 dark:border-white/20 dark:hover:border-white/50">
-          {t.home.tools.openDemo}
+          {label}
         </span>
       </Link>
     </article>

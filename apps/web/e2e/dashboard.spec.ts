@@ -87,6 +87,15 @@ test("a visitor gets no Dashboard link, and the logo points to the landing page"
   await expect(page.getByRole("navigation", { name: "Tools" }).getByRole("link")).toHaveCount(8);
 });
 
+test("dashboard tool cards open the tool, with no demo wording", async ({ page }) => {
+  await signInFromLanding(page, uniqueEmail("cards"));
+
+  const card = page.getByRole("main").getByRole("article", { name: "Risk & Performance", exact: true });
+  await expect(card.getByRole("link", { name: /demo/i })).toHaveCount(0);
+  await card.getByRole("link", { name: "Open: Risk & Performance" }).click();
+  await expect(page).toHaveURL(/\/risk$/);
+});
+
 test.describe("status strip", () => {
   // The quota resets at midnight UTC; the dashboard shows it in the user's own time zone.
   test.use({ timezoneId: "America/New_York" });
@@ -171,6 +180,19 @@ test.describe("status strip", () => {
     await expect(main.getByRole("region", { name: "Data key" })).toContainText("No key connected");
     await expect(main.getByRole("region", { name: "AI quota" })).toContainText("3 of 3 AI calls left today");
     await expect(main.getByTestId("tool-card")).toHaveCount(8);
+  });
+
+  test("status items whose requests never reach the server show unavailable, each on its own", async ({ page }) => {
+    await signInFromLanding(page, uniqueEmail("offline"), "Dorothy Vaughan");
+    await page.route("**/api/compute/keys", (route) => route.abort());
+    await page.route("**/api/compute/portfolios", (route) => route.abort());
+    await page.reload();
+
+    const main = page.getByRole("main");
+    await expect(main.getByRole("region", { name: "Data key" })).toContainText(/unavailable/i);
+    await expect(main.getByRole("region", { name: "Saved portfolios" })).toContainText(/unavailable/i);
+    await expect(main.getByRole("article", { name: "My Portfolio", exact: true })).toContainText(/unavailable/i);
+    await expect(main.getByRole("region", { name: "AI quota" })).toContainText("3 of 3 AI calls left today");
   });
 
   test("a user with no name is greeted by email", async ({ page }) => {

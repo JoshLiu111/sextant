@@ -41,7 +41,11 @@ export default function DashboardPage() {
           <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {TOOLS.map((tool) => (
               <li key={tool.slug}>
-                <ToolCard tool={tool} personal={tool.slug === "portfolio" ? <SavedPortfolioCount /> : undefined} />
+                <ToolCard
+                  tool={tool}
+                  action="open"
+                  personal={tool.slug === "portfolio" ? <SavedPortfolioCount /> : undefined}
+                />
               </li>
             ))}
           </ul>

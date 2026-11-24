@@ -1,4 +1,5 @@
 import { ComputeStatus } from "@/components/ComputeStatus";
+import { SignInLink } from "@/components/SignInLink";
 import { ToolCard } from "@/components/ToolCard";
 import { getMessages } from "@/i18n";
 import { TOOLS } from "@/lib/tools";
@@ -23,13 +24,7 @@ export default function Home() {
           >
             {t.home.hero.tryTool}
           </a>
-          {/* A full navigation (not <Link>): /auth/signin redirects off-site. */}
-          <a
-            href={`/auth/signin?returnTo=${encodeURIComponent("/")}`}
-            className="rounded border border-black/15 px-4 py-2 text-center text-sm font-medium hover:border-black/40 dark:border-white/20 dark:hover:border-white/50"
-          >
-            {t.auth.signIn}
-          </a>
+          <SignInLink className="rounded border border-black/15 px-4 py-2 text-center text-sm font-medium hover:border-black/40 dark:border-white/20 dark:hover:border-white/50" />
         </div>
       </section>
 
@@ -41,7 +36,7 @@ export default function Home() {
         <ul className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {TOOLS.map((tool) => (
             <li key={tool.slug}>
-              <ToolCard tool={tool} />
+              <ToolCard tool={tool} action="openDemo" />
             </li>
           ))}
         </ul>

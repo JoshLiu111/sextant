@@ -1,26 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { COLD, metric, openTool, steps, uniqueEmail } from "./how-to-use-helpers";
 
 // "How to use" content for My Portfolio, Company Health Check and the Valuation
 // Calculator (spec 02, issue #67): steps, example links that fill in the inputs
 // and show a result, and for visitors what signing in adds on that tool.
-
-const metric = (page: Page, id: string) => page.getByRole("main").locator(`[data-metric-value="${id}"]`);
-
-// EDGAR comes from the e2e fake; a cold compute cache is slow.
-const COLD = { timeout: 30_000 };
-
-async function openTool(page: Page, url: string) {
-  await page.goto(url);
-  const panel = page.getByRole("main").getByRole("region", { name: "How to use" });
-  await expect(panel).toBeVisible();
-  return panel;
-}
-
-const steps = (panel: ReturnType<Page["getByRole"]>) => panel.getByRole("list", { name: "Getting started" });
-
-function uniqueEmail(label: string) {
-  return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
-}
 
 test.describe("My Portfolio", () => {
   test("shows the panel with steps and example links", async ({ page }) => {

@@ -1,24 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
+import { COLD, openTool, steps, uniqueEmail } from "./how-to-use-helpers";
 
 // The "How to use" panel's content on Macro Dashboard, Screener & Calendar and
 // AI Analyst (issue #68; the panel itself is covered in how-to-use.spec.ts).
 // Values come from the recorded fixtures behind the fakes (see macro-search,
 // macro-world, shareable-links and ai-analyst specs).
-
-const COLD = { timeout: 30_000 };
-
-async function openTool(page: Page, url: string) {
-  await page.goto(url);
-  const panel = page.getByRole("main").getByRole("region", { name: "How to use" });
-  await expect(panel).toBeVisible();
-  return panel;
-}
-
-const steps = (panel: ReturnType<Page["getByRole"]>) => panel.getByRole("list", { name: "Getting started" });
-
-function uniqueEmail(label: string) {
-  return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.test`;
-}
 
 async function signIn(page: Page, url: string) {
   await page.goto(url);

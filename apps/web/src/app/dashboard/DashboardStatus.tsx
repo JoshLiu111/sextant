@@ -34,18 +34,25 @@ export function DashboardDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    // After unmount (the abort) answers are dropped, whatever they are.
     const set = (patch: Partial<DashboardData>) => {
       if (!controller.signal.aborted) setData((d) => ({ ...d, ...patch }));
     };
-    providerKeysApi.list().then((o) => {
-      if (o.kind !== "ok") return set({ keys: UNAVAILABLE });
-      const saved = new Set(o.value.map((k) => k.provider));
-      set({ keys: ok(PROVIDERS.filter((p) => saved.has(p))) });
-    });
+    providerKeysApi
+      .list()
+      .then((o) => {
+        if (o.kind !== "ok") return set({ keys: UNAVAILABLE });
+        const saved = new Set(o.value.map((k) => k.provider));
+        set({ keys: ok(PROVIDERS.filter((p) => saved.has(p))) });
+      })
+      .catch(() => set({ keys: UNAVAILABLE }));
     fetchAiQuota(controller.signal)
       .then((o) => set({ quota: o.kind === "ok" ? ok(o.quota) : UNAVAILABLE }))
-      .catch(() => {});
-    portfoliosApi.list().then((o) => set({ portfolios: o.kind === "ok" ? ok(o.value.length) : UNAVAILABLE }));
+      .catch(() => set({ quota: UNAVAILABLE }));
+    portfoliosApi
+      .list()
+      .then((o) => set({ portfolios: o.kind === "ok" ? ok(o.value.length) : UNAVAILABLE }))
+      .catch(() => set({ portfolios: UNAVAILABLE }));
     return () => controller.abort();
   }, []);
 
