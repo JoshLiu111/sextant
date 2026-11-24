@@ -194,6 +194,27 @@ export const en = {
         "Performance and risk versus a benchmark",
         "Optimised weights to compare with your own",
       ],
+      howTo: {
+        steps: [
+          "Enter tickers and weights that add up to 100%, or pick a preset. Demo tickers (DEMO-A to DEMO-I, benchmark DEMO-MKT) run on synthetic prices.",
+          "Choose the benchmark, date range, VaR confidence level and risk-free rate, then press Calculate.",
+          "Compare the portfolio's return, volatility, worst fall, VaR and Sharpe with the benchmark's.",
+          "Scroll down to backtest a rebalancing rule and see optimised weights on the efficient frontier.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          { label: "Load a 60/40 portfolio", params: { holdings: "DEMO-C:60,DEMO-E:40" } },
+          {
+            label: "Hold one stock through a 45% crash",
+            params: { holdings: "DEMO-D:100", start: "2022-02-28", end: "2022-04-11" },
+          },
+        ],
+        signedInExtras: [
+          "run it on real prices with your own Tiingo or FMP key",
+          "save portfolios and import your trades from a CSV file",
+          "get a plain-English AI explanation of the results",
+        ],
+      } satisfies HowToUse,
     },
     company: {
       name: "Company Health Check",
@@ -204,6 +225,20 @@ export const en = {
         "Core ratios over several years",
         "Altman Z-Score for bankruptcy risk",
       ],
+      howTo: {
+        steps: [
+          "Enter one or more US-listed tickers (e.g. AAPL, MSFT) under the ratios. Data comes from SEC filings, so any company that files with the SEC works.",
+          "Add a share price for a company to see its valuation multiples, such as P/E, then press Show ratios.",
+          "Read the ratios and scores (Altman Z, Piotroski F, Beneish M) and the DuPont breakdown. Open \"About\" under any number to see what it means.",
+          "Further down, enter a ticker and press Show statements for its income statement, balance sheet and cash flows. Switch between annual and quarterly periods at the top.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          { label: "Check Apple's P/E at a $250 share price", params: { companies: "AAPL:250" } },
+          { label: "Compare Microsoft with Apple", params: { companies: "MSFT,AAPL", ticker: "MSFT" } },
+        ],
+        signedInExtras: ["get a plain-English AI explanation of the statements and ratios"],
+      } satisfies HowToUse,
     },
     valuation: {
       name: "Valuation Calculator",
@@ -214,6 +249,24 @@ export const en = {
         "A step-by-step WACC breakdown",
         "A sensitivity table for your assumptions",
       ],
+      howTo: {
+        steps: [
+          "Enter a US-listed ticker and press Value company. The base-year cash flows come from its latest annual report (10-K) filed with the SEC.",
+          "Set the forecast years, growth rate and terminal growth. Leave the discount rate blank to use the WACC, or type one to override it.",
+          "Adjust the WACC inputs if you like; any left blank are derived from the filings. The results update as you change them.",
+          "Read the value per share, the WACC breakdown and the sensitivity table. Open \"About\" under any number to see how it was computed.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          { label: "Value Microsoft at 8% growth", params: { ticker: "MSFT", growth_rate: "8" } },
+          { label: "Override the cost of equity at 12%", params: { ticker: "MSFT", cost_of_equity: "12" } },
+        ],
+        signedInExtras: [
+          "use the latest share price from your own Tiingo or FMP key",
+          "save your assumptions under a name and load them later",
+          "get a plain-English AI explanation of the valuation",
+        ],
+      } satisfies HowToUse,
     },
     macro: {
       name: "Macro Dashboard",
