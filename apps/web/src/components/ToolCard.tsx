@@ -26,22 +26,24 @@ export function ToolCard({
     <article
       aria-labelledby={headingId}
       data-testid="tool-card"
-      className="flex h-full flex-col rounded-lg border border-black/10 p-4 dark:border-white/15"
+      data-tool={tool.slug}
+      className="card flex h-full flex-col p-4 md:p-5"
     >
-      <h4 id={headingId} className="font-semibold">
+      <span aria-hidden className="tool-rule mb-4" />
+      <h4 id={headingId} className="font-display text-xl leading-tight text-ink">
         {copy.name}
       </h4>
-      <p data-testid="tool-question" className="mt-1 text-sm font-medium">
+      <p data-testid="tool-question" className="mt-2 text-sm font-medium text-ink">
         {copy.question}
       </p>
-      <ul className="mt-3 flex list-disc flex-col gap-1 pl-5 text-sm text-black/70 dark:text-white/70">
+      <ul className="mt-3 flex list-disc flex-col gap-1 pl-5 text-sm text-ink-2 marker:text-muted">
         {copy.highlights.map((highlight) => (
           <li key={highlight}>{highlight}</li>
         ))}
       </ul>
       {personal && <div className="mt-3 text-sm">{personal}</div>}
       {tool.status === "coming-soon" && (
-        <span className="mt-3 self-start rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+        <span className="mt-3 self-start rounded-card bg-paper-2 px-2 py-0.5 text-xs font-medium text-ink">
           {t.comingSoon.badge}
         </span>
       )}
@@ -50,7 +52,7 @@ export function ToolCard({
         aria-label={`${label}: ${copy.name}`}
         className="mt-auto self-start pt-4"
       >
-        <span className="inline-block rounded border border-black/15 px-3 py-1 text-sm font-medium hover:border-black/40 dark:border-white/20 dark:hover:border-white/50">
+        <span className="btn btn-sm">
           {label}
         </span>
       </Link>

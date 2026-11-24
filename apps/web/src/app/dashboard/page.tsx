@@ -17,7 +17,7 @@ async function Greeting() {
   const user = await getCurrentUser();
   if (!user) redirect("/");
   return (
-    <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+    <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
       {t.dashboard.greeting(user.name || user.email)}
     </h1>
   );
@@ -34,7 +34,7 @@ export default function DashboardPage() {
           <StatusStrip />
         </div>
         <section aria-labelledby="dashboard-tools-heading" className="mt-10">
-          <h2 id="dashboard-tools-heading" className="text-xl font-semibold tracking-tight">
+          <h2 id="dashboard-tools-heading" className="text-2xl">
             {t.dashboard.tools.heading}
           </h2>
           <div className="mt-4">

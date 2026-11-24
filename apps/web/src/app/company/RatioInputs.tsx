@@ -49,7 +49,7 @@ function SourceLine({ source, unit, showPeriod }: { source: Source; unit: Unit; 
       {showPeriod && (
         <span>
           {source.period_label}:{" "}
-          <span className="font-mono tabular-nums">
+          <span className="tabular-nums">
             {source.value === null ? "n/a" : formatStatementValue(source.value, unit)}
           </span>{" "}
           ·{" "}
@@ -63,7 +63,7 @@ function SourceLine({ source, unit, showPeriod }: { source: Source; unit: Unit; 
         <span className="italic">{source.reason}</span>
       )}
       {source.derived_from && (
-        <span className="block text-xs text-black/50 dark:text-white/50">
+        <span className="block text-xs text-muted">
           {d.derived}: {source.derived_from}
         </span>
       )}
@@ -98,17 +98,17 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
       ref={ref}
       aria-labelledby="ratio-inputs-title"
       onClose={onClose}
-      className="w-[min(48rem,calc(100vw-2rem))] rounded-lg border border-black/10 bg-white p-0 text-black shadow-xl backdrop:bg-black/40 dark:border-white/10 dark:bg-neutral-950 dark:text-white"
+      className="w-[min(48rem,calc(100vw-2rem))] rounded-card border border-rule bg-paper p-0 text-ink shadow-sheet backdrop:bg-ink/40"
     >
       <div className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-4">
-          <h2 id="ratio-inputs-title" className="text-lg font-semibold">
+          <h2 id="ratio-inputs-title" className="text-xl">
             {d.title(explainer.name, selection.ticker, selection.periodLabel)}
           </h2>
           <button
             type="button"
             onClick={() => ref.current?.close()}
-            className="rounded-md border border-black/20 px-3 py-1 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className="btn btn-sm"
           >
             {d.close}
           </button>
@@ -124,7 +124,7 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
               {!metric ? (
                 "…"
               ) : metric.status === "ok" && metric.value !== null ? (
-                <span className="font-mono tabular-nums">{formatRatio(metric.value, metric.unit, metricId)}</span>
+                <span className="tabular-nums">{formatRatio(metric.value, metric.unit, metricId)}</span>
               ) : (
                 <span className="italic">{metric.reason}</span>
               )}
@@ -137,14 +137,14 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
             <p className="text-sm">{d.noInputs}</p>
           ) : (
             <section aria-labelledby="ratio-inputs-table">
-              <h3 id="ratio-inputs-table" className="text-base font-semibold">
+              <h3 id="ratio-inputs-table" className="text-lg">
                 {d.inputs}
               </h3>
-              <p className="text-xs text-black/50 dark:text-white/50">{d.unitsNote}</p>
-              <div className="relative mt-2 max-h-[50vh] overflow-auto rounded-lg border border-black/10 dark:border-white/10">
+              <p className="text-xs text-muted">{d.unitsNote}</p>
+              <div className="relative mt-2 max-h-[50vh] overflow-auto rounded-card border border-rule">
                 <table aria-labelledby="ratio-inputs-table" className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-black/10 text-left dark:border-white/10">
+                    <tr className="border-b border-rule text-left">
                       <th scope="col" className="px-3 py-2 font-medium">
                         {d.input}
                       </th>
@@ -163,7 +163,7 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
                     {inputs.inputs.map((i) => (
                       <tr
                         key={`${i.item}:${i.period_id}`}
-                        className="border-b border-black/5 align-top last:border-0 dark:border-white/5"
+                        className="border-b border-rule align-top last:border-0"
                       >
                         <th scope="row" className="px-3 py-1.5 text-left font-normal">
                           {i.label}
@@ -171,16 +171,16 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
                         <td className="px-3 py-1.5">
                           {i.period_label}
                           {i.basis === "ttm" && (
-                            <span title={d.ttm} className="ml-1 text-xs text-black/50 dark:text-white/50">
+                            <span title={d.ttm} className="ml-1 text-xs text-muted">
                               ({r.ttm})
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                        <td className="px-3 py-1.5 text-right tabular-nums">
                           {i.value === null ? <span className="font-sans italic">{i.reason}</span> : formatStatementValue(i.value, i.unit)}
                         </td>
                         <td className="px-3 py-1.5">
-                          {i.basis === "ttm" && <p className="text-xs text-black/50 dark:text-white/50">{d.ttm}</p>}
+                          {i.basis === "ttm" && <p className="text-xs text-muted">{d.ttm}</p>}
                           <ul className="space-y-1">
                             {i.sources.map((s) => (
                               <SourceLine key={s.period_id} source={s} unit={i.unit} showPeriod={i.basis === "ttm"} />
@@ -195,7 +195,7 @@ export function RatioInputs({ selection, onClose }: { selection: Selection; onCl
             </section>
           )
         ) : (
-          !error && <p className="text-sm text-black/60 dark:text-white/60">{d.loading}</p>
+          !error && <p className="text-sm text-muted">{d.loading}</p>
         )}
       </div>
     </dialog>

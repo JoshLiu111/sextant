@@ -24,7 +24,7 @@ const MARGIN = { top: 12, right: 16, bottom: 36, left: 44 };
  * Responsive SVG histogram. Hovering (or focusing and using the arrow keys)
  * shows the bin's range and count.
  */
-export function Histogram({ label, bins, binWidth, xLabel, formatX, formatCount, color = "#2563eb", height = 240 }: Props) {
+export function Histogram({ label, bins, binWidth, xLabel, formatX, formatCount, color = "var(--color-tool)", height = 240 }: Props) {
   const wrapper = useRef<HTMLDivElement>(null);
   const [measured, setMeasured] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -76,7 +76,7 @@ export function Histogram({ label, bins, binWidth, xLabel, formatX, formatCount,
         width={width}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
-        className="block touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="block touch-none select-none rounded-sm"
         onPointerMove={onPointerMove}
         onPointerDown={onPointerMove}
         onPointerLeave={() => setHover(null)}
@@ -84,10 +84,10 @@ export function Histogram({ label, bins, binWidth, xLabel, formatX, formatCount,
         onFocus={() => setHover((i) => i ?? Math.floor(bins.length / 2))}
         onBlur={() => setHover(null)}
       >
-        <g className="text-black/40 dark:text-white/40" fontSize={11} fill="currentColor">
+        <g className="text-muted" fontSize={12} fill="currentColor">
           {[0, Math.round(maxCount / 2), maxCount].map((c) => (
             <g key={`y${c}`}>
-              <line x1={MARGIN.left} x2={width - MARGIN.right} y1={sy(c)} y2={sy(c)} stroke="currentColor" strokeOpacity={0.25} />
+              <line x1={MARGIN.left} x2={width - MARGIN.right} y1={sy(c)} y2={sy(c)} className="stroke-rule" />
               <text x={MARGIN.left - 6} y={sy(c)} textAnchor="end" dominantBaseline="middle">
                 {c}
               </text>
@@ -110,8 +110,8 @@ export function Histogram({ label, bins, binWidth, xLabel, formatX, formatCount,
             width={barW}
             y={sy(b.count)}
             height={MARGIN.top + innerH - sy(b.count)}
-            fill={color}
-            fillOpacity={hover === i ? 0.9 : 0.6}
+            style={{ fill: color }}
+            fillOpacity={hover === i ? 1 : 0.72}
           />
         ))}
       </svg>
@@ -119,16 +119,16 @@ export function Histogram({ label, bins, binWidth, xLabel, formatX, formatCount,
         <div
           data-testid="chart-tooltip"
           role="status"
-          className="pointer-events-none absolute top-2 rounded-md border border-black/10 bg-white/95 px-3 py-2 text-xs shadow-sm dark:border-white/15 dark:bg-black/90"
+          className="pointer-events-none absolute top-2 rounded-card border border-rule bg-paper-hi px-3 py-2 text-xs text-ink shadow-sheet"
           style={sx(hovered.x) > width / 2 ? { right: width - sx(hovered.x) + 8 } : { left: sx(hovered.x) + 8 }}
         >
           <div className="font-medium">
             {xLabel}:{" "}
-            <span className="font-mono tabular-nums">
+            <span className="tabular-nums">
               {formatX(hovered.x - binWidth / 2)} – {formatX(hovered.x + binWidth / 2)}
             </span>
           </div>
-          <div className="font-mono tabular-nums">{formatCount(hovered.count)}</div>
+          <div className="tabular-nums">{formatCount(hovered.count)}</div>
         </div>
       )}
     </div>

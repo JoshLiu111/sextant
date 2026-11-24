@@ -152,7 +152,7 @@ function SensitivityTable({ result }: { result: ValuationResult }) {
   return (
     <section data-testid="sensitivity" aria-labelledby="sensitivity-heading">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="sensitivity-heading" className="text-lg font-semibold">
+        <h2 id="sensitivity-heading" className="text-xl">
           {v.sections.sensitivity}
         </h2>
         <ExportCsvButton
@@ -166,11 +166,11 @@ function SensitivityTable({ result }: { result: ValuationResult }) {
           }}
         />
       </div>
-      <p className="mt-1 text-sm text-black/60 dark:text-white/60">{v.sensitivityCaption}</p>
-      <div className="mt-2 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+      <p className="mt-1 text-sm text-muted">{v.sensitivityCaption}</p>
+      <div className="mt-2 overflow-x-auto rounded-card border border-rule">
         <table aria-labelledby="sensitivity-heading" className="w-full min-w-[28rem] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-black/10 dark:border-white/10">
+            <tr className="border-b border-rule">
               <th scope="col" className="px-3 py-2 text-left font-medium">
                 {v.growthAxis} \ {v.discountAxis}
               </th>
@@ -183,7 +183,7 @@ function SensitivityTable({ result }: { result: ValuationResult }) {
           </thead>
           <tbody>
             {growth_rates.map((g, i) => (
-              <tr key={i} className="border-b border-black/5 last:border-0 dark:border-white/5">
+              <tr key={i} className="border-b border-rule last:border-0">
                 <th scope="row" className="px-3 py-1.5 text-left font-medium">
                   {PERCENT_AXIS.format(g)}
                 </th>
@@ -198,9 +198,9 @@ function SensitivityTable({ result }: { result: ValuationResult }) {
                       data-metric-value={id}
                       data-status={cell?.status ?? "pending"}
                       title={ok ? undefined : (cell?.reason ?? undefined)}
-                      className={`px-3 py-1.5 text-right font-mono tabular-nums ${
-                        isBase ? "bg-black/5 font-semibold dark:bg-white/10" : ""
-                      } ${ok ? "" : "text-black/40 dark:text-white/40"}`}
+                      className={`px-3 py-1.5 text-right tabular-nums ${
+                        isBase ? "bg-paper-2 font-medium" : ""
+                      } ${ok ? "" : "text-muted"}`}
                     >
                       {ok ? formatMoneyValue(cell.value as number, cell.unit) : "—"}
                     </td>
@@ -227,7 +227,7 @@ function FcfTable({ result }: { result: ValuationResult }) {
   return (
     <section data-testid="fcf" aria-labelledby="fcf-heading">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="fcf-heading" className="text-lg font-semibold">
+        <h2 id="fcf-heading" className="text-xl">
           {v.sections.fcf}
         </h2>
         <ExportCsvButton
@@ -237,10 +237,10 @@ function FcfTable({ result }: { result: ValuationResult }) {
           table={{ columns: [v.fcfTable.year, v.fcfTable.value], rows: rows.map((row) => [row.year, row.y]) }}
         />
       </div>
-      <div className="mt-2 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+      <div className="mt-2 overflow-x-auto rounded-card border border-rule">
         <table aria-labelledby="fcf-heading" className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-black/10 dark:border-white/10">
+            <tr className="border-b border-rule">
               <th scope="col" className="px-3 py-2 text-left font-medium">
                 {v.fcfTable.year}
               </th>
@@ -251,11 +251,11 @@ function FcfTable({ result }: { result: ValuationResult }) {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.key} className="border-b border-black/5 last:border-0 dark:border-white/5">
+              <tr key={row.key} className="border-b border-rule last:border-0">
                 <th scope="row" className="px-3 py-1.5 text-left font-normal">
                   {row.year}
                 </th>
-                <td className="px-3 py-1.5 text-right font-mono tabular-nums">
+                <td className="px-3 py-1.5 text-right tabular-nums">
                   {row.y === null ? v.notReported : formatMoneyValue(row.y, "currency")}
                 </td>
               </tr>
@@ -329,7 +329,7 @@ export function ValuationCalculator() {
             {v.inputsHeading}
           </h2>
           <fieldset className="space-y-3">
-            <legend className="text-lg font-semibold">{v.sections.company}</legend>
+            <legend className="text-lg font-medium">{v.sections.company}</legend>
             <DataModeToggle providers={providers} value={priceSource} onChange={setChosen} />
             <div>
               <TextField
@@ -344,17 +344,17 @@ export function ValuationCalculator() {
             </div>
             <button
               type="submit"
-              className="w-full rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+              className="btn btn-primary w-full"
             >
               {v.submit}
             </button>
           </fieldset>
           <fieldset className="space-y-3">
-            <legend className="text-lg font-semibold">{v.sections.dcf}</legend>
+            <legend className="text-lg font-medium">{v.sections.dcf}</legend>
             {DCF_FIELDS.map(field)}
           </fieldset>
           <fieldset className="space-y-3">
-            <legend className="text-lg font-semibold">{v.sections.wacc}</legend>
+            <legend className="text-lg font-medium">{v.sections.wacc}</legend>
             {WACC_FIELDS.map(field)}
           </fieldset>
         </form>
@@ -375,8 +375,8 @@ export function ValuationCalculator() {
         {valuation ? (
           <>
             <div>
-              <h2 className="text-lg font-semibold">{valuation.company.name}</h2>
-              <p className="text-sm text-black/60 dark:text-white/60">
+              <h2 className="text-xl">{valuation.company.name}</h2>
+              <p className="text-sm text-muted">
                 {valuation.company.ticker} · {v.baseYear} {valuation.base_period.label} ·{" "}
                 <a href={valuation.base_period.url} target="_blank" rel="noreferrer" className="underline decoration-dotted">
                   {v.filed} {valuation.base_period.filed}
@@ -409,7 +409,7 @@ export function ValuationCalculator() {
                     />
                     <SensitivityTable result={valuation} />
                     <div data-testid="market-comparison">
-                      <h2 className="text-lg font-semibold">{v.sections.market}</h2>
+                      <h2 className="text-xl">{v.sections.market}</h2>
                       <div className="mt-2 grid gap-4 sm:grid-cols-2">
                         <Card
                           id="share_price"
@@ -425,7 +425,7 @@ export function ValuationCalculator() {
                       </div>
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold">{v.sections.valuation}</h2>
+                      <h2 className="text-xl">{v.sections.valuation}</h2>
                       <div className="mt-2 grid gap-4 sm:grid-cols-2">
                         <Card
                           id="intrinsic_value_per_share"
@@ -458,7 +458,7 @@ export function ValuationCalculator() {
                 )}
                 {tab === "wacc" && (
                   <div>
-                    <h2 className="text-lg font-semibold">{v.sections.wacc_breakdown}</h2>
+                    <h2 className="text-xl">{v.sections.wacc_breakdown}</h2>
                     <div className="mt-2 grid gap-4 sm:grid-cols-2">
                       <Card
                         id="cost_of_equity"
@@ -497,7 +497,7 @@ export function ValuationCalculator() {
                 )}
                 {tab === "statement" && (
                   <div>
-                    <h2 className="text-lg font-semibold">{v.sections.statementInputs}</h2>
+                    <h2 className="text-xl">{v.sections.statementInputs}</h2>
                     <div className="mt-2 grid gap-4 sm:grid-cols-2">
                       <Card
                         id="free_cash_flow"
@@ -544,7 +544,7 @@ export function ValuationCalculator() {
             <AiExplain tool="valuation" result={valuation} />
           </>
         ) : (
-          !error && <p className="text-sm text-black/60 dark:text-white/60">{v.loading}</p>
+          !error && <p className="text-sm text-muted">{v.loading}</p>
         )}
       </section>
     </div>

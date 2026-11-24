@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: getMessages().tools["screener"].name 
 export default function Page() {
   const t = getMessages();
   return (
-    <main className={TOOL_PAGE}>
+    <main data-tool="screener" className={TOOL_PAGE}>
       <ToolPageHeader tool="screener" intro={t.screener.intro} />
       {/* The open tab and every tab's inputs come from the query string (shareable links). */}
       <Suspense>

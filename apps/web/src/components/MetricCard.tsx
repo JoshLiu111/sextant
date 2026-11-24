@@ -34,9 +34,9 @@ export function MetricCard({
   format?: Format;
 }) {
   return (
-    <div data-metric={id} className="rounded-lg border border-black/10 p-4 dark:border-white/15">
-      <h3 className="text-sm font-medium text-black/70 dark:text-white/70">{explainer.name}</h3>
-      <div className={`mt-1 grid gap-x-4 gap-y-2 ${values.length > 1 ? "grid-cols-2" : ""}`}>
+    <div data-metric={id} className="card p-4">
+      <h3 className="font-body text-sm font-medium tracking-normal text-ink-2">{explainer.name}</h3>
+      <div className={`mt-2 grid gap-x-4 gap-y-2 ${values.length > 1 ? "grid-cols-2" : ""}`}>
         {values.map((v) => (
           <MetricValue key={v.id} value={v} format={format} />
         ))}
@@ -51,26 +51,26 @@ function MetricValue({ value, format }: { value: MetricCardValue; format: Format
   const r = value.result;
   return (
     <div data-metric-value={value.id} data-status={r?.status ?? "pending"} className="min-w-0">
-      {value.label && <div className="text-xs text-black/60 dark:text-white/60">{value.label}</div>}
+      {value.label && <div className="text-xs text-muted">{value.label}</div>}
       {!r ? (
-        <div className="text-lg text-black/40 dark:text-white/40">{t.status.pending}</div>
+        <div className="text-lg text-muted">{t.status.pending}</div>
       ) : r.status === "ok" && r.value !== null ? (
         <>
-          <div className="font-mono text-xl tabular-nums">{format(r.value, r.unit)}</div>
+          <div className="figure-display text-xl text-ink">{format(r.value, r.unit)}</div>
           {r.unit && t.units[r.unit] && (
-            <div className="text-xs text-black/50 dark:text-white/50">{t.units[r.unit]}</div>
+            <div className="text-xs text-muted">{t.units[r.unit]}</div>
           )}
-          {value.note && <div className="text-xs text-black/50 dark:text-white/50">{value.note}</div>}
+          {value.note && <div className="text-xs text-muted">{value.note}</div>}
         </>
       ) : r.status === "ok" && r.details.bound === "unlimited" ? (
         <>
-          <div className="font-mono text-xl">{t.unlimited}</div>
+          <div className="figure-display text-xl text-ink">{t.unlimited}</div>
           {typeof r.details.why === "string" && (
-            <div className="text-xs text-black/50 dark:text-white/50">{r.details.why}</div>
+            <div className="text-xs text-muted">{r.details.why}</div>
           )}
         </>
       ) : (
-        <p className={`text-sm ${r.status === "error" ? "text-red-700 dark:text-red-400" : "text-black/60 dark:text-white/60"}`}>
+        <p className={`text-sm ${r.status === "error" ? "text-error" : "text-muted"}`}>
           <span className="font-medium">{t.status[r.status === "ok" ? "error" : r.status]}: </span>
           {r.reason}
         </p>

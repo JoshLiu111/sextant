@@ -45,14 +45,14 @@ const URL_CODEC = fieldsCodec({ ticker: DEFAULT_TICKER });
 
 function Cell({ id, label, result }: { id: string; label: string; result: MetricResult | undefined }) {
   const c = getMessages().company;
-  if (!result) return <span className="text-black/40 dark:text-white/40">…</span>;
+  if (!result) return <span className="text-muted">…</span>;
   if (result.status !== "ok" || result.value === null) {
     return (
       <span
         data-metric-value={id}
         data-status={result.status}
         title={result.reason ?? `${label}: ${c.notReported}`}
-        className="text-xs italic text-black/50 dark:text-white/50"
+        className="text-xs italic text-muted"
       >
         {c.notReported}
       </span>
@@ -68,7 +68,7 @@ function Cell({ id, label, result }: { id: string; label: string; result: Metric
       data-metric-value={id}
       data-status="ok"
       title={source}
-      className="font-mono tabular-nums hover:underline"
+      className="tabular-nums hover:underline"
     >
       {formatStatementValue(result.value, result.unit)}
     </a>
@@ -86,7 +86,7 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
   return (
     <section aria-labelledby={headingId}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={headingId} className="text-base font-semibold">
+        <h3 id={headingId} className="text-lg">
           {c.statements[statement]}
         </h3>
         <ExportCsvButton
@@ -96,24 +96,24 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
           demo={result.source.is_demo}
         />
       </div>
-      <div className="mt-2 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+      <div className="mt-2 overflow-x-auto rounded-card border border-rule">
         <table aria-labelledby={headingId} className="w-full min-w-[40rem] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-black/10 align-bottom dark:border-white/10">
-              <th scope="col" className="sticky left-0 bg-white px-3 py-2 text-left font-medium dark:bg-black">
+            <tr className="border-b border-rule align-bottom">
+              <th scope="col" className="sticky left-0 bg-paper px-3 py-2 text-left font-medium">
                 {c.lineItem}
               </th>
               {result.periods.map((p) => (
                 <th key={p.id} scope="col" className="px-3 py-2 text-right font-medium">
                   <span className="block">{p.label}</span>
-                  <span className="block text-xs font-normal text-black/50 dark:text-white/50">
+                  <span className="block text-xs font-normal text-muted">
                     {p.fiscal_quarter ? c.quarterEnded : c.yearEnded} {p.end}
                   </span>
                   <a
                     href={p.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="block text-xs font-normal text-black/50 underline decoration-dotted dark:text-white/50"
+                    className="block text-xs font-normal text-muted underline decoration-dotted"
                   >
                     {p.form} {c.filed} {p.filed}
                   </a>
@@ -123,10 +123,10 @@ function StatementTable({ statement, result }: { statement: Statement; result: S
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
+              <tr key={item.id} className="border-b border-rule last:border-0">
                 <th
                   scope="row"
-                  className="sticky left-0 bg-white px-3 py-1.5 text-left font-normal dark:bg-black"
+                  className="sticky left-0 bg-paper px-3 py-1.5 text-left font-normal"
                 >
                   {item.label}
                 </th>
@@ -190,7 +190,7 @@ export function CompanyStatements() {
         </div>
         <button
           type="submit"
-          className="mb-6 rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn btn-primary mb-6"
         >
           {c.submit}
         </button>
@@ -206,12 +206,12 @@ export function CompanyStatements() {
         {statements ? (
           <>
             <div>
-              <h2 className="text-lg font-semibold">{statements.company.name}</h2>
-              <p className="text-sm text-black/60 dark:text-white/60">
+              <h2 className="text-xl">{statements.company.name}</h2>
+              <p className="text-sm text-muted">
                 {statements.company.ticker} · CIK {statements.company.cik} · {c.unitsNote}
               </p>
               {statements.periods.some((p) => p.fiscal_quarter) && (
-                <p className="mt-1 text-xs text-black/60 dark:text-white/60">{c.quarterlyNote}</p>
+                <p className="mt-1 text-xs text-muted">{c.quarterlyNote}</p>
               )}
               <MetricExplainer explainer={c.explainer} />
             </div>
@@ -222,7 +222,7 @@ export function CompanyStatements() {
             <AiExplain tool="company" result={statements} />
           </>
         ) : (
-          !error && <p className="text-sm text-black/60 dark:text-white/60">{c.loading}</p>
+          !error && <p className="text-sm text-muted">{c.loading}</p>
         )}
       </section>
     </div>

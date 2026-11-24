@@ -9,13 +9,14 @@ import type { MetricResult, SeriesResult } from "@/lib/envelope";
 import { formatChartDate, formatChartPercentValue, formatTimestampUtc, formatValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
 import { MetaList } from "./MetaList";
+import { series } from "@/lib/chartColors";
 
 // Envelope ids from POST /macro/euro-area. Rates: details.date = when the rate took
 // effect, history drawn as a step line. HICP: details.date = the month (YYYY-MM).
 const RATES = [
-  { key: "deposit_facility_rate", color: "#2563eb" },
-  { key: "main_refinancing_rate", color: "#059669" },
-  { key: "marginal_lending_rate", color: "#dc2626" },
+  { key: "deposit_facility_rate", color: series(0) },
+  { key: "main_refinancing_rate", color: series(1) },
+  { key: "marginal_lending_rate", color: series(2) },
 ] as const;
 type RateKey = (typeof RATES)[number]["key"];
 type Key = RateKey | "hicp_inflation";
@@ -48,10 +49,10 @@ export function EuroArea() {
   return (
     <section id="euro-area" data-testid="euro-area" aria-labelledby="macro-euro-area" className="mt-10 space-y-6">
       <div>
-        <h2 id="macro-euro-area" className="text-lg font-semibold">
+        <h2 id="macro-euro-area" className="text-xl">
           {t.macro.sections.euroArea}
         </h2>
-        <p className="mt-1 text-sm text-black/70 dark:text-white/70">{e.intro}</p>
+        <p className="mt-1 text-sm text-ink-2">{e.intro}</p>
       </div>
       {error && <ErrorNotice title={t.common.errors.heading} message={error} />}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -92,7 +93,7 @@ export function EuroArea() {
           {hicpPoints.length > 0 && (
             <LineChart
               label={e.hicpChart}
-              series={[{ id: "hicp_inflation", label: e.hicp_inflation.name, points: hicpPoints, color: "#7c3aed" }]}
+              series={[{ id: "hicp_inflation", label: e.hicp_inflation.name, points: hicpPoints, color: series(3) }]}
               xLabel={t.macro.chart.x}
               formatX={formatChartDate}
               formatY={formatChartPercentValue}
@@ -125,7 +126,7 @@ function EcbMeta({ details }: { details: MetricResult["details"] }) {
               <a href={href} className="underline" target="_blank" rel="noreferrer">
                 {text("title")}
               </a>{" "}
-              (<span className="font-mono">{text("series_id")}</span>)
+              (<span className="tabular-nums">{text("series_id")}</span>)
             </>
           ),
         },

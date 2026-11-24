@@ -1,7 +1,7 @@
 // Shared layout classes for tool pages (issue #70). Structure only: no colour or type.
 
 /** A tool page's `<main>`: wider than the other pages (`max-w-6xl`) to fit the form and results side by side. */
-export const TOOL_PAGE = "mx-auto w-full max-w-7xl px-4 py-10";
+export const TOOL_PAGE = "mx-auto w-full max-w-7xl px-4 pb-16 pt-10 md:px-6";
 
 /**
  * A tool's two columns: the input form on the left, the results on the right
@@ -28,4 +28,4 @@ export function toolColumns(formWidth: keyof typeof COLUMNS): string {
  * (`lg` and up). A form taller than the window scrolls on its own.
  */
 export const STICKY_INPUTS =
-  "min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto";
+  "min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto";

@@ -46,7 +46,7 @@ export function LatestFilings() {
 
   return (
     <section aria-labelledby="filings-section" className="mt-6 space-y-4">
-      <h2 id="filings-section" className="text-xl font-semibold">
+      <h2 id="filings-section" className="text-2xl">
         {f.heading}
       </h2>
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-end gap-4">
@@ -85,7 +85,7 @@ export function LatestFilings() {
             id="input-form"
             value={form}
             onChange={(e) => setForm(e.target.value)}
-            className="mt-1 w-full rounded-md border border-black/20 px-2 py-2 dark:border-white/20 dark:bg-white/5"
+            className="mt-1 w-full rounded-card border border-muted px-2 py-2"
           >
             <option value="">{f.allForms}</option>
             {FORMS.map((value) => (
@@ -97,7 +97,7 @@ export function LatestFilings() {
         </div>
         <button
           type="submit"
-          className="rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn btn-primary"
         >
           {f.submit}
         </button>
@@ -113,7 +113,7 @@ export function LatestFilings() {
         {list ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 data-testid="filings-heading" className="text-base font-semibold">
+              <h3 data-testid="filings-heading" className="text-lg">
                 {list.scope === "company" && list.company ? f.companyHeading(list.company) : f.marketHeading}
               </h3>
               {list.filings.length > 0 && (
@@ -133,12 +133,12 @@ export function LatestFilings() {
               )}
             </div>
             {list.filings.length === 0 ? (
-              <p className="text-sm text-black/60 dark:text-white/60">{f.none}</p>
+              <p className="text-sm text-muted">{f.none}</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+              <div className="overflow-x-auto rounded-card border border-rule">
                 <table aria-label={f.tableLabel} className="w-full min-w-[36rem] border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-black/10 text-left dark:border-white/10">
+                    <tr className="border-b border-rule text-left">
                       <th scope="col" className="px-2 py-2 font-medium">
                         {f.formColumn}
                       </th>
@@ -155,15 +155,15 @@ export function LatestFilings() {
                   </thead>
                   <tbody>
                     {list.filings.map((row, i) => (
-                      <tr key={`${row.accession}-${row.cik}-${i}`} className="border-b border-black/5 last:border-0 dark:border-white/5">
-                        <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs">{row.form}</td>
+                      <tr key={`${row.accession}-${row.cik}-${i}`} className="border-b border-rule last:border-0">
+                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-xs">{row.form}</td>
                         <td className="px-2 py-1.5">
                           <a href={row.url} target="_blank" rel="noreferrer" className="underline decoration-dotted">
                             {row.title}
                           </a>
                         </td>
                         <td className="px-2 py-1.5">{row.company}</td>
-                        <td className="whitespace-nowrap px-2 py-1.5 font-mono text-xs">{row.filed}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-xs">{row.filed}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -174,7 +174,7 @@ export function LatestFilings() {
             <AiExplain tool="screener-filings" result={list} />
           </>
         ) : (
-          !error && <p className="text-sm text-black/60 dark:text-white/60">{f.loading}</p>
+          !error && <p className="text-sm text-muted">{f.loading}</p>
         )}
       </div>
     </section>

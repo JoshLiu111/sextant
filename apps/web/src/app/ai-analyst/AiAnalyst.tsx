@@ -105,15 +105,15 @@ export function AiAnalyst() {
     return (
       <div
         data-testid="analyst-sign-in"
-        className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/10 p-4 text-sm dark:border-white/15"
+        className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-rule p-4 text-sm"
       >
-        <p className="min-w-0 flex-1 text-black/70 dark:text-white/70">
+        <p className="min-w-0 flex-1 text-ink-2">
           {t.signInPrompt}
         </p>
         {/* Back to the same question after signing in. */}
         <SignInLink
           returnTo={hrefWithQuery("/ai-analyst", { question: question || undefined })}
-          className="rounded-md bg-black px-3 py-1.5 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black" />
+          className="btn btn-primary" />
       </div>
     );
   }
@@ -131,13 +131,13 @@ export function AiAnalyst() {
           value={question}
           placeholder={t.questionPlaceholder}
           onChange={(e) => setQuestion(e.target.value)}
-          className="w-full rounded-md border border-black/20 bg-transparent px-3 py-2 dark:border-white/25"
+          className="w-full rounded-card border border-muted bg-transparent px-3 py-2"
         />
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
             disabled={pending || usedUp || question.trim() === ""}
-            className="rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-white/80"
+            className="btn btn-primary"
           >
             {pending ? t.pending : t.ask}
           </button>
@@ -145,7 +145,7 @@ export function AiAnalyst() {
             <p
               data-testid="ai-quota"
               aria-live="polite"
-              className="text-sm text-black/60 dark:text-white/60"
+              className="text-sm text-muted"
             >
               {ai.quota(quota.remaining, quota.limit)}
             </p>
@@ -154,7 +154,7 @@ export function AiAnalyst() {
         {usedUp && (
           <p
             data-testid="ai-quota-used-up"
-            className="text-sm text-black/70 dark:text-white/70"
+            className="text-sm text-ink-2"
           >
             {ai.usedUp(formatLocalTime(quota.resets_at))}
           </p>
@@ -181,9 +181,9 @@ function Answer({ answer }: { answer: AnalystAnswer }) {
   return (
     <section
       aria-labelledby={headingId}
-      className="space-y-4 rounded-lg border border-black/10 p-4 dark:border-white/15"
+      className="space-y-4 rounded-card border border-rule p-4"
     >
-      <h2 id={headingId} className="text-lg font-semibold">
+      <h2 id={headingId} className="text-xl">
         {t.answerHeading}
       </h2>
       <div
@@ -196,13 +196,13 @@ function Answer({ answer }: { answer: AnalystAnswer }) {
       {answer.advice_notice && (
         <p
           data-testid="ai-advice-notice"
-          className="rounded-md bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+          className="rounded-card bg-paper-2 p-2 text-sm text-ink"
         >
           {answer.advice_notice}
         </p>
       )}
       <Calls answer={answer} />
-      <p className="text-xs text-black/50 dark:text-white/50">
+      <p className="text-xs text-muted">
         {t.usage(answer.usage.input_tokens, answer.usage.output_tokens)}
       </p>
     </section>
@@ -213,9 +213,9 @@ function Calls({ answer }: { answer: AnalystAnswer }) {
   const t = getMessages().analyst;
   return (
     <div>
-      <h3 className="font-medium">{t.callsHeading}</h3>
+      <h3 className="text-lg">{t.callsHeading}</h3>
       {answer.calls.length === 0 ? (
-        <p className="mt-1 text-sm text-black/60 dark:text-white/60">
+        <p className="mt-1 text-sm text-muted">
           {t.noCalls}
         </p>
       ) : (
@@ -228,20 +228,20 @@ function Calls({ answer }: { answer: AnalystAnswer }) {
               <li
                 key={call.id}
                 data-testid="analyst-call"
-                className="min-w-0 rounded-md border border-black/10 p-3 text-sm dark:border-white/15"
+                className="min-w-0 rounded-card border border-rule p-3 text-sm"
               >
-                <p className="font-mono font-medium">{call.tool}</p>
-                <p className="mt-2 text-xs text-black/60 dark:text-white/60">
+                <p className="tabular-nums font-medium">{call.tool}</p>
+                <p className="mt-2 text-xs text-muted">
                   {t.parameters}
                 </p>
                 <pre
                   data-testid="analyst-call-input"
-                  className="mt-1 overflow-x-auto rounded bg-black/5 p-2 text-xs dark:bg-white/10"
+                  className="mt-1 overflow-x-auto rounded-card bg-paper-2 p-2 text-xs"
                 >
                   {JSON.stringify(call.input, null, 2)}
                 </pre>
                 {call.error && (
-                  <p className="mt-2 text-red-700 dark:text-red-400">
+                  <p className="mt-2 text-red-700">
                     {t.callFailed}: {call.error}
                   </p>
                 )}
@@ -252,14 +252,14 @@ function Calls({ answer }: { answer: AnalystAnswer }) {
                   >
                     <summary className="cursor-pointer text-xs">
                       {t.rawResult} ({t.calculation}{" "}
-                      <span className="break-all font-mono">
+                      <span className="break-all tabular-nums">
                         {call.calculation_id}
                       </span>
                       )
                     </summary>
                     <pre
                       data-testid="analyst-raw-result"
-                      className="mt-1 max-h-96 overflow-auto rounded bg-black/5 p-2 text-xs dark:bg-white/10"
+                      className="mt-1 max-h-96 overflow-auto rounded-card bg-paper-2 p-2 text-xs"
                     >
                       {JSON.stringify(result, null, 2)}
                     </pre>

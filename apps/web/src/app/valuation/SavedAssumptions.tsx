@@ -96,16 +96,16 @@ export function SavedAssumptions({
       aria-labelledby="saved-assumptions-heading"
       className="space-y-3"
     >
-      <h2 id="saved-assumptions-heading" className="text-lg font-semibold">
+      <h2 id="saved-assumptions-heading" className="text-xl">
         {v.heading}
       </h2>
       {sets === null ? null : sets === "signed_out" ? (
-        <p className="text-sm text-black/70 dark:text-white/70">
+        <p className="text-sm text-ink-2">
           {v.signInPrompt} <SignInLink className="font-medium underline" />
         </p>
       ) : (
         <>
-          <p className="text-sm text-black/60 dark:text-white/60">
+          <p className="text-sm text-muted">
             {v.intro(ticker)}
           </p>
           <form
@@ -124,7 +124,7 @@ export function SavedAssumptions({
             />
             <button
               type="submit"
-              className="rounded-md border border-black/20 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className="btn"
             >
               {v.save}
             </button>
@@ -132,7 +132,7 @@ export function SavedAssumptions({
           {status && (
             <p
               role="status"
-              className="text-sm text-black/70 dark:text-white/70"
+              className="text-sm text-ink-2"
             >
               {status}
             </p>
@@ -144,13 +144,13 @@ export function SavedAssumptions({
             />
           )}
           {sets.length === 0 ? (
-            <p className="text-sm text-black/60 dark:text-white/60">
+            <p className="text-sm text-muted">
               {v.none(ticker)}
             </p>
           ) : (
             <ul
               aria-label={v.listLabel(ticker)}
-              className="divide-y divide-black/10 rounded-md border border-black/10 dark:divide-white/10 dark:border-white/10"
+              className="divide-y divide-rule rounded-card border border-rule"
             >
               {sets.map((set) => (
                 <li
@@ -165,7 +165,7 @@ export function SavedAssumptions({
                       type="button"
                       onClick={() => onLoadSet(set)}
                       aria-label={v.loadNamed(set.name)}
-                      className="rounded border border-black/20 px-2 py-0.5 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                      className="btn btn-sm"
                     >
                       {v.load}
                     </button>
@@ -173,7 +173,7 @@ export function SavedAssumptions({
                       type="button"
                       onClick={() => onDelete(set)}
                       aria-label={v.deleteNamed(set.name)}
-                      className="rounded border border-black/20 px-2 py-0.5 text-red-700 hover:bg-red-50 dark:border-white/20 dark:text-red-400 dark:hover:bg-white/10"
+                      className="btn btn-sm text-error"
                     >
                       {v.delete}
                     </button>

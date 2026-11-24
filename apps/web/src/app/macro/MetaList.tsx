@@ -5,7 +5,7 @@ export function MetaList({ rows }: { rows: { label: string; value: ReactNode }[]
   return (
     <dl
       data-testid="series-meta"
-      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-black/70 dark:text-white/70"
+      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-ink-2"
     >
       {rows.map((row) => (
         <div key={row.label} className="contents">

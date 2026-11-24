@@ -21,12 +21,12 @@ async function AccountBody({ searchParams }: { searchParams: PageProps<"/account
   return (
     <>
       {params.deleted === "1" && !user && (
-        <p role="status" className="mt-4 rounded bg-green-100 px-3 py-2 text-sm text-green-900">
+        <p role="status" className="mt-4 rounded-card bg-paper-hi px-3 py-2 text-sm text-success">
           {t.account.deleted}
         </p>
       )}
       {error && (
-        <p role="alert" className="mt-4 rounded bg-red-100 px-3 py-2 text-sm text-red-900">
+        <p role="alert" className="mt-4 rounded-card bg-paper-hi px-3 py-2 text-sm text-error">
           {error}
         </p>
       )}
@@ -34,14 +34,14 @@ async function AccountBody({ searchParams }: { searchParams: PageProps<"/account
         <>
           <p className="mt-4">
             {t.account.signedInAs} <strong>{user.name || user.email}</strong>
-            {user.name && <span className="text-black/70 dark:text-white/70"> ({user.email})</span>}
+            {user.name && <span className="text-ink-2"> ({user.email})</span>}
           </p>
           <DeleteAccount />
         </>
       ) : (
         <>
-          <p className="mt-4 text-black/70 dark:text-white/70">{t.account.signedOut}</p>
-          <SignInLink className="mt-4 inline-block rounded border border-black/15 px-3 py-1.5 hover:underline dark:border-white/20" />
+          <p className="mt-4 text-ink-2">{t.account.signedOut}</p>
+          <SignInLink className="mt-4 inline-block rounded-card border border-rule px-3 py-1.5 hover:underline" />
         </>
       )}
     </>
@@ -51,7 +51,7 @@ async function AccountBody({ searchParams }: { searchParams: PageProps<"/account
 export default function AccountPage({ searchParams }: PageProps<"/account">) {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10">
-      <h1 className="text-2xl font-semibold">{t.account.heading}</h1>
+      <h1 className="text-3xl">{t.account.heading}</h1>
       <Suspense fallback={null}>
         <AccountBody searchParams={searchParams} />
       </Suspense>

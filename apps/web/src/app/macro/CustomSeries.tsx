@@ -19,6 +19,7 @@ import { useUrlInputs, writeUrlInputs, type UrlCodec } from "@/lib/urlInputs";
 import { useCompute } from "@/lib/useCompute";
 import { useReportSources } from "@/components/PageSources";
 import { SeriesMeta } from "./MacroDashboard";
+import { REFERENCE, series } from "@/lib/chartColors";
 
 // POST /macro/search -> `results`; POST /macro/series -> metric `latest:<ID>`
 // (details as /macro/indicators), series `history:<ID>`.
@@ -37,7 +38,7 @@ type AddedSeriesId = `history:${string}`;
 
 /** Matches MAX_SERIES in apps/compute/sextant_compute/macro/custom.py. */
 const MAX_SERIES = 8;
-const COLORS = ["#0891b2", "#c2410c", "#4f46e5", "#be123c", "#15803d", "#a16207", "#7e22ce", "#334155"];
+const COLORS = [series(0), series(1), series(2), series(3), series(4), series(5), series(6), REFERENCE];
 
 // Shareable links: `/macro?series=PAYEMS,UNRATENSA` (display order). Ids go to
 // the API as given; a bad one shows the API's error.
@@ -90,10 +91,10 @@ export function CustomSeries({ start }: { start: string | undefined }) {
 
   return (
     <section data-testid="custom-series" aria-labelledby="macro-custom" className="mt-10 space-y-6">
-      <h3 id="macro-custom" className="text-lg font-semibold">
+      <h3 id="macro-custom" className="text-xl">
         {c.heading}
       </h3>
-      <p className="text-sm text-black/70 dark:text-white/70">{c.intro}</p>
+      <p className="text-sm text-ink-2">{c.intro}</p>
       <form onSubmit={onSearch} noValidate role="search" className="flex flex-wrap items-start gap-4">
         <div className="w-full max-w-sm">
           <TextField
@@ -108,7 +109,7 @@ export function CustomSeries({ start }: { start: string | undefined }) {
         <button
           type="submit"
           disabled={search.kind === "pending"}
-          className="mt-6 rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn btn-primary mt-6"
         >
           {c.submit}
         </button>
@@ -116,20 +117,20 @@ export function CustomSeries({ start }: { start: string | undefined }) {
       {search.kind === "failed" && <ErrorNotice title={t.common.errors.heading} message={search.message} />}
       {search.kind === "done" &&
         (search.results.length === 0 ? (
-          <p data-testid="search-empty" className="text-sm text-black/70 dark:text-white/70">
+          <p data-testid="search-empty" className="text-sm text-ink-2">
             {c.empty(search.query)}
           </p>
         ) : (
-          <ul aria-label={c.results} className="divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/15 dark:border-white/15">
+          <ul aria-label={c.results} className="divide-y divide-rule rounded-card border border-rule">
             {search.results.map((hit) => {
               const added = ids.includes(hit.id);
               return (
                 <li key={hit.id} data-series-hit={hit.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">
-                      {hit.title} <span className="font-mono text-black/60 dark:text-white/60">{hit.id}</span>
+                      {hit.title} <span className="tabular-nums text-muted">{hit.id}</span>
                     </p>
-                    <p className="text-black/60 dark:text-white/60">
+                    <p className="text-muted">
                       {hit.units} · {hit.frequency} ({hit.seasonal_adjustment}) · {t.macro.meta.lastUpdated}{" "}
                       {formatTimestampUtc(hit.last_updated)}
                     </p>
@@ -139,7 +140,7 @@ export function CustomSeries({ start }: { start: string | undefined }) {
                     aria-label={c.add(hit.id)}
                     disabled={added || full}
                     onClick={() => update([...ids, hit.id])}
-                    className="rounded-md border border-black/20 px-3 py-1 font-medium hover:bg-black/5 disabled:opacity-50 dark:border-white/25 dark:hover:bg-white/10"
+                    className="btn btn-sm"
                   >
                     {added ? c.added : c.addText}
                   </button>
@@ -148,7 +149,7 @@ export function CustomSeries({ start }: { start: string | undefined }) {
             })}
           </ul>
         ))}
-      {full && <p className="text-sm text-black/70 dark:text-white/70">{c.full(MAX_SERIES)}</p>}
+      {full && <p className="text-sm text-ink-2">{c.full(MAX_SERIES)}</p>}
       {ids.length > 0 && <AddedSeries ids={ids} start={start} onRemove={(id) => update(ids.filter((i) => i !== id))} />}
     </section>
   );
@@ -235,7 +236,7 @@ function Added({
         type="button"
         aria-label={c.remove(id)}
         onClick={onRemove}
-        className="rounded-md border border-black/20 px-3 py-1 text-sm font-medium hover:bg-black/5 dark:border-white/25 dark:hover:bg-white/10"
+        className="btn btn-sm"
       >
         {c.removeText}
       </button>

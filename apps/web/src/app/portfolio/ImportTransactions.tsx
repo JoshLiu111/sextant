@@ -14,9 +14,9 @@ import {
 } from "@/lib/portfolios";
 
 const buttonClass =
-  "rounded-md border border-black/20 px-3 py-1 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10";
-const selectClass = "mt-1 w-full min-w-0 rounded-md border px-2 py-1.5 text-sm dark:bg-white/5";
-const cellClass = "border-b border-black/10 px-2 py-1 text-left font-mono text-xs whitespace-nowrap dark:border-white/10";
+  "btn btn-sm";
+const selectClass = "mt-1 w-full min-w-0 rounded-card border px-2 py-1.5 text-sm";
+const cellClass = "border-b border-rule px-2 py-1 text-left tabular-nums text-xs whitespace-nowrap";
 
 /**
  * Upload a CSV of transactions into the selected saved portfolio: preview the
@@ -105,11 +105,11 @@ export function ImportTransactions({
   const importable = ready ? preview.transactions.length : 0;
 
   return (
-    <section aria-labelledby="import-transactions" className="mt-8 border-t border-black/10 pt-6 dark:border-white/15">
-      <h3 id="import-transactions" className="text-lg font-semibold">
+    <section aria-labelledby="import-transactions" className="mt-8 border-t border-rule pt-6">
+      <h3 id="import-transactions" className="text-xl">
         {s.heading}
       </h3>
-      <p className="mt-1 text-sm text-black/70 dark:text-white/70">{s.intro}</p>
+      <p className="mt-1 text-sm text-ink-2">{s.intro}</p>
 
       <div className="mt-3">
         <label htmlFor="import-csv-file" className="block text-sm font-medium">
@@ -129,7 +129,7 @@ export function ImportTransactions({
       </div>
 
       {notice && (
-        <p role="status" className="mt-3 text-sm text-green-700 dark:text-green-400">
+        <p role="status" className="mt-3 text-sm text-success">
           {notice}
         </p>
       )}
@@ -138,7 +138,7 @@ export function ImportTransactions({
         <div className="mt-4 space-y-5">
           <fieldset className="min-w-0">
             <legend className="text-sm font-medium">{s.mappingHeading}</legend>
-            <p className="mt-1 text-xs text-black/60 dark:text-white/60">{s.mappingHint}</p>
+            <p className="mt-1 text-xs text-muted">{s.mappingHint}</p>
             <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {IMPORT_FIELDS.map((field) => {
                 const name = `mapping.${field}`;
@@ -149,7 +149,7 @@ export function ImportTransactions({
                   <div key={field} className="min-w-0">
                     <label htmlFor={`import-map-${field}`} className="block text-xs font-medium">
                       {`${s.columnFor} ${s.fields[field]}`}
-                      <span className="ml-1 font-normal text-black/50 dark:text-white/50">
+                      <span className="ml-1 font-normal text-muted">
                         ({required ? s.required : s.optional})
                       </span>
                     </label>
@@ -161,7 +161,7 @@ export function ImportTransactions({
                       aria-invalid={message || unmapped ? true : undefined}
                       aria-describedby={message ? fieldErrorId(name) : undefined}
                       className={`${selectClass} ${
-                        message || unmapped ? "border-red-500" : "border-black/20 dark:border-white/20"
+                        message || unmapped ? "border-error" : "border-muted"
                       }`}
                     >
                       <option value="">{s.notInFile}</option>
@@ -172,7 +172,7 @@ export function ImportTransactions({
                       ))}
                     </select>
                     {!required && !preview.mapping[field] && (
-                      <p className="mt-0.5 text-xs text-black/50 dark:text-white/50">
+                      <p className="mt-0.5 text-xs text-muted">
                         {s.defaults[field as "fees" | "currency"]}
                       </p>
                     )}
@@ -216,7 +216,7 @@ export function ImportTransactions({
           </div>
 
           {!ready ? (
-            <p className="text-sm text-red-700 dark:text-red-400">{s.missing}</p>
+            <p className="text-sm text-red-700">{s.missing}</p>
           ) : (
             <>
               <p data-testid="import-summary" className="text-sm font-medium">
@@ -225,7 +225,7 @@ export function ImportTransactions({
               {preview.errors.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium">{s.errorsHeading}</h4>
-                  <ul data-testid="import-errors" className="mt-1 space-y-1 text-sm text-red-800 dark:text-red-300">
+                  <ul data-testid="import-errors" className="mt-1 space-y-1 text-sm text-error">
                     {preview.errors.map((e, i) => (
                       <li key={`${e.line}-${i}`}>
                         <span className="font-medium">{s.errorLine(e.line)}:</span> {e.message}
@@ -235,7 +235,7 @@ export function ImportTransactions({
                 </div>
               )}
               {preview.holdings_after && importable > 0 && (
-                <p className="text-xs text-black/60 dark:text-white/60">
+                <p className="text-xs text-muted">
                   {s.holdingsAfter}:{" "}
                   {preview.holdings_after.map((h) => `${h.ticker} ${h.quantity} ${h.currency}`).join(", ")}
                 </p>
@@ -256,7 +256,7 @@ export function ImportTransactions({
                 type="button"
                 disabled={busy}
                 onClick={onImport}
-                className="rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-white/80"
+                className="btn btn-primary"
               >
                 {busy ? s.importing : s.confirm(importable)}
               </button>

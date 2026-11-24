@@ -35,7 +35,7 @@ export function ReturnDistribution({
   return (
     <section aria-labelledby="risk-distribution" className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <h2 id="risk-distribution" className="text-lg font-semibold">
+        <h2 id="risk-distribution" className="text-xl">
           {d.heading}
         </h2>
         {symbols.length > 0 && (
@@ -44,7 +44,7 @@ export function ReturnDistribution({
             <select
               value={selected}
               onChange={(e) => setChoice(e.target.value)}
-              className="rounded-md border border-black/20 px-2 py-1 font-mono dark:border-white/20 dark:bg-white/5"
+              className="rounded-card border border-muted px-2 py-1 tabular-nums"
             >
               {symbols.map((ticker) => (
                 <option key={ticker} value={ticker}>
@@ -79,12 +79,12 @@ export function ReturnDistribution({
             formatX={formatChartPercent}
             formatCount={(n) => d.count(n, adjective)}
           />
-          <p data-testid="distribution-summary" className="mt-1 text-sm text-black/70 dark:text-white/70">
+          <p data-testid="distribution-summary" className="mt-1 text-sm text-ink-2">
             {selected}: {d.summary(observations, adjective, formatChartPercent(binWidth))}
           </p>
         </div>
       ) : (
-        hist && <p className="text-sm text-black/60 dark:text-white/60">{hist.reason}</p>
+        hist && <p className="text-sm text-muted">{hist.reason}</p>
       )}
     </section>
   );

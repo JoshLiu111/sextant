@@ -30,11 +30,11 @@ export function DataModeToggle({
   return (
     <fieldset data-testid="data-mode" className="min-w-0">
       <legend className="text-sm font-medium">{t.legend}</legend>
-      <div className="mt-1 inline-flex rounded-md border border-black/20 p-0.5 dark:border-white/20">
+      <div className="mt-1 inline-flex rounded-card border border-muted p-0.5">
         {options.map((o) => (
           <label
             key={o.source}
-            className="cursor-pointer rounded px-3 py-1 text-sm has-[:checked]:bg-black has-[:checked]:text-white has-[:focus-visible]:ring-2 dark:has-[:checked]:bg-white dark:has-[:checked]:text-black"
+            className="cursor-pointer rounded-card px-3 py-1 text-sm has-[:checked]:bg-ink has-[:checked]:text-paper has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus has-[:focus-visible]:outline"
           >
             <input
               type="radio"
@@ -49,7 +49,7 @@ export function DataModeToggle({
         ))}
       </div>
       {value !== DEMO_SOURCE && (
-        <p data-testid="my-data-note" className="mt-1 text-xs text-black/60 dark:text-white/60">
+        <p data-testid="my-data-note" className="mt-1 text-xs text-muted">
           {t.note(PROVIDER_NAMES[value])}
         </p>
       )}

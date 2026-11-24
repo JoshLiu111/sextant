@@ -10,10 +10,10 @@ export const metadata: Metadata = { title: getMessages().tools["valuation"].name
 export default function Page() {
   const t = getMessages();
   return (
-    <main className={TOOL_PAGE}>
+    <main data-tool="valuation" className={TOOL_PAGE}>
       <ToolPageHeader tool="valuation" intro={t.valuation.intro} />
       {/* Reads its inputs from the query string: `?ticker=MSFT` (screener links) and the assumptions. */}
-      <Suspense fallback={<p className="mt-6 text-sm text-black/60 dark:text-white/60">{t.valuation.loading}</p>}>
+      <Suspense fallback={<p className="mt-6 text-sm text-muted">{t.valuation.loading}</p>}>
         <ValuationCalculator />
       </Suspense>
     </main>

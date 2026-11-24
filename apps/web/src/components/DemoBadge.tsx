@@ -12,9 +12,9 @@ export function DemoBadge({ source }: { source: DataSource | undefined }) {
     <div
       role="note"
       data-testid="demo-badge"
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-100"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card border border-l-2 border-rule border-l-accent bg-paper-2 px-3 py-2 text-sm text-ink-2"
     >
-      <span className="rounded bg-amber-400 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-950">
+      <span className="font-medium text-ink">
         {t.badge}
       </span>
       <span>{t.body}</span>

@@ -96,7 +96,7 @@ function Value(props: { id: string; result: MetricResult | undefined; attr: Valu
       aria-label={drill}
       title={props.result.status === "ok" ? drill : undefined}
       onClick={onDrill}
-      className="rounded text-right hover:bg-black/5 focus-visible:outline focus-visible:outline-2 dark:hover:bg-white/10"
+      className="rounded-card text-right hover:bg-paper-2 focus-visible:outline focus-visible:outline-2"
     >
       {value}
     </button>
@@ -105,7 +105,7 @@ function Value(props: { id: string; result: MetricResult | undefined; attr: Valu
 
 function ValueText({ id, result, attr }: { id: string; result: MetricResult | undefined; attr: ValueAttr }) {
   const r = getMessages().companyRatios;
-  if (!result) return <span className="text-black/40 dark:text-white/40">…</span>;
+  if (!result) return <span className="text-muted">…</span>;
   const tag = { [attr]: id };
   if (result.status !== "ok" || result.value === null) {
     return (
@@ -113,7 +113,7 @@ function ValueText({ id, result, attr }: { id: string; result: MetricResult | un
         {...tag}
         data-status={result.status}
         title={result.reason ?? undefined}
-        className="cursor-help text-xs italic text-black/50 underline decoration-dotted dark:text-white/50"
+        className="cursor-help text-xs italic text-muted underline decoration-dotted"
       >
         {r.missing}
         <span className="sr-only">: {result.reason}</span>
@@ -122,17 +122,17 @@ function ValueText({ id, result, attr }: { id: string; result: MetricResult | un
   }
   const zone = result.details.zone;
   return (
-    <span {...tag} data-status="ok" className="font-mono tabular-nums">
+    <span {...tag} data-status="ok" className="tabular-nums">
       {formatRatio(result.value, result.unit, id)}
       {typeof zone === "string" && (
         <span
           data-zone={zone}
-          className={`block font-sans text-xs ${
+          className={`block text-xs ${
             GOOD_ZONES.has(zone)
-              ? "text-green-700 dark:text-green-400"
+              ? "text-success"
               : BAD_ZONES.has(zone)
-                ? "text-red-700 dark:text-red-400"
-                : "text-amber-700 dark:text-amber-400"
+                ? "text-red-700"
+                : "text-warning"
           }`}
         >
           {r.zones[zone]}
@@ -181,7 +181,7 @@ function RatioTable({
   return (
     <section aria-labelledby={headingId}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={headingId} className="text-base font-semibold">
+        <h3 id={headingId} className="text-lg">
           {r.categories[category]}
         </h3>
         <ExportCsvButton
@@ -192,13 +192,13 @@ function RatioTable({
         />
       </div>
       {category === "valuation" && result.companies.some((c) => c.price === null) && (
-        <p className="mt-1 text-xs text-black/60 dark:text-white/60">{r.priceNote}</p>
+        <p className="mt-1 text-xs text-muted">{r.priceNote}</p>
       )}
-      {note && <p className="mt-1 text-xs text-black/60 dark:text-white/60">{note}</p>}
-      <div className="relative mt-2 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+      {note && <p className="mt-1 text-xs text-muted">{note}</p>}
+      <div className="relative mt-2 overflow-x-auto rounded-card border border-rule">
         <table aria-labelledby={headingId} className="w-full min-w-[40rem] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-black/10 dark:border-white/10">
+            <tr className="border-b border-rule">
               <th scope="col" className="px-3 py-2 text-left font-medium">
                 {r.ratio}
               </th>
@@ -221,7 +221,7 @@ function RatioTable({
                 return (
                   <tr
                     key={`${ratio.id}:${company.ticker}`}
-                    className={`align-top ${i === result.companies.length - 1 ? "border-b border-black/5 last:border-0 dark:border-white/5" : ""}`}
+                    className={`align-top ${i === result.companies.length - 1 ? "border-b border-rule last:border-0" : ""}`}
                   >
                     {i === 0 && (
                       <th
@@ -233,7 +233,7 @@ function RatioTable({
                         {ratio.basis === "ttm" && (
                           <abbr
                             title={r.ttmTitle}
-                            className="ml-1.5 rounded border border-black/20 px-1 text-[10px] font-medium no-underline dark:border-white/20"
+                            className="ml-1.5 rounded-card border border-muted px-1 text-[10px] font-medium no-underline"
                           >
                             {r.ttm}
                           </abbr>
@@ -241,7 +241,7 @@ function RatioTable({
                         <MetricExplainer explainer={r.ratios[ratio.id]} />
                       </th>
                     )}
-                    {many && <td className="px-3 py-1.5 font-mono text-xs">{company.ticker}</td>}
+                    {many && <td className="px-3 py-1.5 tabular-nums text-xs">{company.ticker}</td>}
                     {columns.map((col) => {
                       const period = byColumn.get(col.key);
                       const id = period ? `${ratio.id}:${company.ticker}:${period.id}` : null;
@@ -314,23 +314,23 @@ export function CompanyRatios() {
     : [];
   const quarterly = ratios?.companies.some((c) => c.periods.some((p) => p.fiscal_quarter)) ?? false;
   const inputClass = (err: string | undefined) =>
-    `w-full min-w-0 rounded-md border px-3 py-2 font-mono dark:bg-white/5 ${
-      err ? "border-red-500" : "border-black/20 dark:border-white/20"
+    `w-full min-w-0 rounded-card border px-3 py-2 tabular-nums ${
+      err ? "border-error" : "border-muted"
     }`;
 
   return (
     <section data-testid="ratios" aria-labelledby="ratios-heading" className="mt-8 space-y-6">
       <div>
-        <h2 id="ratios-heading" className="text-xl font-semibold">
+        <h2 id="ratios-heading" className="text-2xl">
           {r.heading}
         </h2>
-        <p className="mt-1 text-sm text-black/70 dark:text-white/70">{r.intro}</p>
+        <p className="mt-1 text-sm text-ink-2">{r.intro}</p>
       </div>
       <form onSubmit={onSubmit} noValidate className="max-w-xl space-y-3">
         <fieldset className="min-w-0" aria-describedby={fieldErrors.companies ? fieldErrorId("companies") : undefined}>
           <legend className="text-sm font-medium">{r.inputsHeading}</legend>
-          <p className="mt-1 text-xs text-black/50 dark:text-white/50">{r.inputsHint}</p>
-          <div aria-hidden className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 text-xs text-black/60 dark:text-white/60">
+          <p className="mt-1 text-xs text-muted">{r.inputsHint}</p>
+          <div aria-hidden className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2 text-xs text-muted">
             <span>{r.companyColumn}</span>
             <span>
               {r.price} {r.priceUnit}
@@ -370,7 +370,7 @@ export function CompanyRatios() {
                       aria-label={`${r.remove} ${n}`}
                       disabled={rows.length === 1}
                       onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}
-                      className="rounded-md px-2 py-1 text-lg leading-none text-black/60 hover:bg-black/5 disabled:opacity-30 dark:text-white/60 dark:hover:bg-white/10"
+                      className="rounded-card px-2 py-1 text-lg leading-none text-muted hover:bg-paper-2 disabled:opacity-30"
                     >
                       ×
                     </button>
@@ -388,13 +388,13 @@ export function CompanyRatios() {
             type="button"
             disabled={rows.length >= MAX_COMPANIES}
             onClick={() => setRows((rs) => [...rs, { ticker: "", price: "" }])}
-            className="rounded-md border border-black/20 px-3 py-2 text-sm hover:bg-black/5 disabled:opacity-40 dark:border-white/20 dark:hover:bg-white/10"
+            className="btn"
           >
             {r.add}
           </button>
           <button
             type="submit"
-            className="rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+            className="btn btn-primary"
           >
             {r.submit}
           </button>
@@ -410,11 +410,11 @@ export function CompanyRatios() {
         )}
         {ratios ? (
           <>
-            <p className="text-sm text-black/60 dark:text-white/60">
+            <p className="text-sm text-muted">
               {ratios.companies.map((c) => `${c.name} (${c.ticker})`).join(" · ")}
             </p>
-            <p className="text-xs text-black/50 dark:text-white/50">{r.averageNote}</p>
-            {quarterly && <p className="text-xs text-black/60 dark:text-white/60">{r.quarterlyNote}</p>}
+            <p className="text-xs text-muted">{r.averageNote}</p>
+            {quarterly && <p className="text-xs text-muted">{r.quarterlyNote}</p>}
             <RatioTable
               category="scores"
               ratios={ratios.models.filter((x) => x.category === "scores")}
@@ -459,7 +459,7 @@ export function CompanyRatios() {
             <AiExplain tool="company-ratios" result={ratios} />
           </>
         ) : (
-          !error && <p className="text-sm text-black/60 dark:text-white/60">{r.loading}</p>
+          !error && <p className="text-sm text-muted">{r.loading}</p>
         )}
       </div>
       {selection && (

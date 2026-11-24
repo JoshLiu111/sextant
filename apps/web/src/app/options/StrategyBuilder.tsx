@@ -20,6 +20,7 @@ import {
   type LegForm,
   type Position,
 } from "./strategyPresets";
+import { series } from "@/lib/chartColors";
 
 const GREEKS = ["delta", "gamma", "vega", "theta", "rho"] as const;
 type Greek = (typeof GREEKS)[number];
@@ -77,10 +78,10 @@ function toRequest(market: MarketForm, legs: LegForm[]) {
 }
 
 const inputClass = (error: string | undefined) =>
-  `w-full min-w-0 rounded-md border px-2 py-1.5 font-mono tabular-nums dark:bg-white/5 disabled:opacity-40 ${
-    error ? "border-red-500" : "border-black/20 dark:border-white/20"
+  `w-full min-w-0 rounded-card border px-2 py-1.5 tabular-nums disabled:opacity-40 ${
+    error ? "border-error" : "border-muted"
   }`;
-const selectClass = "w-full min-w-0 rounded-md border border-black/20 px-2 py-1.5 dark:border-white/20 dark:bg-white/5";
+const selectClass = "w-full min-w-0 rounded-card border border-muted px-2 py-1.5";
 
 export function StrategyBuilder() {
   const t = getMessages();
@@ -112,12 +113,12 @@ export function StrategyBuilder() {
   const resultTime = Number(result?.meta.parameters.time_to_expiry);
   const profitSeries: ChartSeries[] = result
     ? [
-        { id: "profit_at_expiry", label: s.chart.atExpiry, points: chartPoints(result.series.profit_at_expiry), color: "#2563eb" },
+        { id: "profit_at_expiry", label: s.chart.atExpiry, points: chartPoints(result.series.profit_at_expiry), color: series(0) },
         {
           id: "profit_today",
           label: s.chart.today,
           points: chartPoints(result.series.profit_today),
-          color: "#ea580c",
+          color: series(1),
           dashed: true,
         },
       ]
@@ -128,7 +129,7 @@ export function StrategyBuilder() {
           id: `${greek}_vs_${axis}`,
           label: s.metrics[greek].name,
           points: chartPoints(result.series[`${greek}_vs_${axis}`]),
-          color: "#7c3aed",
+          color: series(2),
         },
       ]
     : [];
@@ -136,10 +137,10 @@ export function StrategyBuilder() {
   return (
     <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
       <form onSubmit={onSubmit} noValidate aria-labelledby="strategy-inputs" className="min-w-0 space-y-6">
-        <p className="text-sm text-black/70 dark:text-white/70">{s.intro}</p>
+        <p className="text-sm text-ink-2">{s.intro}</p>
         <fieldset className="min-w-0">
           <legend className="text-sm font-medium">{s.presets.heading}</legend>
-          <p className="mt-1 text-xs text-black/50 dark:text-white/50">{s.presets.hint}</p>
+          <p className="mt-1 text-xs text-muted">{s.presets.hint}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {PRESET_IDS.map((id) => (
               <button
@@ -147,7 +148,7 @@ export function StrategyBuilder() {
                 type="button"
                 title={s.presets.items[id].description}
                 onClick={() => loadPreset(id)}
-                className="rounded-md border border-black/20 px-3 py-1 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                className="btn btn-sm"
               >
                 {s.presets.items[id].name}
               </button>
@@ -167,10 +168,10 @@ export function StrategyBuilder() {
                 <li
                   key={i}
                   data-testid="strategy-leg"
-                  className="min-w-0 rounded-md border border-black/10 p-2 dark:border-white/15"
+                  className="min-w-0 rounded-card border border-rule p-2"
                 >
                   <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-end gap-2">
-                    <label className="min-w-0 text-xs text-black/60 dark:text-white/60">
+                    <label className="min-w-0 text-xs text-muted">
                       {s.legs.instrument}
                       <select
                         name={name("instrument")}
@@ -186,7 +187,7 @@ export function StrategyBuilder() {
                         ))}
                       </select>
                     </label>
-                    <label className="min-w-0 text-xs text-black/60 dark:text-white/60">
+                    <label className="min-w-0 text-xs text-muted">
                       {s.legs.position}
                       <select
                         name={name("position")}
@@ -207,13 +208,13 @@ export function StrategyBuilder() {
                       aria-label={`${s.legs.remove} ${n}`}
                       disabled={legs.length === 1}
                       onClick={() => setLegs((ls) => ls.filter((_, j) => j !== i))}
-                      className="rounded-md px-2 py-1 text-lg leading-none text-black/60 hover:bg-black/5 disabled:opacity-30 dark:text-white/60 dark:hover:bg-white/10"
+                      className="rounded-card px-2 py-1 text-lg leading-none text-muted hover:bg-paper-2 disabled:opacity-30"
                     >
                       ×
                     </button>
                   </div>
                   <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] gap-2">
-                    <label className="min-w-0 text-xs text-black/60 dark:text-white/60">
+                    <label className="min-w-0 text-xs text-muted">
                       {s.legs.quantity}
                       <input
                         name={name("quantity")}
@@ -228,7 +229,7 @@ export function StrategyBuilder() {
                         className={inputClass(quantityError)}
                       />
                     </label>
-                    <label className="min-w-0 text-xs text-black/60 dark:text-white/60">
+                    <label className="min-w-0 text-xs text-muted">
                       {s.legs.strike}
                       <input
                         name={name("strike")}
@@ -256,7 +257,7 @@ export function StrategyBuilder() {
             onClick={() =>
               setLegs((ls) => [...ls, { instrument: "call", position: "long", quantity: "1", strike: market.spot }])
             }
-            className="mt-2 rounded-md border border-black/20 px-3 py-1 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className="btn btn-sm mt-2"
           >
             {s.legs.add}
           </button>
@@ -283,7 +284,7 @@ export function StrategyBuilder() {
         </fieldset>
         <button
           type="submit"
-          className="w-full rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn btn-primary w-full"
         >
           {o.submit}
         </button>
@@ -297,7 +298,7 @@ export function StrategyBuilder() {
           />
         )}
         <div>
-          <h2 className="text-lg font-semibold">{s.sections.summary}</h2>
+          <h2 className="text-xl">{s.sections.summary}</h2>
           <div className="mt-2 grid gap-4 sm:grid-cols-3">
             {(["net_cost", "max_profit", "max_loss"] as const).map((id) => (
               <MetricCard key={id} id={id} explainer={s.metrics[id]} values={[{ id, result: m?.[id] }]} />
@@ -305,7 +306,7 @@ export function StrategyBuilder() {
           </div>
         </div>
         <div>
-          <h2 className="text-lg font-semibold">{s.sections.greeks}</h2>
+          <h2 className="text-xl">{s.sections.greeks}</h2>
           <div className="mt-2 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {GREEKS.map((id) => (
               <MetricCard key={id} id={id} explainer={s.metrics[id]} values={[{ id, result: m?.[id] }]} />
@@ -313,7 +314,7 @@ export function StrategyBuilder() {
           </div>
         </div>
         <div>
-          <h2 className="text-lg font-semibold">{s.sections.payoff}</h2>
+          <h2 className="text-xl">{s.sections.payoff}</h2>
           <div className="mt-2">
             {result && (
               <LineChart
@@ -328,7 +329,7 @@ export function StrategyBuilder() {
           </div>
         </div>
         <div>
-          <h2 className="text-lg font-semibold">{s.sections.curves}</h2>
+          <h2 className="text-xl">{s.sections.curves}</h2>
           <div className="mt-2 flex flex-wrap gap-4">
             <div className="text-sm">
               <label htmlFor="strategy-greek">{s.curves.greek}</label>

@@ -10,7 +10,7 @@ async function ComputeStatusValue() {
     <p data-testid="compute-status" className="text-sm">
       <span
         aria-hidden
-        className={`mr-2 inline-block h-2 w-2 rounded-full ${online ? "bg-green-600" : "bg-red-600"}`}
+        className={`mr-2 inline-block h-2 w-2 rounded-full ${online ? "bg-success" : "bg-error"}`}
       />
       {t.compute.label}: {online ? `${t.compute.online} (v${health.version})` : t.compute.offline}
     </p>

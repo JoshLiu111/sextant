@@ -67,17 +67,17 @@ function UserCell({ row }: { row: UserUsage }) {
   return (
     <td className={td}>
       {row.email}
-      {row.name && <span className="text-black/60 dark:text-white/60"> ({row.name})</span>}
+      {row.name && <span className="text-muted"> ({row.name})</span>}
     </td>
   );
 }
 
-const tableClass = "mt-3 w-full border-collapse text-sm [&_tbody_tr]:border-t [&_tbody_tr]:border-black/10 dark:[&_tbody_tr]:border-white/10";
+const tableClass = "mt-3 w-full border-collapse text-sm [&_tbody_tr]:border-t [&_tbody_tr]:border-rule";
 
 function PerUserTable({ users, totals }: { users: UserUsage[]; totals: UsageTotals }) {
   return (
     <table className={tableClass} aria-label={t.operator.perUser}>
-      <caption className="text-left text-lg font-semibold">{t.operator.perUser}</caption>
+      <caption className="text-left text-lg font-medium">{t.operator.perUser}</caption>
       <thead>
         <tr>
           <th scope="col" className={th}>{c.user}</th>
@@ -93,7 +93,7 @@ function PerUserTable({ users, totals }: { users: UserUsage[]; totals: UsageTota
         ))}
       </tbody>
       <tfoot>
-        <tr className="border-t-2 border-black/20 font-semibold dark:border-white/20" data-testid="ai-usage-totals">
+        <tr className="border-t-2 border-muted font-medium" data-testid="ai-usage-totals">
           <th scope="row" className={th}>{t.operator.totals}</th>
           <TotalCells row={totals} />
         </tr>
@@ -105,7 +105,7 @@ function PerUserTable({ users, totals }: { users: UserUsage[]; totals: UsageTota
 function PerDayTable({ days }: { days: DayUsage[] }) {
   return (
     <table className={tableClass} aria-label={t.operator.perDay}>
-      <caption className="text-left text-lg font-semibold">{t.operator.perDay}</caption>
+      <caption className="text-left text-lg font-medium">{t.operator.perDay}</caption>
       <thead>
         <tr>
           <th scope="col" className={th}>{c.day}</th>
@@ -139,14 +139,14 @@ async function AiUsage({ days }: { days: WindowDays }) {
   const { report } = result;
   return (
     <>
-      <p className="mt-2 text-black/70 dark:text-white/70">{t.operator.intro(report.since, report.until)}</p>
-      <p className="mt-1 text-sm text-black/60 dark:text-white/60" data-testid="ai-usage-pricing">
+      <p className="mt-2 text-ink-2">{t.operator.intro(report.since, report.until)}</p>
+      <p className="mt-1 text-sm text-muted" data-testid="ai-usage-pricing">
         {t.operator.pricing(
           PRICE.format(report.pricing.input_usd_per_mtok),
           PRICE.format(report.pricing.output_usd_per_mtok),
         )}
       </p>
-      <p className="mt-1 text-sm text-black/60 dark:text-white/60">{t.operator.failedNote}</p>
+      <p className="mt-1 text-sm text-muted">{t.operator.failedNote}</p>
       {report.users.length === 0 ? (
         <p className="mt-6" data-testid="ai-usage-empty">{t.operator.empty}</p>
       ) : (
@@ -163,9 +163,9 @@ const u = t.operator.users;
 
 function Stat({ label, value, testId }: { label: string; value: number; testId: string }) {
   return (
-    <div className="rounded border border-black/10 px-4 py-3 dark:border-white/10">
-      <dt className="text-sm text-black/70 dark:text-white/70">{label}</dt>
-      <dd className="mt-1 text-2xl font-semibold tabular-nums" data-testid={testId}>
+    <div className="rounded-card border border-rule px-4 py-3">
+      <dt className="text-sm text-ink-2">{label}</dt>
+      <dd className="mt-1 text-2xl font-medium tabular-nums" data-testid={testId}>
         {WHOLE.format(value)}
       </dd>
     </div>
@@ -196,10 +196,10 @@ async function Users({ days }: { days: WindowDays }) {
           />
         ))}
       </dl>
-      <p className="mt-2 text-sm text-black/60 dark:text-white/60">{u.signedInNote}</p>
+      <p className="mt-2 text-sm text-muted">{u.signedInNote}</p>
       <div className="mt-6 overflow-x-auto">
         <table className={tableClass} aria-label={u.signUps}>
-          <caption className="text-left text-lg font-semibold">{u.signUps}</caption>
+          <caption className="text-left text-lg font-medium">{u.signUps}</caption>
           <thead>
             <tr>
               <th scope="col" className={th}>{u.columns.day}</th>
@@ -215,7 +215,7 @@ async function Users({ days }: { days: WindowDays }) {
             ))}
           </tbody>
         </table>
-        <p className="mt-1 text-sm text-black/60 dark:text-white/60">{u.signUpsIntro(report.since, report.until)}</p>
+        <p className="mt-1 text-sm text-muted">{u.signUpsIntro(report.since, report.until)}</p>
       </div>
     </>
   );
@@ -229,7 +229,7 @@ function WindowPicker({ days }: { days: WindowDays }) {
           key={d}
           href={`/operator?days=${d}`}
           aria-current={d === days ? "page" : undefined}
-          className="rounded-md border border-black/20 px-3 py-1 hover:bg-black/5 aria-[current=page]:bg-black aria-[current=page]:text-white dark:border-white/25 dark:hover:bg-white/10 dark:aria-[current=page]:bg-white dark:aria-[current=page]:text-black"
+          className="btn btn-sm"
         >
           {t.operator.window.option(d)}
         </Link>
@@ -244,13 +244,13 @@ async function Report({ searchParams }: { searchParams: PageProps<"/operator">["
     <>
       <WindowPicker days={days} />
       <section aria-labelledby="operator-users" className="mt-6">
-        <h2 id="operator-users" className="text-xl font-semibold">{u.heading}</h2>
+        <h2 id="operator-users" className="text-2xl">{u.heading}</h2>
         <Suspense fallback={null}>
           <Users days={days} />
         </Suspense>
       </section>
       <section aria-labelledby="operator-ai-usage" className="mt-10">
-        <h2 id="operator-ai-usage" className="text-xl font-semibold">{t.operator.aiUsageHeading}</h2>
+        <h2 id="operator-ai-usage" className="text-2xl">{t.operator.aiUsageHeading}</h2>
         <Suspense fallback={null}>
           <AiUsage days={days} />
         </Suspense>
@@ -262,7 +262,7 @@ async function Report({ searchParams }: { searchParams: PageProps<"/operator">["
 export default function OperatorPage({ searchParams }: PageProps<"/operator">) {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10">
-      <h1 className="text-2xl font-semibold">{t.operator.heading}</h1>
+      <h1 className="text-3xl">{t.operator.heading}</h1>
       <Suspense fallback={null}>
         <Report searchParams={searchParams} />
       </Suspense>

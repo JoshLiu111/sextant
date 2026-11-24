@@ -101,8 +101,8 @@ function weightTotal(holdings: HoldingInput[]): string {
 }
 
 const inputClass = (error: string | undefined) =>
-  `w-full min-w-0 rounded-md border px-3 py-2 font-mono dark:bg-white/5 ${
-    error ? "border-red-500" : "border-black/20 dark:border-white/20"
+  `w-full min-w-0 rounded-card border px-3 py-2 tabular-nums ${
+    error ? "border-error" : "border-muted"
   }`;
 
 export function PortfolioTool() {
@@ -137,7 +137,7 @@ export function PortfolioTool() {
   return (
     <div className={`mt-6 ${toolColumns("22rem")}`}>
       <form onSubmit={onSubmit} noValidate aria-labelledby="portfolio-inputs" className={`${STICKY_INPUTS} space-y-4`}>
-        <h2 id="portfolio-inputs" className="text-lg font-semibold">
+        <h2 id="portfolio-inputs" className="text-xl">
           {p.inputsHeading}
         </h2>
         <DataModeToggle providers={providers} value={source} onChange={setChosen} />
@@ -146,7 +146,7 @@ export function PortfolioTool() {
         {!myData && (
           <fieldset className="min-w-0">
             <legend className="text-sm font-medium">{p.presets.heading}</legend>
-            <p className="mt-1 text-xs text-black/50 dark:text-white/50">{p.presets.hint}</p>
+            <p className="mt-1 text-xs text-muted">{p.presets.hint}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {(Object.keys(PRESETS) as PresetId[]).map((id) => (
                 <button
@@ -154,7 +154,7 @@ export function PortfolioTool() {
                   type="button"
                   title={p.presets.items[id].description}
                   onClick={() => setHoldings(() => PRESETS[id].map((h) => ({ ...h })))}
-                  className="rounded-md border border-black/20 px-3 py-1 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                  className="btn btn-sm"
                 >
                   {p.presets.items[id].name}
                 </button>
@@ -165,10 +165,10 @@ export function PortfolioTool() {
 
         <fieldset className="min-w-0" aria-describedby={fieldErrors.holdings ? fieldErrorId("holdings") : undefined}>
           <legend className="text-sm font-medium">{p.holdings.heading}</legend>
-          <p className="mt-1 text-xs text-black/50 dark:text-white/50">
+          <p className="mt-1 text-xs text-muted">
             {myData ? p.myDataInputs.holdings.hint : p.holdings.hint}
           </p>
-          <div aria-hidden className="mt-2 grid grid-cols-[minmax(0,1fr)_6rem_2rem] gap-2 text-xs text-black/60 dark:text-white/60">
+          <div aria-hidden className="mt-2 grid grid-cols-[minmax(0,1fr)_6rem_2rem] gap-2 text-xs text-muted">
             <span>{p.holdings.ticker}</span>
             <span>
               {p.holdings.weight} {p.holdings.weightUnit}
@@ -210,7 +210,7 @@ export function PortfolioTool() {
                       aria-label={`${p.holdings.remove} ${n}`}
                       disabled={form.holdings.length === 1}
                       onClick={() => setHoldings((hs) => hs.filter((_, j) => j !== i))}
-                      className="rounded-md px-2 py-1 text-lg leading-none text-black/60 hover:bg-black/5 disabled:opacity-30 dark:text-white/60 dark:hover:bg-white/10"
+                      className="rounded-card px-2 py-1 text-lg leading-none text-muted hover:bg-paper-2 disabled:opacity-30"
                     >
                       ×
                     </button>
@@ -225,12 +225,12 @@ export function PortfolioTool() {
             <button
               type="button"
               onClick={() => setHoldings((hs) => [...hs, { ticker: "", weight: "" }])}
-              className="rounded-md border border-black/20 px-3 py-1 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+              className="btn btn-sm"
             >
               {p.holdings.add}
             </button>
             <span data-testid="weight-total">
-              {p.holdings.total}: <span className="font-mono">{weightTotal(form.holdings)}</span>
+              {p.holdings.total}: <span className="tabular-nums">{weightTotal(form.holdings)}</span>
             </span>
           </div>
           <FieldError name="holdings" message={fieldErrors.holdings} />
@@ -284,7 +284,7 @@ export function PortfolioTool() {
         </div>
         <button
           type="submit"
-          className="w-full rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn btn-primary w-full"
         >
           {p.submit}
         </button>

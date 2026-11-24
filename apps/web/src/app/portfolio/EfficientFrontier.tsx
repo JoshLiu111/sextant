@@ -7,13 +7,14 @@ import type { MetricResult, ResultEnvelope } from "@/lib/envelope";
 import { formatChartPercent, formatValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
 import { FrontierChart, type MarkedPortfolio } from "./FrontierChart";
+import { series } from "@/lib/chartColors";
 
 /** Portfolios in `POST /portfolio/frontier`: metrics `<stat>:<who>` and `weight:<TICKER>:<who>`. */
 const WHO = ["max_sharpe", "min_variance", "current"] as const;
 type Who = (typeof WHO)[number];
 const STATS = ["expected_return", "volatility", "sharpe"] as const;
 
-const COLORS: Record<Who, string> = { max_sharpe: "#16a34a", min_variance: "#2563eb", current: "#d97706" };
+const COLORS: Record<Who, string> = { max_sharpe: series(0), min_variance: series(1), current: series(2) };
 
 type FrontierEnvelope = ResultEnvelope<string, string>;
 
@@ -29,13 +30,13 @@ function marked(result: FrontierEnvelope, labels: Record<Who, string>): MarkedPo
 function Cell({ id, result }: { id: string; result: MetricResult | undefined }) {
   const status = getMessages().common.status;
   return (
-    <td data-metric-value={id} data-status={result?.status ?? "pending"} className="px-3 py-1.5 text-right font-mono tabular-nums">
+    <td data-metric-value={id} data-status={result?.status ?? "pending"} className="px-3 py-1.5 text-right tabular-nums">
       {!result ? (
-        <span className="text-black/40 dark:text-white/40">{status.pending}</span>
+        <span className="text-muted">{status.pending}</span>
       ) : result.status === "ok" && result.value !== null ? (
         formatValue(result.value, result.unit)
       ) : (
-        <span title={result.reason ?? undefined} className="font-sans text-xs text-black/60 dark:text-white/60">
+        <span title={result.reason ?? undefined} className="font-sans text-xs text-muted">
           {status[result.status === "ok" ? "error" : result.status]}
           {result.reason ? `: ${result.reason}` : ""}
         </span>
@@ -63,10 +64,10 @@ export function EfficientFrontier({ portfolio }: { portfolio: Record<string, unk
 
   return (
     <section aria-labelledby="frontier-heading" className="min-w-0 space-y-4">
-      <h2 id="frontier-heading" className="text-xl font-semibold">
+      <h2 id="frontier-heading" className="text-2xl">
         {f.heading}
       </h2>
-      <p className="text-sm text-black/70 dark:text-white/70">{f.intro}</p>
+      <p className="text-sm text-ink-2">{f.intro}</p>
       <DemoBadge source={result?.source} />
       {error && (
         <ErrorNotice
@@ -87,12 +88,12 @@ export function EfficientFrontier({ portfolio }: { portfolio: Record<string, unk
       )}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <caption className="text-left text-lg font-semibold">
+          <caption className="text-left text-lg font-medium">
             {f.weightsHeading}
-            <span className="block text-xs font-normal text-black/60 dark:text-white/60">{f.weightsCaption}</span>
+            <span className="block text-xs font-normal text-muted">{f.weightsCaption}</span>
           </caption>
           <thead>
-            <tr className="border-b border-black/10 dark:border-white/15">
+            <tr className="border-b border-rule">
               <th scope="col" className="px-3 py-1.5 text-left font-medium">
                 {f.tickerColumn}
               </th>
@@ -106,15 +107,15 @@ export function EfficientFrontier({ portfolio }: { portfolio: Record<string, unk
           </thead>
           <tbody>
             {tickers.map((ticker) => (
-              <tr key={ticker} className="border-b border-black/5 dark:border-white/10">
-                <td className="px-3 py-1.5 font-mono">{ticker}</td>
+              <tr key={ticker} className="border-b border-rule">
+                <td className="px-3 py-1.5 tabular-nums">{ticker}</td>
                 {WHO.map((who) => (
                   <Cell key={who} id={`weight:${ticker}:${who}`} result={result?.metrics[`weight:${ticker}:${who}`]} />
                 ))}
               </tr>
             ))}
             {STATS.map((stat) => (
-              <tr key={stat} className="border-b border-black/5 dark:border-white/10">
+              <tr key={stat} className="border-b border-rule">
                 <th scope="row" className="px-3 py-1.5 text-left font-medium">
                   {f.rows[stat]}
                 </th>
@@ -126,7 +127,7 @@ export function EfficientFrontier({ portfolio }: { portfolio: Record<string, unk
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-black/60 dark:text-white/60">{f.method}</p>
+      <p className="text-xs text-muted">{f.method}</p>
     </section>
   );
 }

@@ -29,7 +29,7 @@ export function CheckedAnswer({ segments, link }: { segments: AnswerSegment[]; l
                 key={j}
                 data-testid="uncited-number"
                 title={t.uncited}
-                className="rounded bg-black/5 px-0.5 dark:bg-white/10"
+                className="rounded-card bg-paper-2 px-0.5"
               >
                 {segment.text}
               </span>
@@ -43,13 +43,13 @@ export function CheckedAnswer({ segments, link }: { segments: AnswerSegment[]; l
         <p
           data-testid="mismatch-notice"
           role="alert"
-          className="rounded-md bg-red-50 p-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-100"
+          className="rounded-card bg-paper-hi p-2 text-sm text-error"
         >
           {t.mismatchNotice(mismatches)}
         </p>
       )}
       {uncited && (
-        <p data-testid="uncited-notice" className="text-xs text-black/60 dark:text-white/60">
+        <p data-testid="uncited-notice" className="text-xs text-muted">
           {t.uncitedNotice}
         </p>
       )}
@@ -85,7 +85,7 @@ function Cited({ citation, link }: { citation: AnswerCitation; link?: CitationLi
       : t.citationMissing(citation.reason ?? "");
   const className = citation.matches
     ? "font-medium underline decoration-dotted underline-offset-2"
-    : "rounded bg-red-50 px-0.5 font-semibold text-red-700 underline decoration-wavy underline-offset-2 dark:bg-red-950 dark:text-red-300";
+    : "rounded-card bg-paper-hi px-0.5 font-medium text-red-700 underline decoration-wavy underline-offset-2";
   const props = { "data-testid": "citation", "data-matches": String(citation.matches), title: description, className };
   if (!link) return <span {...props}>{citation.text}</span>;
   return (

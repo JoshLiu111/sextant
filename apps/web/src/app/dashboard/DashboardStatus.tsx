@@ -78,14 +78,14 @@ function StatusItem<T>({
     <section
       aria-labelledby={`status-${id}`}
       aria-busy={item.kind === "loading"}
-      className="rounded-lg border border-black/10 p-4 text-sm dark:border-white/15"
+      className="rounded-card border border-rule p-4 text-sm"
     >
-      <h2 id={`status-${id}`} className="text-black/60 dark:text-white/60">
+      <h2 id={`status-${id}`} className="text-muted">
         {heading}
       </h2>
       <div className="mt-1 flex flex-col gap-1">
-        {item.kind === "loading" && <p className="text-black/50 dark:text-white/50">{t.loading}</p>}
-        {item.kind === "unavailable" && <p className="text-black/70 dark:text-white/70">{t.unavailable}</p>}
+        {item.kind === "loading" && <p className="text-muted">{t.loading}</p>}
+        {item.kind === "unavailable" && <p className="text-ink-2">{t.unavailable}</p>}
         {item.kind === "ok" && children(item.value)}
       </div>
     </section>
@@ -100,14 +100,14 @@ export function StatusStrip() {
         {(providers) =>
           providers.length === 0 ? (
             <>
-              <p className="text-base font-semibold">{t.key.none}</p>
+              <p className="text-base font-medium">{t.key.none}</p>
               <Link href="/settings" className={linkClass}>
                 {t.key.addKey}
               </Link>
             </>
           ) : (
             <>
-              <p className="text-base font-semibold">{t.key.connected(providers.map((p) => PROVIDER_NAMES[p]))}</p>
+              <p className="text-base font-medium">{t.key.connected(providers.map((p) => PROVIDER_NAMES[p]))}</p>
               <Link href="/settings" className={linkClass}>
                 {t.key.manage}
               </Link>
@@ -118,15 +118,15 @@ export function StatusStrip() {
       <StatusItem id="quota" heading={t.quota.heading} item={quota}>
         {(q) => (
           <>
-            <p className="text-base font-semibold">{t.quota.left(q.remaining, q.limit)}</p>
-            <p className="text-black/70 dark:text-white/70">{t.quota.resets(formatLocalTime(q.resets_at))}</p>
+            <p className="text-base font-medium">{t.quota.left(q.remaining, q.limit)}</p>
+            <p className="text-ink-2">{t.quota.resets(formatLocalTime(q.resets_at))}</p>
           </>
         )}
       </StatusItem>
       <StatusItem id="portfolios" heading={t.portfolios.heading} item={portfolios}>
         {(n) => (
           <>
-            <p className="text-base font-semibold">{t.portfolios.count(n)}</p>
+            <p className="text-base font-medium">{t.portfolios.count(n)}</p>
             <Link href="/portfolio" className={linkClass}>
               {t.portfolios.open}
             </Link>

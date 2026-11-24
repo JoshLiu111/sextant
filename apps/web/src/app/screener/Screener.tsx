@@ -179,7 +179,7 @@ function SortHeader({
     >
       <button type="button" onClick={() => onSort(column)} className="inline-flex items-center gap-1 hover:underline">
         {label}
-        <span aria-hidden="true" className="text-xs text-black/40 dark:text-white/40">
+        <span aria-hidden="true" className="text-xs text-muted">
           {active ? (direction === "asc" ? "▲" : "▼") : "↕"}
         </span>
       </button>
@@ -188,7 +188,7 @@ function SortHeader({
 }
 
 const inputClass =
-  "mt-1 w-full min-w-0 rounded-md border border-black/20 px-2 py-2 dark:border-white/20 dark:bg-white/5";
+  "mt-1 w-full min-w-0 rounded-card border border-muted px-2 py-2";
 
 export function Screener() {
   const t = getMessages();
@@ -247,7 +247,7 @@ export function Screener() {
 
   return (
     <section aria-labelledby="screen-heading" className="mt-6 space-y-6">
-      <h2 id="screen-heading" className="text-xl font-semibold">
+      <h2 id="screen-heading" className="text-2xl">
         {s.screenHeading}
       </h2>
       <form onSubmit={onSubmit} noValidate className="space-y-4">
@@ -305,16 +305,16 @@ export function Screener() {
                       onChange={(e) => update(row.key, { value: e.target.value })}
                       aria-invalid={valueError ? true : undefined}
                       aria-describedby={valueError ? fieldErrorId(valueName) : undefined}
-                      className={`${inputClass} font-mono ${valueError ? "border-red-500" : ""}`}
+                      className={`${inputClass} tabular-nums ${valueError ? "border-error" : ""}`}
                     />
-                    <span className="mt-1 text-sm text-black/60 dark:text-white/60">{s.valueUnits[UNIT[row.metric]]}</span>
+                    <span className="mt-1 text-sm text-muted">{s.valueUnits[UNIT[row.metric]]}</span>
                   </div>
                 </div>
                 <button
                   type="button"
                   aria-label={`${s.removeLabel} ${n}`}
                   onClick={() => setRows((rs) => rs.filter((r) => r.key !== row.key))}
-                  className="mb-0.5 rounded-md border border-black/20 px-3 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                  className="btn mb-0.5"
                 >
                   {s.remove}
                 </button>
@@ -333,7 +333,7 @@ export function Screener() {
               setRows((rs) => [...rs, { key: nextKey, metric: "net_margin", op: "min", value: "10" }]);
               setNextKey((k) => k + 1);
             }}
-            className="rounded-md border border-black/20 px-4 py-2 text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            className="btn"
           >
             {s.add}
           </button>
@@ -353,7 +353,7 @@ export function Screener() {
           </div>
           <button
             type="submit"
-            className="rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+            className="btn btn-primary"
           >
             {s.run}
           </button>
@@ -375,7 +375,7 @@ export function Screener() {
             </select>
           </label>
         )}
-        <p data-testid="price-criteria-note" className="text-xs text-black/50 dark:text-white/50">
+        <p data-testid="price-criteria-note" className="text-xs text-muted">
           {priceSource ? s.priceCriteria.myData(PROVIDER_NAMES[priceSource], MAX_PRICED) : s.priceCriteria.signIn}
         </p>
       </form>
@@ -396,7 +396,7 @@ export function Screener() {
                 {screen.excluded.total ? `${s.excluded(screen.excluded.total)}:` : s.noneExcluded}
               </p>
               {screen.excluded.total > 0 && (
-                <ul className="list-disc pl-5 text-black/70 dark:text-white/70">
+                <ul className="list-disc pl-5 text-ink-2">
                   {screen.excluded.by_criterion
                     .filter((e) => e.count > 0)
                     .map((e) => (
@@ -410,7 +410,7 @@ export function Screener() {
                 </ul>
               )}
               {screen.price_source && (
-                <p data-testid="prices-info" className="text-black/70 dark:text-white/70">
+                <p data-testid="prices-info" className="text-ink-2">
                   {s.pricesInfo(screen.price_source.name, screen.prices_as_of ?? "–")}
                 </p>
               )}
@@ -418,7 +418,7 @@ export function Screener() {
               {screen.price_source && <MetricExplainer explainer={s.priceExplainer} />}
             </div>
             {screen.rows.length === 0 ? (
-              <p className="text-sm text-black/60 dark:text-white/60">{s.noMatches}</p>
+              <p className="text-sm text-muted">{s.noMatches}</p>
             ) : (
               <div className="flex justify-end">
                 <ExportCsvButton
@@ -438,10 +438,10 @@ export function Screener() {
               </div>
             )}
             {screen.rows.length > 0 && (
-              <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+              <div className="overflow-x-auto rounded-card border border-rule">
                 <table aria-label={s.resultsLabel} className="w-full min-w-[40rem] border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-black/10 align-bottom dark:border-white/10">
+                    <tr className="border-b border-rule align-bottom">
                       <SortHeader column="ticker" label={s.ticker} align="left" {...sortProps} />
                       <SortHeader column="name" label={s.company} align="left" {...sortProps} />
                       {screen.columns.map((c) => (
@@ -457,15 +457,15 @@ export function Screener() {
                   </thead>
                   <tbody>
                     {screen.rows.map((r) => (
-                      <tr key={r.cik} data-ticker={r.ticker} className="border-b border-black/5 last:border-0 dark:border-white/5">
-                        <td className="px-2 py-1.5 font-mono">{r.ticker}</td>
+                      <tr key={r.cik} data-ticker={r.ticker} className="border-b border-rule last:border-0">
+                        <td className="px-2 py-1.5 tabular-nums">{r.ticker}</td>
                         <td className="px-2 py-1.5">{r.name}</td>
                         {screen.columns.map((c) => (
-                          <td key={c.id} data-metric-value={c.id} className="px-2 py-1.5 text-right font-mono tabular-nums">
+                          <td key={c.id} data-metric-value={c.id} className="px-2 py-1.5 text-right tabular-nums">
                             {formatCell(r.values[c.id], c.unit)}
                           </td>
                         ))}
-                        <td className="px-2 py-1.5 text-right font-mono text-xs">{r.period_end ?? "–"}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums text-xs">{r.period_end ?? "–"}</td>
                         <td className="whitespace-nowrap px-2 py-1.5">
                           <Link
                             href={`/company?companies=${encodeURIComponent(r.ticker)}&ticker=${encodeURIComponent(r.ticker)}`}
@@ -484,12 +484,12 @@ export function Screener() {
                 </table>
               </div>
             )}
-            <p className="text-xs text-black/50 dark:text-white/50">{s.unitsNote}</p>
+            <p className="text-xs text-muted">{s.unitsNote}</p>
             <CalculationInfo result={screen} />
             <AiExplain tool="screener" result={screen} />
           </>
         ) : (
-          !error && <p className="text-sm text-black/60 dark:text-white/60">{s.loading}</p>
+          !error && <p className="text-sm text-muted">{s.loading}</p>
         )}
       </div>
     </section>

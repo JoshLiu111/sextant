@@ -5,9 +5,9 @@ import type { ResultEnvelope } from "@/lib/envelope";
 export function CalculationInfo({ result }: { result: ResultEnvelope }) {
   const t = getMessages().common.calculation;
   return (
-    <p className="text-xs text-black/50 dark:text-white/50">
+    <p className="text-xs text-muted">
       {t.source}: {result.source.name} · {t.computedAt}: {new Date(result.meta.computed_at).toISOString()} ·{" "}
-      <span data-testid="calculation-id" className="break-all font-mono">
+      <span data-testid="calculation-id" className="break-all tabular-nums">
         {t.id} {result.calculation_id}
       </span>
     </p>

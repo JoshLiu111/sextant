@@ -44,7 +44,7 @@ export function KeyFiguresStrip({
     <dl
       data-testid="key-figures"
       aria-label={label ?? t.keyFigures}
-      className="grid grid-cols-2 gap-4 rounded-lg border border-black/10 p-4 sm:grid-cols-4 dark:border-white/15"
+      className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-ink pt-4 sm:grid-cols-4"
     >
       {figures.map((figure) => (
         <div
@@ -53,11 +53,11 @@ export function KeyFiguresStrip({
           data-status={figure.result?.status ?? "pending"}
           className="min-w-0"
         >
-          <dt className="text-sm text-black/70 dark:text-white/70">
+          <dt className="text-sm text-muted">
             {figure.label}
-            {figure.sublabel && <span className="block text-xs text-black/50 dark:text-white/50">{figure.sublabel}</span>}
+            {figure.sublabel && <span className="block text-xs text-muted">{figure.sublabel}</span>}
           </dt>
-          <dd className="mt-1">
+          <dd className="mt-2">
             <FigureValue result={figure.result} format={format} />
           </dd>
         </div>
@@ -69,19 +69,19 @@ export function KeyFiguresStrip({
 /** One figure's value: the number, "unlimited", or its status when there is no number. */
 function FigureValue({ result, format }: { result: MetricResult | undefined; format: Format }) {
   const t = getMessages().common;
-  if (!result) return <span className="text-lg text-black/40 dark:text-white/40">{t.status.pending}</span>;
+  if (!result) return <span className="text-lg text-muted">{t.status.pending}</span>;
   if (result.status !== "ok") return <FigureStatus result={result} status={t.status[result.status]} />;
   if (result.value !== null) {
-    return <span className="font-mono text-xl tabular-nums">{format(result.value, result.unit)}</span>;
+    return <span className="figure-display text-2xl text-ink">{format(result.value, result.unit)}</span>;
   }
-  if (result.details.bound === "unlimited") return <span className="font-mono text-xl">{t.unlimited}</span>;
+  if (result.details.bound === "unlimited") return <span className="figure-display text-2xl text-ink">{t.unlimited}</span>;
   // "ok" without a number or a bound: shown as an error.
   return <FigureStatus result={result} status={t.status.error} />;
 }
 
 function FigureStatus({ result, status }: { result: MetricResult; status: string }) {
   return (
-    <span title={result.reason ?? undefined} className="text-sm text-black/60 dark:text-white/60">
+    <span title={result.reason ?? undefined} className="text-sm text-muted">
       {status}
     </span>
   );

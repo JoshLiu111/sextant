@@ -72,7 +72,7 @@ export function DividendHistory() {
   }
 
   function cell(p: DividendPeriod | undefined) {
-    if (!p) return <span className="text-black/30 dark:text-white/30">–</span>;
+    if (!p) return <span className="text-muted">–</span>;
     return (
       <a
         href={p.filing.url}
@@ -91,17 +91,17 @@ export function DividendHistory() {
   const rows = history ? byFiscalYear(history.periods) : [];
   return (
     <section aria-labelledby="dividends-section" className="mt-6 space-y-4">
-      <h2 id="dividends-section" className="text-xl font-semibold">
+      <h2 id="dividends-section" className="text-2xl">
         {m.heading}
       </h2>
-      <p className="text-sm text-black/70 dark:text-white/70">{m.intro}</p>
+      <p className="text-sm text-ink-2">{m.intro}</p>
       <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-start gap-4">
         <div className="w-full max-w-[12rem]">
           <TextField name="dividend-ticker" label={m.ticker.label} hint={m.ticker.hint} value={ticker} onChange={setTicker} error={fieldErrors.ticker} />
         </div>
         <button
           type="submit"
-          className="mt-6 rounded-md bg-black px-4 py-2 font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn btn-primary mt-6"
         >
           {m.submit}
         </button>
@@ -117,7 +117,7 @@ export function DividendHistory() {
         {history ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 data-testid="dividends-heading" className="text-base font-semibold">
+              <h3 data-testid="dividends-heading" className="text-lg">
                 {m.companyHeading(history.company.name, history.company.ticker)}
               </h3>
               {history.pays_dividends && (
@@ -133,16 +133,16 @@ export function DividendHistory() {
               )}
             </div>
             {!history.pays_dividends ? (
-              <p data-testid="dividends-note" className="text-sm text-black/70 dark:text-white/70">
+              <p data-testid="dividends-note" className="text-sm text-ink-2">
                 {history.note}
               </p>
             ) : (
               <>
-                {history.basis && <p className="text-xs text-black/60 dark:text-white/60">{m.basis[history.basis]}</p>}
-                <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+                {history.basis && <p className="text-xs text-muted">{m.basis[history.basis]}</p>}
+                <div className="overflow-x-auto rounded-card border border-rule">
                   <table aria-label={m.tableLabel} className="w-full min-w-[32rem] border-collapse text-sm">
                     <thead>
-                      <tr className="border-b border-black/10 text-left dark:border-white/10">
+                      <tr className="border-b border-rule text-left">
                         <th scope="col" className="px-2 py-2 font-medium">
                           {m.fiscalYear}
                         </th>
@@ -158,28 +158,28 @@ export function DividendHistory() {
                     </thead>
                     <tbody>
                       {rows.map((row) => (
-                        <tr key={row.fiscalYear} data-fiscal-year={row.fiscalYear} className="border-b border-black/5 last:border-0 dark:border-white/5">
-                          <th scope="row" className="px-2 py-1.5 text-left font-mono text-xs font-normal">
+                        <tr key={row.fiscalYear} data-fiscal-year={row.fiscalYear} className="border-b border-rule last:border-0">
+                          <th scope="row" className="px-2 py-1.5 text-left tabular-nums text-xs font-normal">
                             FY{row.fiscalYear}
                           </th>
                           {row.quarters.map((q, i) => (
-                            <td key={i} className="px-2 py-1.5 text-right font-mono text-xs">
+                            <td key={i} className="px-2 py-1.5 text-right tabular-nums text-xs">
                               {cell(q)}
                             </td>
                           ))}
-                          <td className="px-2 py-1.5 text-right font-mono text-xs font-semibold">{cell(row.year)}</td>
+                          <td className="px-2 py-1.5 text-right tabular-nums text-xs font-medium">{cell(row.year)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                {history.periods.some((p) => p.derived) && <p className="text-xs text-black/60 dark:text-white/60">{m.derivedNote}</p>}
+                {history.periods.some((p) => p.derived) && <p className="text-xs text-muted">{m.derivedNote}</p>}
               </>
             )}
             <CalculationInfo result={history} />
           </>
         ) : (
-          !error && <p className="text-sm text-black/60 dark:text-white/60">{m.loading}</p>
+          !error && <p className="text-sm text-muted">{m.loading}</p>
         )}
       </div>
     </section>

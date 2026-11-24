@@ -16,11 +16,115 @@
 }
 
 /* One accent per tool: its charts' primary series and the rule by its title. */
-[data-tool="company"] { --color-tool: var(--color-chart-1); }
-[data-tool="valuation"] { --color-tool: var(--color-chart-4); }
-[data-tool="screener"] { --color-tool: var(--color-chart-2); }
-[data-tool="macro"] { --color-tool: var(--color-chart-5); }
-[data-tool="portfolio"] { --color-tool: var(--color-chart-3); }
-[data-tool="risk"] { --color-tool: var(--color-chart-6); }
-[data-tool="options"] { --color-tool: var(--color-chart-8); }
-[data-tool="ai-analyst"] { --color-tool: var(--color-chart-7); }
+[data-tool="company"] { --color-tool: var(--color-chart-1); --color-series-1: var(--color-chart-1); --color-series-2: var(--color-chart-2); --color-series-3: var(--color-chart-3); --color-series-4: var(--color-chart-4); --color-series-5: var(--color-chart-5); --color-series-6: var(--color-chart-6); --color-series-7: var(--color-chart-7); --color-series-8: var(--color-chart-8); }
+[data-tool="valuation"] { --color-tool: var(--color-chart-4); --color-series-1: var(--color-chart-4); --color-series-2: var(--color-chart-1); --color-series-3: var(--color-chart-2); --color-series-4: var(--color-chart-3); --color-series-5: var(--color-chart-5); --color-series-6: var(--color-chart-6); --color-series-7: var(--color-chart-7); --color-series-8: var(--color-chart-8); }
+[data-tool="screener"] { --color-tool: var(--color-chart-2); --color-series-1: var(--color-chart-2); --color-series-2: var(--color-chart-1); --color-series-3: var(--color-chart-3); --color-series-4: var(--color-chart-4); --color-series-5: var(--color-chart-5); --color-series-6: var(--color-chart-6); --color-series-7: var(--color-chart-7); --color-series-8: var(--color-chart-8); }
+[data-tool="macro"] { --color-tool: var(--color-chart-5); --color-series-1: var(--color-chart-5); --color-series-2: var(--color-chart-1); --color-series-3: var(--color-chart-2); --color-series-4: var(--color-chart-3); --color-series-5: var(--color-chart-4); --color-series-6: var(--color-chart-6); --color-series-7: var(--color-chart-7); --color-series-8: var(--color-chart-8); }
+[data-tool="portfolio"] { --color-tool: var(--color-chart-3); --color-series-1: var(--color-chart-3); --color-series-2: var(--color-chart-1); --color-series-3: var(--color-chart-2); --color-series-4: var(--color-chart-4); --color-series-5: var(--color-chart-5); --color-series-6: var(--color-chart-6); --color-series-7: var(--color-chart-7); --color-series-8: var(--color-chart-8); }
+[data-tool="risk"] { --color-tool: var(--color-chart-6); --color-series-1: var(--color-chart-6); --color-series-2: var(--color-chart-1); --color-series-3: var(--color-chart-2); --color-series-4: var(--color-chart-3); --color-series-5: var(--color-chart-4); --color-series-6: var(--color-chart-5); --color-series-7: var(--color-chart-7); --color-series-8: var(--color-chart-8); }
+[data-tool="options"] { --color-tool: var(--color-chart-8); --color-series-1: var(--color-chart-8); --color-series-2: var(--color-chart-1); --color-series-3: var(--color-chart-2); --color-series-4: var(--color-chart-3); --color-series-5: var(--color-chart-4); --color-series-6: var(--color-chart-5); --color-series-7: var(--color-chart-6); --color-series-8: var(--color-chart-7); }
+[data-tool="ai-analyst"] { --color-tool: var(--color-chart-7); --color-series-1: var(--color-chart-7); --color-series-2: var(--color-chart-1); --color-series-3: var(--color-chart-2); --color-series-4: var(--color-chart-3); --color-series-5: var(--color-chart-4); --color-series-6: var(--color-chart-5); --color-series-7: var(--color-chart-6); --color-series-8: var(--color-chart-8); }
+
+/* Series order for multi-series charts: the tool's own colour first, then the other seven in a fixed order. */
+:root {--color-series-1: var(--color-chart-1); --color-series-2: var(--color-chart-2); --color-series-3: var(--color-chart-3); --color-series-4: var(--color-chart-4); --color-series-5: var(--color-chart-5); --color-series-6: var(--color-chart-6); --color-series-7: var(--color-chart-7); --color-series-8: var(--color-chart-8); }
+
+/* Shared recipes. Tailwind utilities still win over these (components layer). */
+@layer components {
+  /* The proof ground: an ink dot grid, on the chrome only, never behind running text. */
+  .proof {
+    background-image: radial-gradient(circle at 1px 1px, var(--color-dot) 1px, transparent 1.4px);
+    background-size: 24px 24px;
+  }
+
+  /* Printed controls: 1px ink border, a hairline inset, 40px on app screens. */
+  .btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    min-height: 40px;
+    padding: 0 var(--space-md);
+    border: var(--rule-hair) solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    background: var(--color-paper-hi);
+    color: var(--color-ink);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+  }
+  .btn::after {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    border: var(--rule-hair) solid var(--color-rule);
+    border-radius: 1px;
+    pointer-events: none;
+  }
+  .btn:hover { background: var(--color-paper-2); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; transform: none; }
+  .btn-primary { background: var(--color-accent); color: var(--color-accent-ink); }
+  .btn-primary::after { border-color: color-mix(in oklab, var(--color-accent-ink) 22%, transparent); }
+  .btn-primary:hover { background: color-mix(in oklab, var(--color-accent) 86%, var(--color-ink)); }
+  /* Destructive: outlined in the error colour, never a second filled button. */
+  .btn-danger { border-color: var(--color-error); color: var(--color-error); }
+  .btn-danger::after { border-color: color-mix(in oklab, var(--color-error) 30%, transparent); }
+  .btn-danger:hover { background: color-mix(in oklab, var(--color-error) 8%, var(--color-paper-hi)); }
+  .btn-sm { min-height: 32px; padding: 0 var(--space-sm); }
+  .btn-sm::after { display: none; }
+  .btn-lg { min-height: 48px; padding: 0 var(--space-lg); font-size: var(--text-md); }
+
+  /* A text action: ink, an orange underline on hover. */
+  .link {
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-decoration-color: var(--color-rule);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+    transition: text-decoration-color var(--dur-short) var(--ease-out);
+    cursor: pointer;
+  }
+  .link:hover { text-decoration-color: var(--color-accent); }
+  .link:active { color: var(--color-ink-2); }
+
+  /* Fields: constant 1px muted border, an inset focus outline, never a border change. */
+  .field {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: var(--space-xs) var(--space-sm);
+    border: var(--rule-hair) solid var(--color-muted);
+    border-radius: var(--radius-card);
+    background: var(--color-paper-hi);
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+    transition: border-color var(--dur-short) var(--ease-out);
+  }
+  .field:hover { border-color: var(--color-ink-2); }
+  .field:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -1px; }
+  .field[aria-invalid="true"] { border-color: var(--color-error); }
+  .field:disabled { opacity: 0.55; cursor: not-allowed; }
+  .field::placeholder { color: var(--color-muted); }
+
+  .label { display: block; font-size: var(--text-sm); font-weight: 500; color: var(--color-ink); }
+  .hint { font-size: var(--text-xs); color: var(--color-muted); }
+
+  /* The surface ladder: a hairline card for interactive or different content, a well for grouping. */
+  .card { border: var(--rule-hair) solid var(--color-rule); border-radius: var(--radius-card); background: var(--color-paper-hi); color: var(--color-ink); }
+  .well { border-radius: var(--radius-card); background: var(--color-paper-2); color: var(--color-ink); }
+
+  /* Display figures: Hedvig, the theme's figures face. */
+  .figure-display { font-family: var(--font-display); font-weight: var(--display-weight); letter-spacing: -0.01em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+
+  /* The thin rule by a tool's title, in the tool's own colour. */
+  .tool-rule { display: block; width: var(--space-xl); height: 2px; background: var(--color-tool); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active { transform: none; }
+}

@@ -85,7 +85,7 @@ export function HowToUseButton({ tool }: { tool: ToolSlug }) {
       aria-expanded={open}
       aria-controls={panelId(tool)}
       onClick={() => storeOpen(tool, !open)}
-      className="shrink-0 rounded-md border border-black/20 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+      className="btn shrink-0"
     >
       {copy.heading}
     </button>
@@ -113,10 +113,10 @@ export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
       id={panelId(tool)}
       aria-labelledby={buttonId(tool)}
       hidden={!open}
-      className="mt-4 rounded-lg border border-black/10 dark:border-white/15"
+      className="well mt-5"
     >
-      <div className="space-y-3 p-4 text-sm">
-        <ol aria-label={copy.stepsLabel} className="list-decimal space-y-1 pl-5 text-black/80 dark:text-white/80">
+      <div className="space-y-3 p-4 text-sm md:px-5">
+        <ol aria-label={copy.stepsLabel} className="max-w-[75ch] list-decimal space-y-1 pl-5 text-ink-2 marker:text-muted">
           {howTo.steps.map((step) => (
             <li key={step}>{step}</li>
           ))}
@@ -126,7 +126,7 @@ export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
             {howTo.examples.map((example) => (
               <li key={example.label}>
                 {/* A full navigation (not <Link>): the tool reads its URL inputs on load. */}
-                <a href={hrefWithQuery(href, example.params)} className="underline underline-offset-2 hover:no-underline">
+                <a href={hrefWithQuery(href, example.params)} className="link">
                   {copy.tryThis} {example.label}
                 </a>
               </li>
@@ -138,7 +138,7 @@ export function HowToUsePanel({ tool }: { tool: ToolSlug }) {
             <p>
               {copy.signedInExtras} {howTo.signedInExtras.join("; ")}.
             </p>
-            <SignInLink className="font-medium underline underline-offset-2 hover:no-underline" />
+            <SignInLink className="link font-medium" />
           </div>
         )}
       </div>

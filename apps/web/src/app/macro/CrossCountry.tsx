@@ -11,6 +11,7 @@ import { formatChartPercentValue } from "@/lib/format";
 import { useCompute } from "@/lib/useCompute";
 import { COUNTRIES, MAX_COUNTRIES, type CountryCode } from "./countries";
 import { MetaList } from "./MetaList";
+import { series } from "@/lib/chartColors";
 
 // Envelope ids from POST /macro/countries: metric "latest:<indicator>:<ISO3>"
 // (details: year, country_name, series metadata), series "history:<indicator>:<ISO3>" (x = year).
@@ -20,7 +21,7 @@ type MetricId = `latest:${IndicatorKey}:${CountryCode}`;
 type SeriesId = `history:${IndicatorKey}:${CountryCode}`;
 
 // One color per selection slot (up to 6).
-const COLORS = ["#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed", "#0891b2"];
+const COLORS = [series(0), series(1), series(2), series(3), series(4), series(5)];
 
 function syncUrl(countries: CountryCode[]) {
   const url = new URL(window.location.href);
@@ -44,14 +45,14 @@ export function CrossCountry({ initialCountries }: { initialCountries: CountryCo
   return (
     <section id="countries" data-testid="countries" aria-labelledby="macro-countries" className="mt-10 space-y-6">
       <div>
-        <h2 id="macro-countries" className="text-lg font-semibold">
+        <h2 id="macro-countries" className="text-xl">
           {t.macro.sections.countries}
         </h2>
-        <p className="mt-1 text-sm text-black/70 dark:text-white/70">{c.intro}</p>
+        <p className="mt-1 text-sm text-ink-2">{c.intro}</p>
       </div>
       <fieldset>
         <legend className="text-sm font-medium">
-          {c.picker} <span className="font-normal text-black/60 dark:text-white/60">({c.pickerHint})</span>
+          {c.picker} <span className="font-normal text-muted">({c.pickerHint})</span>
         </legend>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
           {COUNTRIES.map((code) => {
@@ -149,7 +150,7 @@ function WorldBankMeta({ details }: { details: MetricResult["details"] }) {
               {t.countries.dataset},{" "}
               <a
                 href={`https://data.worldbank.org/indicator/${encodeURIComponent(indicator)}`}
-                className="font-mono underline"
+                className="tabular-nums underline"
                 target="_blank"
                 rel="noreferrer"
               >
