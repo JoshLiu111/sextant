@@ -1,26 +1,26 @@
+/* Hallmark · shape: Conversational FAQ (/), app screen (8 tools, dashboard, settings, account, operator) · genre: editorial · theme: Studio (deal 1/3, seed free-finance-tools-everyday-e225·89730c67·2026-11-24·r0) · redesign: full
+ * hero: Stage (/) · nav: floating pill, four tool groups and account · footer: colophon block · imagery: the product · signature: a real chart annotated with orange construction guides naming its source, calculation and date
+ * axes: light/roman-serif/warm · posture: restrained · modes: light+dark · contrast: pass · fold: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, a finance tool could wear any paper; the construction guides now name the real source and calculation behind each figure */
 @import "tailwindcss";
+@import "./tokens.css";
+@import "./base.css" layer(base);
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* Project names mapped onto the Hallmark roles. Tailwind's red-700 keeps its class name
+   (e2e asserts it) but resolves to the error token. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--color-paper);
+  --color-foreground: var(--color-ink);
+  --font-sans: var(--font-body);
+  --color-red-700: var(--color-error);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* One accent per tool: its charts' primary series and the rule by its title. */
+[data-tool="company"] { --color-tool: var(--color-chart-1); }
+[data-tool="valuation"] { --color-tool: var(--color-chart-4); }
+[data-tool="screener"] { --color-tool: var(--color-chart-2); }
+[data-tool="macro"] { --color-tool: var(--color-chart-5); }
+[data-tool="portfolio"] { --color-tool: var(--color-chart-3); }
+[data-tool="risk"] { --color-tool: var(--color-chart-6); }
+[data-tool="options"] { --color-tool: var(--color-chart-8); }
+[data-tool="ai-analyst"] { --color-tool: var(--color-chart-7); }
