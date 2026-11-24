@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 
 from sextant_compute.analytics.errors import MissingData
-from sextant_compute.data.splits import Split
+from sextant_compute.data.splits import Split, shares_today
 
 DAYS_PER_YEAR = 365
 _DUST = 1e-9
@@ -117,8 +117,7 @@ def daily_book(
 
 
 def _in_todays_shares(trade: Trade, splits: Sequence[Split]) -> Trade:
-    # A trade on the ex-date is already at the new share count.
-    factor = math.prod(s.ratio for s in splits if s.ex_date > trade.date)
+    factor = shares_today(splits, trade.date)
     return trade if factor == 1 else replace(trade, quantity=trade.quantity * factor)
 
 
