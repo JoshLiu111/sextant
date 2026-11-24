@@ -72,14 +72,42 @@ export const en = {
     },
   },
   home: {
-    heading: "Finance tools",
-    intro:
-      "Pick a tool to get started. Every tool works without signing in and opens with sensible defaults.",
+    hero: {
+      heading: "Free, transparent finance tools",
+      valueProposition:
+        "Sextant answers everyday investing questions with eight free tools, and every number shows how it was computed.",
+      tryTool: "Try a tool",
+    },
+    tools: {
+      heading: "Pick a question",
+      intro: "Every tool opens on demo data, so you can try it without signing in.",
+      openDemo: "Open demo",
+    },
+    unlocks: {
+      heading: "Free account unlocks",
+      intro: "Sign in with Google to create a free account. It adds:",
+      items: [
+        "Real market data with your own Tiingo or FMP key, in place of demo data.",
+        "Saved portfolios, including ones you import from a CSV file.",
+        "AI Explain on results and the AI Analyst, within a daily quota.",
+      ],
+    },
   },
+  /**
+   * Per-tool copy. `question` is what the tool answers and `highlights` (2–3)
+   * what it gives you; the landing page and dashboard cards read both. `howTo`
+   * is the tool page's "How to use" panel (`HowToUse` in lib/howToUse.ts).
+   */
   tools: {
     options: {
       name: "Options Calculator",
       description: "Price options with Black-Scholes and binomial trees, see the Greeks, implied volatility and multi-leg payoffs.",
+      question: "What is this option worth, and how will its price react when the market moves?",
+      highlights: [
+        "Black-Scholes and binomial prices side by side",
+        "The Greeks and implied volatility",
+        "Payoff charts for multi-leg strategies",
+      ],
       howTo: {
         steps: [
           "Pick a tab: a single option, a multi-leg strategy, or an American option priced on a binomial tree.",
@@ -101,6 +129,12 @@ export const en = {
     risk: {
       name: "Risk & Performance",
       description: "Compare return, volatility, drawdown, VaR, Sharpe and Beta for a few tickers against a benchmark.",
+      question: "How risky is this stock compared with the S&P 500?",
+      highlights: [
+        "Return, volatility and maximum drawdown",
+        "Value at Risk, Sharpe ratio and Beta",
+        "Several tickers against one benchmark",
+      ],
       howTo: {
         steps: [
           "Enter a few tickers and a benchmark. Demo tickers (DEMO-A to DEMO-I, benchmark DEMO-MKT) run on synthetic prices.",
@@ -126,26 +160,61 @@ export const en = {
     portfolio: {
       name: "My Portfolio",
       description: "Build a portfolio from tickers and weights and see its performance and risk versus a benchmark.",
+      question: "How has my portfolio done, and how much risk am I taking?",
+      highlights: [
+        "Build from tickers and weights, or import a CSV",
+        "Performance and risk versus a benchmark",
+        "Optimised weights to compare with your own",
+      ],
     },
     company: {
       name: "Company Health Check",
       description: "Standardized financial statements, core ratios and Altman Z-Score from SEC filings.",
+      question: "Is this company financially healthy?",
+      highlights: [
+        "Standardized statements from SEC filings",
+        "Core ratios over several years",
+        "Altman Z-Score for bankruptcy risk",
+      ],
     },
     valuation: {
       name: "Valuation Calculator",
       description: "Discounted cash flow valuation with a WACC breakdown and a sensitivity table.",
+      question: "What is this company worth, based on its future cash flows?",
+      highlights: [
+        "Discounted cash flow value per share",
+        "A step-by-step WACC breakdown",
+        "A sensitivity table for your assumptions",
+      ],
     },
     macro: {
       name: "Macro Dashboard",
       description: "US indicators, the Treasury yield curve, cross-country comparisons and the euro area.",
+      question: "What is the economy doing right now?",
+      highlights: [
+        "US indicators such as inflation and unemployment",
+        "The Treasury yield curve",
+        "Cross-country and euro area comparisons",
+      ],
     },
     screener: {
       name: "Screener & Calendar",
       description: "Screen US companies on fundamentals and follow the latest SEC filings.",
+      question: "Which US companies match my criteria, and who reports next?",
+      highlights: [
+        "Screen companies on fundamentals",
+        "Upcoming earnings dates",
+        "The latest SEC filings",
+      ],
     },
     "ai-analyst": {
       name: "AI Analyst",
       description: "Ask questions in plain English and get answers backed by traceable calculations.",
+      question: "Can I just ask my question in plain English?",
+      highlights: [
+        "Claude picks the right Sextant tools for you",
+        "Every number links to the calculation behind it",
+      ],
     },
   },
   common: {

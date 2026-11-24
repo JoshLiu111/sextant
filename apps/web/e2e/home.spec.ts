@@ -11,6 +11,18 @@ const TOOLS = [
   "AI Analyst",
 ];
 
+// Where each card's "Open demo" link should land.
+const TOOL_PATHS: Record<string, string> = {
+  "Options Calculator": "/options",
+  "Risk & Performance": "/risk",
+  "My Portfolio": "/portfolio",
+  "Company Health Check": "/company",
+  "Valuation Calculator": "/valuation",
+  "Macro Dashboard": "/macro",
+  "Screener & Calendar": "/screener",
+  "AI Analyst": "/ai-analyst",
+};
+
 // Tools that are built; every other tool page still says "Coming soon".
 const LIVE_TOOLS = new Set([
   "Options Calculator",
@@ -23,16 +35,64 @@ const LIVE_TOOLS = new Set([
   "AI Analyst",
 ]);
 
-test("home page lists all eight tools with a description", async ({ page }) => {
+test("the hero says what Sextant is, and Try a tool jumps to the tool cards", async ({ page }) => {
+  await page.goto("/");
+
+  const hero = page.getByRole("region", { name: "Free, transparent finance tools" });
+  await expect(hero.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(hero.getByTestId("value-proposition")).not.toBeEmpty();
+
+  await hero.getByRole("link", { name: "Try a tool" }).click();
+  await expect(page).toHaveURL(/#tools$/);
+  await expect(page.getByRole("heading", { level: 2, name: "Pick a question" })).toBeInViewport();
+});
+
+test("the hero's Sign in with Google starts Google sign-in", async ({ page }) => {
+  await page.goto("/");
+
+  const hero = page.getByRole("region", { name: "Free, transparent finance tools" });
+  await hero.getByRole("link", { name: "Sign in with Google" }).click();
+
+  // The fake OIDC provider stands in for Google's consent screen.
+  await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
+});
+
+test("landing page shows all eight tools, each with its question, highlights and a demo link", async ({ page }) => {
   await page.goto("/");
 
   const cards = page.getByTestId("tool-card");
   await expect(cards).toHaveCount(TOOLS.length);
   for (const name of TOOLS) {
-    const card = cards.filter({ has: page.getByRole("heading", { name, exact: true }) });
+    const card = page.getByRole("article", { name, exact: true });
     await expect(card).toHaveCount(1);
-    await expect(card.getByTestId("tool-description")).not.toBeEmpty();
+    await expect(card.getByTestId("tool-question")).toHaveText(/\?$/);
+    const highlights = await card.getByRole("listitem").count();
+    expect(highlights).toBeGreaterThanOrEqual(2);
+    expect(highlights).toBeLessThanOrEqual(3);
+    await expect(card.getByRole("link", { name: /^Open demo/ })).toHaveAttribute("href", TOOL_PATHS[name]);
   }
+});
+
+test("a card's Open demo button opens that tool", async ({ page }) => {
+  await page.goto("/");
+
+  await page
+    .getByRole("article", { name: "Risk & Performance", exact: true })
+    .getByRole("link", { name: /^Open demo/ })
+    .click();
+  await expect(page).toHaveURL(/\/risk$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Risk & Performance" })).toBeVisible();
+});
+
+test("the Free account unlocks section lists what signing in adds", async ({ page }) => {
+  await page.goto("/");
+
+  const unlocks = page.getByRole("region", { name: "Free account unlocks" });
+  await expect(unlocks).toContainText("your own Tiingo or FMP key");
+  await expect(unlocks).toContainText("Saved portfolios");
+  await expect(unlocks).toContainText("import");
+  await expect(unlocks).toContainText("AI Explain");
+  await expect(unlocks).toContainText("AI Analyst");
 });
 
 test("footer shows the investment disclaimer and an attribution slot", async ({ page }) => {
@@ -93,6 +153,13 @@ test.describe("mobile width", () => {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow).toBeLessThanOrEqual(0);
+
+    // One column: every tool card starts at the same left edge.
+    const lefts = await page
+      .getByTestId("tool-card")
+      .evaluateAll((cards) => cards.map((card) => Math.round(card.getBoundingClientRect().left)));
+    expect(lefts).toHaveLength(TOOLS.length);
+    expect(new Set(lefts).size).toBe(1);
 
     await page.getByRole("button", { name: "Menu" }).click();
     await page
