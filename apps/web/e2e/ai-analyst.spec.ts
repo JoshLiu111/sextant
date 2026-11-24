@@ -36,7 +36,9 @@ test("visitors are told to sign in to use AI Analyst", async ({ page }) => {
   ).toBeVisible();
   await expect(main).toContainText("Sign in to use AI Analyst");
   await expect(
-    main.getByRole("link", { name: "Sign in with Google" }),
+    main
+      .getByTestId("analyst-sign-in")
+      .getByRole("link", { name: "Sign in with Google" }),
   ).toHaveAttribute("href", "/auth/signin?returnTo=%2Fai-analyst");
   await expect(main.getByRole("button", { name: "Ask" })).toHaveCount(0);
 });

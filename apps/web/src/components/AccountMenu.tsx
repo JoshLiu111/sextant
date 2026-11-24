@@ -22,6 +22,9 @@ async function AccountMenuContent() {
   }
   return (
     <div className="flex items-center gap-3 text-sm">
+      <Link href="/dashboard" className="font-medium hover:underline">
+        {t.auth.dashboard}
+      </Link>
       <span data-testid="signed-in-user" className="max-w-40 truncate font-medium">
         {user.name || user.email}
       </span>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AccountMenu } from "@/components/AccountMenu";
+import { NavLogo } from "@/components/NavLogo";
 import { PageSourcesProvider } from "@/components/PageSources";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNav } from "@/components/SiteNav";
@@ -42,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         <PageSourcesProvider>
-          <SiteNav account={<AccountMenu />} />
+          <SiteNav account={<AccountMenu />} logo={<NavLogo />} />
           {children}
           <SiteFooter />
         </PageSourcesProvider>

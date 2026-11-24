@@ -1,6 +1,7 @@
 // All user-facing English strings. Keep UI copy here (not inline in components)
 // so a second locale can be added later by providing another object of the
 // same `Messages` shape.
+import type { HowToUse } from "@/lib/howToUse";
 import { riskTechnical } from "./en-technical";
 
 export const en = {
@@ -13,6 +14,7 @@ export const en = {
   auth: {
     signIn: "Sign in with Google",
     signOut: "Sign out",
+    dashboard: "Dashboard",
     account: "Account",
     settings: "Settings",
   },
@@ -71,45 +73,296 @@ export const en = {
     },
   },
   home: {
-    heading: "Finance tools",
-    intro:
-      "Pick a tool to get started. Every tool works without signing in and opens with sensible defaults.",
+    hero: {
+      heading: "Free, transparent finance tools",
+      valueProposition:
+        "Sextant answers everyday investing questions with eight free tools, and every number shows how it was computed.",
+      tryTool: "Try a tool",
+    },
+    tools: {
+      heading: "Pick a question",
+      intro: "Every tool opens on demo data, so you can try it without signing in.",
+    },
+    unlocks: {
+      heading: "Free account unlocks",
+      intro: "Sign in with Google to create a free account. It adds:",
+      items: [
+        "Real market data with your own Tiingo or FMP key, in place of demo data.",
+        "Saved portfolios, including ones you import from a CSV file.",
+        "AI Explain on results and the AI Analyst, within a daily quota.",
+      ],
+    },
   },
+  dashboard: {
+    title: "Dashboard",
+    greeting: (who: string) => `Welcome, ${who}`,
+    statusLabel: "Your account",
+    loading: "Loading…",
+    unavailable: "Unavailable right now.",
+    key: {
+      heading: "Data key",
+      none: "No key connected. Tools use demo data.",
+      addKey: "Add a key in Settings",
+      connected: (providers: string[]) => `${providers.join(" and ")} connected`,
+      manage: "Manage keys in Settings",
+    },
+    quota: {
+      heading: "AI quota",
+      left: (remaining: number, limit: number) => `${remaining} of ${limit} AI calls left today`,
+      resets: (at: string) => `Resets at ${at}`,
+    },
+    portfolios: {
+      heading: "Saved portfolios",
+      count: (n: number) => `${n} saved portfolio${n === 1 ? "" : "s"}`,
+      open: "Open My Portfolio",
+    },
+    tools: {
+      heading: "Your tools",
+    },
+  },
+  /**
+   * Per-tool copy. `question` is what the tool answers and `highlights` (2–3)
+   * what it gives you; the landing page and dashboard cards read both. `howTo`
+   * is the tool page's "How to use" panel (`HowToUse` in lib/howToUse.ts).
+   */
   tools: {
     options: {
       name: "Options Calculator",
       description: "Price options with Black-Scholes and binomial trees, see the Greeks, implied volatility and multi-leg payoffs.",
+      question: "What is this option worth, and how will its price react when the market moves?",
+      highlights: [
+        "Black-Scholes and binomial prices side by side",
+        "The Greeks and implied volatility",
+        "Payoff charts for multi-leg strategies",
+      ],
+      howTo: {
+        steps: [
+          "Pick a tab: a single option, a multi-leg strategy, or an American option priced on a binomial tree.",
+          "Enter the spot price, strike, time to expiry, volatility and rates, then press Calculate.",
+          "Read the prices and Greeks. Open \"About\" under any number to see what it means and how it was computed.",
+          "On a single option, enter a market price to back out the implied volatility.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          { label: "Price a call at 30% volatility", params: { volatility: "30" } },
+          {
+            label: "Build an iron condor",
+            params: { tab: "strategy", legs: "put:long:1:80,put:short:1:90,call:short:1:110,call:long:1:120" },
+          },
+        ],
+        signedInExtras: ["get a plain-English AI explanation of the result"],
+      } satisfies HowToUse,
     },
     risk: {
       name: "Risk & Performance",
       description: "Compare return, volatility, drawdown, VaR, Sharpe and Beta for a few tickers against a benchmark.",
+      question: "How risky is this stock compared with the S&P 500?",
+      highlights: [
+        "Return, volatility and maximum drawdown",
+        "Value at Risk, Sharpe ratio and Beta",
+        "Several tickers against one benchmark",
+      ],
+      howTo: {
+        steps: [
+          "Enter a few tickers and a benchmark. Demo tickers (DEMO-A to DEMO-I, benchmark DEMO-MKT) run on synthetic prices.",
+          "Choose the date range, VaR confidence level and return period, then press Calculate.",
+          "Compare return, volatility, worst fall, VaR, Sharpe and Beta side by side; pick a ticker to see its drawdown chart.",
+          "Scroll down for rolling metrics, factor models, model checks and technical indicators.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          {
+            label: "Measure a 45% crash",
+            params: { tickers: "DEMO-D", start: "2022-02-28", end: "2022-04-11" },
+          },
+          { label: "Compare two stocks at 99% VaR", params: { tickers: "DEMO-A,DEMO-B", confidence: "99" } },
+        ],
+        signedInExtras: [
+          "run it on real prices with your own Tiingo or FMP key",
+          "upload your own Fama-French factor files",
+          "get a plain-English AI explanation of the results",
+        ],
+      } satisfies HowToUse,
     },
     portfolio: {
       name: "My Portfolio",
       description: "Build a portfolio from tickers and weights and see its performance and risk versus a benchmark.",
+      question: "How has my portfolio done, and how much risk am I taking?",
+      highlights: [
+        "Build from tickers and weights, or import a CSV",
+        "Performance and risk versus a benchmark",
+        "Optimised weights to compare with your own",
+      ],
+      howTo: {
+        steps: [
+          "Enter tickers and weights that add up to 100%, or pick a preset. Demo tickers (DEMO-A to DEMO-I, benchmark DEMO-MKT) run on synthetic prices.",
+          "Choose the benchmark, date range, VaR confidence level and risk-free rate, then press Calculate.",
+          "Compare the portfolio's return, volatility, worst fall, VaR and Sharpe with the benchmark's.",
+          "Scroll down to backtest a rebalancing rule and see optimised weights on the efficient frontier.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          { label: "Load a 60/40 portfolio", params: { holdings: "DEMO-C:60,DEMO-E:40" } },
+          {
+            label: "Hold one stock through a 45% crash",
+            params: { holdings: "DEMO-D:100", start: "2022-02-28", end: "2022-04-11" },
+          },
+        ],
+        signedInExtras: [
+          "run it on real prices with your own Tiingo or FMP key",
+          "save portfolios and import your trades from a CSV file",
+          "get a plain-English AI explanation of the results",
+        ],
+      } satisfies HowToUse,
     },
     company: {
       name: "Company Health Check",
       description: "Standardized financial statements, core ratios and Altman Z-Score from SEC filings.",
+      question: "Is this company financially healthy?",
+      highlights: [
+        "Standardized statements from SEC filings",
+        "Core ratios over several years",
+        "Altman Z-Score for bankruptcy risk",
+      ],
+      howTo: {
+        steps: [
+          "Enter one or more US-listed tickers (e.g. AAPL, MSFT) under the ratios. Data comes from SEC filings, so any company that files with the SEC works.",
+          "Add a share price for a company to see its valuation multiples, such as P/E, then press Show ratios.",
+          "Read the ratios and scores (Altman Z, Piotroski F, Beneish M) and the DuPont breakdown. Open \"About\" under any number to see what it means.",
+          "Further down, enter a ticker and press Show statements for its income statement, balance sheet and cash flows. Switch between annual and quarterly periods at the top.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          { label: "Check Apple's P/E at a $250 share price", params: { companies: "AAPL:250" } },
+          { label: "Compare Microsoft with Apple", params: { companies: "MSFT,AAPL", ticker: "MSFT" } },
+        ],
+        signedInExtras: ["get a plain-English AI explanation of the statements and ratios"],
+      } satisfies HowToUse,
     },
     valuation: {
       name: "Valuation Calculator",
       description: "Discounted cash flow valuation with a WACC breakdown and a sensitivity table.",
+      question: "What is this company worth, based on its future cash flows?",
+      highlights: [
+        "Discounted cash flow value per share",
+        "A step-by-step WACC breakdown",
+        "A sensitivity table for your assumptions",
+      ],
+      howTo: {
+        steps: [
+          "Enter a US-listed ticker and press Value company. The base-year cash flows come from its latest annual report (10-K) filed with the SEC.",
+          "Set the forecast years, growth rate and terminal growth. Leave the discount rate blank to use the WACC, or type one to override it.",
+          "Adjust the WACC inputs if you like; any left blank are derived from the filings. The results update as you change them.",
+          "Read the value per share, the WACC breakdown and the sensitivity table. Open \"About\" under any number to see how it was computed.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          { label: "Value Microsoft at 8% growth", params: { ticker: "MSFT", growth_rate: "8" } },
+          { label: "Override the cost of equity at 12%", params: { ticker: "MSFT", cost_of_equity: "12" } },
+        ],
+        signedInExtras: [
+          "use the latest share price from your own Tiingo or FMP key",
+          "save your assumptions under a name and load them later",
+          "get a plain-English AI explanation of the valuation",
+        ],
+      } satisfies HowToUse,
     },
     macro: {
       name: "Macro Dashboard",
       description: "US indicators, the Treasury yield curve, cross-country comparisons and the euro area.",
+      question: "What is the economy doing right now?",
+      highlights: [
+        "US indicators such as inflation and unemployment",
+        "The Treasury yield curve",
+        "Cross-country and euro area comparisons",
+      ],
+      howTo: {
+        steps: [
+          "Read the latest US inflation, unemployment, GDP growth and Fed funds rate at the top; hover a chart for exact values.",
+          "Set \"History from\" and press Update charts to change how far back every chart goes.",
+          "Search FRED and add your own series to the board, or check the Treasury yield curve and 10Y–2Y spread.",
+          "Pick up to six economies to compare, and see euro area rates and inflation at the bottom.",
+          "Copy the address bar to share or bookmark this board.",
+        ],
+        examples: [
+          { label: "Track US payrolls since 2020", params: { series: "PAYEMS", start: "2020-01-01" } },
+          { label: "Compare the US, China and India", params: { countries: "USA,CHN,IND" } },
+        ],
+        signedInExtras: ["get a plain-English AI explanation of the indicators and the yield curve"],
+      } satisfies HowToUse,
     },
     screener: {
       name: "Screener & Calendar",
       description: "Screen US companies on fundamentals and follow the latest SEC filings.",
+      question: "Which US companies match my criteria, and who reports next?",
+      highlights: [
+        "Screen companies on fundamentals",
+        "Upcoming earnings dates",
+        "The latest SEC filings",
+      ],
+      howTo: {
+        steps: [
+          "Set criteria such as revenue growth, margins, return on equity or debt, choose a year, then press Run screen.",
+          "Sort the results by any column, and open a company in the Company Health Check or the Valuation Calculator.",
+          "Below the screen, check who reports earnings next and look up a company's dividend history.",
+          "Follow the latest SEC filings market-wide, or for one company and form type.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          {
+            label: "Find growing companies with little debt",
+            params: { criteria: "revenue_growth:min:10,debt_ratio:max:30", sort: "ticker", direction: "asc" },
+          },
+          { label: "See JPMorgan's dividend history", params: { dividends_ticker: "JPM" } },
+        ],
+        signedInExtras: [
+          "add 52-week price criteria, using your own Tiingo or FMP key",
+          "get a plain-English AI explanation of a screen or the latest filings",
+        ],
+      } satisfies HowToUse,
     },
     "ai-analyst": {
       name: "AI Analyst",
       description: "Ask questions in plain English and get answers backed by traceable calculations.",
+      question: "Can I just ask my question in plain English?",
+      highlights: [
+        "Claude picks the right Sextant tools for you",
+        "Every number links to the calculation behind it",
+      ],
+      howTo: {
+        steps: [
+          "Sign in with Google: the AI Analyst needs a free account and has a small daily allowance of AI calls.",
+          "Type a question in plain English, such as how risky a stock is or what an option is worth, then press Ask.",
+          "Read the answer: every cited number links to the calculation it came from, and a number that doesn't match is shown in red.",
+          "Open \"Tools called\" to see which Sextant tools ran, with what inputs, and their raw results.",
+        ],
+        examples: [
+          {
+            label: "Ask what an at-the-money call is worth",
+            params: { question: "What is an at-the-money one-year call worth?" },
+          },
+          {
+            label: "Ask how risky Apple is",
+            params: { question: "How risky is AAPL compared with the S&P 500?" },
+          },
+        ],
+        signedInExtras: ["ask questions in plain English and get answers backed by Sextant's own calculations"],
+      } satisfies HowToUse,
     },
   },
   common: {
+    /** The tool cards' link: "Open demo" on the landing page, "Open" on the dashboard. */
+    toolCard: {
+      openDemo: "Open demo",
+      open: "Open",
+    },
+    howToUse: {
+      heading: "How to use",
+      stepsLabel: "Getting started",
+      tryThis: "Try this:",
+      examplesLabel: "Try these examples",
+      signedInExtras: "Signed-in users can also:",
+    },
     explainer: {
       about: "About",
       what: "What it is",
