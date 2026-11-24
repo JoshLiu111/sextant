@@ -11,10 +11,23 @@ Two steps, both scoped to the signed-in user's portfolio (someone else's id is 4
   transaction (all or nothing). Rows with errors are skipped and listed.
 
 ``GET /{id}/transactions`` lists what earlier imports stored.
+
+Holdings and lots are in today's share count (like prices), but a file's rows are
+in the share count of their dates. So before a row is applied, its quantity is
+multiplied by every split after its date and its price divided by the same factor;
+cash, fees and realized P&L do not change. The stored rows keep the file's own
+numbers (the returns convert them again, ``portfolio.returns``), and both answers
+list the splits that were applied (``splits_applied``).
+
+Splits come from the price source: Demo data for Demo tickers, otherwise the user's
+first My data provider with a saved key. When there is no key, or the provider
+cannot serve a ticker's splits, its rows import as written and ``warnings`` says so:
+an import never fails for want of splits.
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from typing import Annotated
 from uuid import UUID
@@ -24,6 +37,11 @@ from pydantic import BaseModel, Field as PydanticField
 
 from sextant_compute.auth import CurrentUser
 from sextant_compute.auth.deps import get_db
+from sextant_compute.data.context import RequestContext
+from sextant_compute.data.errors import NoSuchData, SourceUnavailable
+from sextant_compute.data.service import Ctx, Data, DataService
+from sextant_compute.data.sources import DEMO_SOURCE, MY_DATA_SOURCES, is_demo_ticker
+from sextant_compute.data.splits import Split, shares_today
 from sextant_compute.db import Database
 from sextant_compute.errors import ApiError
 from sextant_compute.portfolio import store
@@ -90,7 +108,21 @@ class SampleRow(BaseModel):
     cells: list[str]
 
 
-class Preview(BaseModel):
+class SplitOut(BaseModel):
+    ticker: str
+    ex_date: date
+    ratio: float
+    """New shares per old share."""
+
+
+class SplitNotes(BaseModel):
+    splits_applied: list[SplitOut] = []
+    """Splits after some imported row's date, oldest first: those rows count in today's share count."""
+    warnings: list[str] = []
+    """Tickers whose splits could not be checked; their rows import as written."""
+
+
+class Preview(SplitNotes):
     columns: list[str]
     sample: list[SampleRow]
     row_count: int
@@ -104,7 +136,7 @@ class Preview(BaseModel):
     """The portfolio's holdings after the import; None until every required field is mapped."""
 
 
-class ImportResult(BaseModel):
+class ImportResult(SplitNotes):
     import_id: UUID
     imported: int
     errors: list[RowErrorOut]
@@ -143,16 +175,74 @@ def _mapping(body: ImportIn, table: Table) -> dict[Field, str | None]:
     return mapping
 
 
+def _splits(
+    data: DataService, ctx: RequestContext, transactions: list[Transaction]
+) -> tuple[dict[str, list[Split]], list[str]]:
+    """Each imported ticker's splits since its first row, and a warning per group of tickers whose splits are unknown."""
+    since: dict[str, date] = {}
+    for t in transactions:
+        since[t.ticker] = min(t.date, since.get(t.ticker, t.date))
+    provider = next((p for p in MY_DATA_SOURCES if ctx.key_for(p)), None)
+    found: dict[str, list[Split]] = {}
+    unchecked: list[str] = []
+    failed: list[tuple[str, str]] = []
+    for ticker, start in since.items():
+        source = DEMO_SOURCE if is_demo_ticker(ticker) else provider
+        if source is None:
+            unchecked.append(ticker)
+            continue
+        try:
+            found[ticker] = data.splits(ctx, ticker, start, source=source)
+        except (NoSuchData, SourceUnavailable) as exc:
+            failed.append((ticker, exc.message))
+    after = "Their rows import as written; if one split after a trade, edit its holding afterwards."
+    warnings = [
+        f"Could not get the stock splits of {ticker}: {message} Its rows import as written; "
+        "if it split after a trade, edit its holding afterwards."
+        for ticker, message in failed
+    ]
+    if unchecked:
+        names = " or ".join(s.name for s in MY_DATA_SOURCES.values())
+        warnings.append(
+            f"Stock splits were not checked for {', '.join(unchecked)}: that needs a {names} key in Settings. {after}"
+        )
+    return found, warnings
+
+
+def _in_todays_shares(t: Transaction, splits: list[Split]) -> Transaction:
+    factor = shares_today(splits, t.date)
+    return t if factor == 1 else replace(t, quantity=t.quantity * factor, price=t.price / factor)
+
+
+def _applied_splits(splits: dict[str, list[Split]], transactions: list[Transaction]) -> list[SplitOut]:
+    first = {t.ticker: t.date for t in sorted(transactions, key=lambda t: t.date, reverse=True)}
+    used = [
+        SplitOut(ticker=ticker, ex_date=s.ex_date, ratio=s.ratio)
+        for ticker, found in splits.items()
+        for s in found
+        if ticker in first and s.ex_date > first[ticker]
+    ]
+    return sorted(used, key=lambda s: (s.ex_date, s.ticker))
+
+
 def _plan(
-    holdings: list[dict], table: Table, mapping: dict[Field, str | None]
+    holdings: list[dict], parsed: list[Transaction], splits: dict[str, list[Split]]
 ) -> tuple[list[Position], list[Applied], list[RowError]]:
-    parsed, parse_errors = parse_rows(table, mapping, datetime.now(UTC).date())
     positions = [
         Position(h["ticker"], h["quantity"], h["cost_price"], h["currency"], h.get("lots") or []) for h in holdings
     ]
-    after, applied, ledger_errors = apply_transactions(positions, parsed)
-    applied.sort(key=lambda a: a.transaction.line)
-    return after, applied, sorted(parse_errors + ledger_errors, key=lambda e: e.line)
+    as_written = {t.line: t for t in parsed}
+    today = [_in_todays_shares(t, splits.get(t.ticker, [])) for t in parsed]
+    after, applied, errors = apply_transactions(positions, today)
+    # The ledger works in today's share count; the rows answered and stored keep the file's numbers.
+    applied = sorted(
+        (replace(a, transaction=as_written[a.transaction.line]) for a in applied), key=lambda a: a.transaction.line
+    )
+    return after, applied, errors
+
+
+def _parse(table: Table, mapping: dict[Field, str | None]) -> tuple[list[Transaction], list[RowError]]:
+    return parse_rows(table, mapping, datetime.now(UTC).date())
 
 
 def _holding(p: Position) -> SavedHolding:
@@ -173,7 +263,7 @@ def _error(e: RowError) -> RowErrorOut:
 
 
 @router.post("/{portfolio_id}/transactions/preview")
-def preview_import(portfolio_id: UUID, body: ImportIn, user: CurrentUser, db: Db) -> Preview:
+def preview_import(portfolio_id: UUID, body: ImportIn, user: CurrentUser, db: Db, data: Data, ctx: Ctx) -> Preview:
     saved = load(db, user.id, portfolio_id)
     table = _table(body)
     mapping = _mapping(body, table)
@@ -182,18 +272,24 @@ def preview_import(portfolio_id: UUID, body: ImportIn, user: CurrentUser, db: Db
     base = {"columns": table.columns, "sample": sample, "row_count": len(table.rows), "mapping": mapping}
     if missing:
         return Preview(**base, missing_fields=missing, transactions=[], errors=[], holdings_after=None)
-    after, applied, errors = _plan([h.model_dump() for h in saved.holdings], table, mapping)
+    parsed, parse_errors = _parse(table, mapping)
+    splits, warnings = _splits(data, ctx, parsed)
+    after, applied, ledger_errors = _plan([h.model_dump() for h in saved.holdings], parsed, splits)
     return Preview(
         **base,
         missing_fields=[],
         transactions=[_transaction(a.transaction) for a in applied],
-        errors=[_error(e) for e in errors],
+        errors=[_error(e) for e in sorted(parse_errors + ledger_errors, key=lambda e: e.line)],
         holdings_after=[_holding(p) for p in after],
+        splits_applied=_applied_splits(splits, [a.transaction for a in applied]),
+        warnings=warnings,
     )
 
 
 @router.post("/{portfolio_id}/transactions", status_code=status.HTTP_201_CREATED)
-def import_transactions(portfolio_id: UUID, body: ImportIn, user: CurrentUser, db: Db) -> ImportResult:
+def import_transactions(
+    portfolio_id: UUID, body: ImportIn, user: CurrentUser, db: Db, data: Data, ctx: Ctx
+) -> ImportResult:
     table = _table(body)
     mapping = _mapping(body, table)
     missing = missing_fields(mapping)
@@ -204,11 +300,15 @@ def import_transactions(portfolio_id: UUID, body: ImportIn, user: CurrentUser, d
             "Choose a column for every required field.",
             {f"mapping.{f}": f"Choose the column that holds {FIELD_LABELS[f].lower()}." for f in missing},
         )
+    parsed, parse_errors = _parse(table, mapping)
+    # Splits come from the provider, so fetch them before the holdings are locked.
+    splits, warnings = _splits(data, ctx, parsed)
     with db.connection() as conn:
         holdings = store.lock_holdings(conn, user.id, portfolio_id)
         if holdings is None:
             raise _not_found()
-        after, applied, errors = _plan(holdings, table, mapping)
+        after, applied, ledger_errors = _plan(holdings, parsed, splits)
+        errors = sorted(parse_errors + ledger_errors, key=lambda e: e.line)
         if not applied:
             message = "No rows can be imported. Fix the rows listed below and try again."
             raise ApiError(422, "nothing_to_import", message, {"csv": message})
@@ -229,6 +329,8 @@ def import_transactions(portfolio_id: UUID, body: ImportIn, user: CurrentUser, d
         imported=len(applied),
         errors=[_error(e) for e in errors],
         portfolio=load(db, user.id, portfolio_id),
+        splits_applied=_applied_splits(splits, [a.transaction for a in applied]),
+        warnings=warnings,
     )
 
 

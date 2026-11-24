@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from data_fixtures import FixtureAdapter, serving
+from sextant_compute.data.errors import SourceUnavailable
 from tests.auth_helpers import bearer, sign_in
 
 BASE = "/api/compute/portfolios"
@@ -221,3 +223,71 @@ def test_deleting_a_portfolio_removes_its_transactions(client, alice):
     assert client.delete(f"{BASE}/{portfolio_id}", headers=alice).status_code == 204
 
     assert client.get(f"{BASE}/{portfolio_id}/transactions", headers=alice).status_code == 404
+
+
+# DEMO-A splits 4:1 on 2024-06-03. Bought before it, 10 shares at 400 (fee 4) are the
+# 40 held today at 100.1 each; 20 of them are sold after it, at 110 (fee 2).
+SPLIT_CSV = """date,ticker,side,quantity,price,fees
+2024-01-02,DEMO-A,buy,10,400,4
+2024-07-01,DEMO-A,sell,20,110,2
+"""
+DEMO_A_SPLIT = {"DEMO-A": {"2024-06-03": 4.0}}
+
+
+def test_a_trade_before_a_split_imports_in_todays_share_count(client, alice):
+    portfolio_id = new_portfolio(client, alice)
+
+    with serving(FixtureAdapter({}, splits=DEMO_A_SPLIT), on=client.app):
+        previewed = preview(client, alice, portfolio_id, SPLIT_CSV).json()
+        response = importing(client, alice, portfolio_id, SPLIT_CSV)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["errors"] == []
+    assert body["warnings"] == []
+    assert body["splits_applied"] == [{"ticker": "DEMO-A", "ex_date": "2024-06-03", "ratio": 4.0}]
+    held = {h["ticker"]: h for h in body["portfolio"]["holdings"]}
+    assert held["DEMO-A"]["quantity"] == pytest.approx(20)
+    assert held["DEMO-A"]["cost_price"] == pytest.approx(100.1)
+    assert previewed["holdings_after"] == body["portfolio"]["holdings"]
+    assert previewed["splits_applied"] == body["splits_applied"]
+    # The preview and the stored rows keep the file's own numbers, like the broker statement.
+    assert [(t["quantity"], t["price"]) for t in previewed["transactions"]] == [(10, 400), (20, 110)]
+    stored = client.get(f"{BASE}/{portfolio_id}/transactions", headers=alice).json()
+    assert [(t["quantity"], t["price"]) for t in stored] == [(10, 400), (20, 110)]
+    # 20 x 110 - 2 in, 20 x 100.1 out: the split itself books nothing.
+    assert stored[1]["realized_pnl"] == pytest.approx(196)
+
+
+class SplitsUnavailable(FixtureAdapter):
+    def splits(self, ctx, ticker, start):
+        raise SourceUnavailable(self.source.id, "The provider returned splits in an unexpected shape.")
+
+
+def test_splits_that_cannot_be_fetched_import_the_rows_as_written_with_a_warning(client, alice):
+    portfolio_id = new_portfolio(client, alice)
+    csv = "date,ticker,side,quantity,price\n2024-01-02,DEMO-A,buy,10,400\n"
+
+    with serving(SplitsUnavailable({}), on=client.app):
+        response = importing(client, alice, portfolio_id, csv)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["splits_applied"] == []
+    assert len(body["warnings"]) == 1
+    assert "DEMO-A" in body["warnings"][0]
+    assert "stock splits" in body["warnings"][0]
+    held = {h["ticker"]: h for h in body["portfolio"]["holdings"]}
+    assert held["DEMO-A"]["quantity"] == 10
+
+
+def test_without_a_provider_key_real_tickers_import_as_written_and_say_splits_were_not_checked(client, alice):
+    portfolio_id = new_portfolio(client, alice)
+    csv = "date,ticker,side,quantity,price\n2024-01-02,AAPL,buy,10,400\n2024-01-03,MSFT,buy,1,300\n"
+
+    previewed = preview(client, alice, portfolio_id, csv).json()
+
+    assert previewed["splits_applied"] == []
+    assert len(previewed["warnings"]) == 1
+    assert "AAPL, MSFT" in previewed["warnings"][0]
+    assert "key" in previewed["warnings"][0]

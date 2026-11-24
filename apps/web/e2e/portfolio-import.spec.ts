@@ -92,3 +92,16 @@ test("a user maps the columns of an unfamiliar file before importing", async ({ 
   await expect(importer.getByRole("status")).toHaveText("Imported 1 transaction.");
   await expect(saved.getByLabel("Ticker 2")).toHaveValue("DEMO-E");
 });
+
+test("without a provider key, the preview says stock splits were not checked", async ({ page }) => {
+  const saved = await signedInWithPortfolio(page);
+  const importer = saved.getByRole("region", { name: "Import transactions" });
+
+  await upload(importer, "trades.csv", "Date,Ticker,Side,Quantity,Price\n2024-01-02,AAPL,buy,10,400\n");
+
+  await expect(importer.getByTestId("import-summary")).toHaveText("1 row will be imported.");
+  const warnings = importer.getByTestId("import-warnings");
+  await expect(warnings).toContainText("Stock splits were not checked for AAPL");
+  await expect(warnings).toContainText("Tiingo or FMP key");
+  await expect(importer.getByTestId("import-splits")).toHaveCount(0);
+});

@@ -44,6 +44,16 @@ export type ImportedTransaction = {
 
 export type ImportRowError = { line: number; field: ImportField | null; message: string };
 
+/** A split after some imported row's date: those rows count in today's share count. */
+export type ImportSplit = { ticker: string; ex_date: string; ratio: number };
+
+/** What the API says about stock splits, on both the preview and the import. */
+type SplitNotes = {
+  splits_applied: ImportSplit[];
+  /** Tickers whose splits could not be checked; their rows import as written. */
+  warnings: string[];
+};
+
 export type ImportPreview = {
   columns: string[];
   sample: { line: number; cells: string[] }[];
@@ -53,9 +63,14 @@ export type ImportPreview = {
   transactions: ImportedTransaction[];
   errors: ImportRowError[];
   holdings_after: SavedHolding[] | null;
-};
+} & SplitNotes;
 
-export type ImportResult = { import_id: string; imported: number; errors: ImportRowError[]; portfolio: SavedPortfolio };
+export type ImportResult = {
+  import_id: string;
+  imported: number;
+  errors: ImportRowError[];
+  portfolio: SavedPortfolio;
+} & SplitNotes;
 
 /** `mapping` omitted: the API guesses it from the header row. */
 export type ImportBody = { csv: string; mapping?: ColumnMapping };

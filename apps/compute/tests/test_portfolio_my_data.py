@@ -209,3 +209,19 @@ def test_rebalancing_and_frontier_run_on_my_data_and_refuse_demo_tickers(client,
     assert refused.status_code == 422
     assert "DEMO-A is a demo ticker" in refused.json()["error"]["fields"]["holdings.1.ticker"]
     assert not any("demo" in ticker for _, ticker in tiingo.price_requests)
+
+
+def test_an_import_on_a_tiingo_key_brings_trades_before_a_split_into_todays_share_count(client, alice):
+    # Tiingo's AAPL splits 4:1 on 2024-01-30: 10 bought before it are 40 today; 25 sold after it leave 15.
+    portfolio_id = saved_portfolio(client, alice, [HOLDINGS[1]])
+    csv = "date,ticker,side,quantity,price\n2024-01-02,AAPL,buy,10,400\n2024-02-05,AAPL,sell,25,110\n"
+
+    response = client.post(f"{SAVED}/{portfolio_id}/transactions", json={"csv": csv}, headers=alice)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["errors"] == [] and body["warnings"] == []
+    assert body["splits_applied"] == [{"ticker": "AAPL", "ex_date": "2024-01-30", "ratio": 4.0}]
+    held = {h["ticker"]: h for h in body["portfolio"]["holdings"]}
+    assert held["AAPL"]["quantity"] == pytest.approx(15)
+    assert held["AAPL"]["cost_price"] == pytest.approx(100)

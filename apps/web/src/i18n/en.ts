@@ -1318,6 +1318,11 @@ export const en = {
         errorsHeading: "Rows that will not be imported",
         errorLine: (line: number) => `Line ${line}`,
         holdingsAfter: "Holdings after the import",
+        splitsHeading: "Stock splits",
+        splitsNote:
+          "Holdings count in today's shares, so rows dated before a split add their quantity times the split and their price divided by it. Cost and profit don't change, and your transactions keep the file's numbers.",
+        split: (ticker: string, ratio: string, date: string) => `${ticker} split ${ratio} on ${date}.`,
+        warningsHeading: "Splits not checked",
         confirm: (n: number) => `Import ${n} ${n === 1 ? "transaction" : "transactions"}`,
         importing: "Importing…",
         cancel: "Cancel",

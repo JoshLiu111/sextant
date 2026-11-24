@@ -16,6 +16,12 @@ import {
 const buttonClass =
   "btn btn-sm";
 const selectClass = "field mt-1 text-sm";
+/** A split's ratio as brokers write it: 4 is "4:1", 0.1 (a reverse split) is "1:10". */
+function splitRatio(ratio: number): string {
+  const round = (x: number) => Number(x.toFixed(4));
+  return ratio >= 1 ? `${round(ratio)}:1` : `1:${round(1 / ratio)}`;
+}
+
 const cellClass = "border-b border-rule px-2 py-1 text-left tabular-nums text-xs whitespace-nowrap";
 
 /**
@@ -237,6 +243,27 @@ export function ImportTransactions({
                   {s.holdingsAfter}:{" "}
                   {preview.holdings_after.map((h) => `${h.ticker} ${h.quantity} ${h.currency}`).join(", ")}
                 </p>
+              )}
+              {preview.splits_applied.length > 0 && importable > 0 && (
+                <div data-testid="import-splits">
+                  <h4 className="text-sm font-medium">{s.splitsHeading}</h4>
+                  <ul className="mt-1 space-y-1 text-sm">
+                    {preview.splits_applied.map((sp) => (
+                      <li key={`${sp.ticker}-${sp.ex_date}`}>{s.split(sp.ticker, splitRatio(sp.ratio), sp.ex_date)}</li>
+                    ))}
+                  </ul>
+                  <p className="hint mt-1 max-w-[65ch]">{s.splitsNote}</p>
+                </div>
+              )}
+              {preview.warnings.length > 0 && importable > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium">{s.warningsHeading}</h4>
+                  <ul data-testid="import-warnings" className="mt-1 max-w-[65ch] space-y-1 text-sm text-ink-2">
+                    {preview.warnings.map((w) => (
+                      <li key={w}>{w}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </>
           )}
