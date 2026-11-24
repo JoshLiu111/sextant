@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { HowToUsePanel } from "@/components/HowToUsePanel";
 import { getMessages } from "@/i18n";
 import { parseCountries } from "./countries";
 import { CrossCountry } from "./CrossCountry";
@@ -20,6 +21,7 @@ export default function Page({ searchParams }: PageProps<"/macro">) {
     <main className="mx-auto w-full max-w-6xl px-4 py-10">
       <h1 className="text-2xl font-semibold">{t.tools.macro.name}</h1>
       <p className="mt-2 text-black/70 dark:text-white/70">{t.macro.intro}</p>
+      <HowToUsePanel tool="macro" />
       {/* Reads the chart range and the added FRED series from the query string (shareable links). */}
       <Suspense>
         <MacroTool />

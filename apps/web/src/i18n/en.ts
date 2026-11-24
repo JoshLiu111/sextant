@@ -224,6 +224,20 @@ export const en = {
         "The Treasury yield curve",
         "Cross-country and euro area comparisons",
       ],
+      howTo: {
+        steps: [
+          "Read the latest US inflation, unemployment, GDP growth and Fed funds rate at the top; hover a chart for exact values.",
+          "Set \"History from\" and press Update charts to change how far back every chart goes.",
+          "Search FRED and add your own series to the board, or check the Treasury yield curve and 10Y–2Y spread.",
+          "Pick up to six economies to compare, and see euro area rates and inflation at the bottom.",
+          "Copy the address bar to share or bookmark this board.",
+        ],
+        examples: [
+          { label: "Track US payrolls since 2020", params: { series: "PAYEMS", start: "2020-01-01" } },
+          { label: "Compare the US, China and India", params: { countries: "USA,CHN,IND" } },
+        ],
+        signedInExtras: ["get a plain-English AI explanation of the indicators and the yield curve"],
+      } satisfies HowToUse,
     },
     screener: {
       name: "Screener & Calendar",
@@ -234,6 +248,26 @@ export const en = {
         "Upcoming earnings dates",
         "The latest SEC filings",
       ],
+      howTo: {
+        steps: [
+          "Set criteria such as revenue growth, margins, return on equity or debt, choose a year, then press Run screen.",
+          "Sort the results by any column, and open a company in the Company Health Check or the Valuation Calculator.",
+          "Below the screen, check who reports earnings next and look up a company's dividend history.",
+          "Follow the latest SEC filings market-wide, or for one company and form type.",
+          "Copy the address bar to share or bookmark these exact inputs.",
+        ],
+        examples: [
+          {
+            label: "Find growing companies with little debt",
+            params: { criteria: "revenue_growth:min:10,debt_ratio:max:30", sort: "ticker", direction: "asc" },
+          },
+          { label: "See JPMorgan's dividend history", params: { dividends_ticker: "JPM" } },
+        ],
+        signedInExtras: [
+          "add 52-week price criteria, using your own Tiingo or FMP key",
+          "get a plain-English AI explanation of a screen or the latest filings",
+        ],
+      } satisfies HowToUse,
     },
     "ai-analyst": {
       name: "AI Analyst",
@@ -243,6 +277,25 @@ export const en = {
         "Claude picks the right Sextant tools for you",
         "Every number links to the calculation behind it",
       ],
+      howTo: {
+        steps: [
+          "Sign in with Google: the AI Analyst needs a free account and has a small daily allowance of AI calls.",
+          "Type a question in plain English, such as how risky a stock is or what an option is worth, then press Ask.",
+          "Read the answer: every cited number links to the calculation it came from, and a number that doesn't match is shown in red.",
+          "Open \"Tools called\" to see which Sextant tools ran, with what inputs, and their raw results.",
+        ],
+        examples: [
+          {
+            label: "Ask what an at-the-money call is worth",
+            params: { question: "What is an at-the-money one-year call worth?" },
+          },
+          {
+            label: "Ask how risky Apple is",
+            params: { question: "How risky is AAPL compared with the S&P 500?" },
+          },
+        ],
+        signedInExtras: ["ask questions in plain English and get answers backed by Sextant's own calculations"],
+      } satisfies HowToUse,
     },
   },
   common: {
