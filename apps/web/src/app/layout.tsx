@@ -6,6 +6,7 @@ import { NavLogo } from "@/components/NavLogo";
 import { PageSourcesProvider } from "@/components/PageSources";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNav } from "@/components/SiteNav";
+import { THEME_SCRIPT } from "@/components/ThemeToggle";
 import { getMessages } from "@/i18n";
 import "./globals.css";
 
@@ -46,7 +47,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${hedvig.variable} h-full antialiased`}
+      // data-theme is set by THEME_SCRIPT before hydration.
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
         <PageSourcesProvider>
           <SiteNav account={<AccountMenu />} logo={<NavLogo />} />

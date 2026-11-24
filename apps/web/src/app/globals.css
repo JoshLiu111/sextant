@@ -144,7 +144,21 @@
 
   /* A printed sheet: paper lifted off the page, lit from the top left. */
   .sheet { padding: var(--space-md); border-radius: var(--radius-card); background: var(--color-paper); box-shadow: var(--shadow-sheet); }
-  @media (prefers-color-scheme: dark) { .sheet { box-shadow: inset 0 0 0 1px var(--color-rule); } }
+  [data-theme="dark"] .sheet { box-shadow: inset 0 0 0 1px var(--color-rule); }
+
+  /* The nav's light/dark switch: a quiet square icon button, 40px, a 44px hit area. */
+  .theme-toggle {
+    position: relative; display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem;
+    border-radius: var(--radius-card); color: var(--color-ink-2); cursor: pointer;
+    transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out);
+  }
+  .theme-toggle::after { content: ""; position: absolute; inset: -2px; }
+  .theme-toggle:hover { background: var(--color-paper-2); color: var(--color-ink); }
+  .theme-toggle:active { background: var(--color-paper-3); }
+
+  /* Product captures come in both modes; the page shows the one matching its theme. */
+  .pic-dark, [data-theme="dark"] .pic-light { display: none; }
+  [data-theme="dark"] .pic-dark { display: block; }
 
   /* A metric's explainer: a dotted-underline trigger and a sheet anchored to it, so
      opening one never reflows the table or card around it. Without anchor positioning

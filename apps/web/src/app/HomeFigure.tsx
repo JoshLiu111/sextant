@@ -1,8 +1,8 @@
-import { getImageProps } from "next/image";
+import Image from "next/image";
 
 /**
  * A capture of one of the tools' own screens, light and dark, following the
- * visitor's colour scheme. Files live in /public/landing as `<name>.png` and
+ * page's theme (`<html data-theme>`). Files live in /public/landing as `<name>.png` and
  * `<name>-dark.png`; `.hallmark/capture-landing.mjs` retakes them.
  */
 export function ProductPicture({
@@ -20,17 +20,14 @@ export function ProductPicture({
   priority?: boolean;
   sizes?: string;
 }) {
-  const common = { alt, width, height, priority, sizes } as const;
-  const { props: light } = getImageProps({ ...common, src: `/landing/${name}.png` });
-  const {
-    props: { srcSet: darkSrcSet },
-  } = getImageProps({ ...common, src: `/landing/${name}-dark.png` });
+  // Both modes are in the markup; CSS shows the one matching <html data-theme>.
+  // The hidden one is lazy, so it only loads once its theme is switched on.
+  const common = { width, height, sizes } as const;
   return (
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcSet={darkSrcSet} />
-      {/* eslint-disable-next-line jsx-a11y/alt-text -- alt is in the spread props */}
-      <img {...light} className="block h-auto w-full" />
-    </picture>
+    <>
+      <Image {...common} alt={alt} priority={priority} src={`/landing/${name}.png`} className="pic-light h-auto w-full" />
+      <Image {...common} alt={alt} src={`/landing/${name}-dark.png`} className="pic-dark h-auto w-full" />
+    </>
   );
 }
 

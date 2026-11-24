@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getMessages } from "@/i18n";
 import { TOOLS_BY_GROUP, type ToolGroup } from "@/lib/tools";
+import { ThemeToggle } from "./ThemeToggle";
 
 /**
  * The top bar. Tools come in the registry's groups (lib/tools.ts): a group with
@@ -45,7 +46,10 @@ export function SiteNav({ account, logo }: { account?: ReactNode; logo: ReactNod
     <header className="proof px-3 pt-3 md:px-6 md:pt-4">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-card border border-rule bg-paper-hi px-4 py-2 shadow-sheet md:px-5">
         {logo}
-        <div className="ml-auto md:order-last">{account}</div>
+        <div className="ml-auto flex items-center gap-1 md:order-last">
+          <ThemeToggle />
+          {account}
+        </div>
         <button
           type="button"
           className="btn btn-sm md:hidden"

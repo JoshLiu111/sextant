@@ -11,6 +11,8 @@ export const en = {
     tagline: "Free, transparent finance tools. Every number shows how it was computed.",
     menu: "Menu",
     toolsNavLabel: "Tools",
+    toDark: "Switch to dark mode",
+    toLight: "Switch to light mode",
   },
   auth: {
     signIn: "Sign in with Google",

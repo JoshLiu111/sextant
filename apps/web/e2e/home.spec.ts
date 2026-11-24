@@ -238,3 +238,27 @@ test.describe("mobile width", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Macro Dashboard" })).toBeVisible();
   });
 });
+
+test.describe("theme toggle", () => {
+  test.use({ colorScheme: "light" });
+
+  test("follows the system, switches on click and remembers the choice", async ({ page }) => {
+    await page.goto("/");
+    const html = page.locator("html");
+    await expect(html).toHaveAttribute("data-theme", "light");
+
+    await page.getByRole("button", { name: "Switch to dark mode" }).click();
+    await expect(html).toHaveAttribute("data-theme", "dark");
+
+    await page.goto("/options");
+    await expect(html).toHaveAttribute("data-theme", "dark");
+    await page.getByRole("button", { name: "Switch to light mode" }).click();
+    await expect(html).toHaveAttribute("data-theme", "light");
+  });
+
+  test("with no saved choice, a dark system opens dark", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  });
+});
