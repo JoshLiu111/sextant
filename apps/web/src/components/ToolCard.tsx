@@ -28,9 +28,9 @@ export function ToolCard({
       data-testid="tool-card"
       className="flex h-full flex-col rounded-lg border border-black/10 p-4 dark:border-white/15"
     >
-      <h3 id={headingId} className="font-semibold">
+      <h4 id={headingId} className="font-semibold">
         {copy.name}
-      </h3>
+      </h4>
       <p data-testid="tool-question" className="mt-1 text-sm font-medium">
         {copy.question}
       </p>
