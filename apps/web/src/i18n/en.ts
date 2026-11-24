@@ -82,6 +82,35 @@ export const en = {
         "Sextant answers everyday investing questions with eight free tools, and every number shows how it was computed.",
       tryTool: "Try a tool",
     },
+    // The band of live readings under the nav: the Macro Dashboard's own cards,
+    // with the change since each series' previous reading.
+    tape: {
+      label: "Latest readings from the Macro Dashboard",
+      pause: "Pause the readings",
+      play: "Play the readings",
+      changeLabel: (change: string) => `${change} since the previous reading`,
+      items: {
+        gdp_growth: "US real GDP growth",
+        cpi_inflation: "US CPI inflation",
+        unemployment_rate: "US unemployment",
+        fed_funds_rate: "Fed funds rate",
+        yield_2y: "US 2-year Treasury",
+        yield_10y: "US 10-year Treasury",
+        spread_10y_2y: "10-year minus 2-year",
+        deposit_facility_rate: "ECB deposit rate",
+        main_refinancing_rate: "ECB main refinancing rate",
+        marginal_lending_rate: "ECB marginal lending rate",
+        hicp_inflation: "Euro area HICP inflation",
+      },
+    },
+    // The hero's grid: each tool group's features in turn, nine to a board, each a link
+    // that opens the tool at that feature (its tab, section or a "Try this" example).
+    boards: {
+      label: "What each tool group does",
+      pause: "Pause",
+      play: "Play",
+      show: (group: string) => `Show ${group}`,
+    },
     tools: {
       heading: "Pick a question",
       intro: "Every tool opens on demo data, so you can try it without signing in.",

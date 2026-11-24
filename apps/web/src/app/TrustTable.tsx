@@ -8,18 +8,17 @@ export function TrustTable() {
   const t = getMessages().home.trust;
   return (
     <section aria-labelledby="trust-heading" className="min-w-0">
-      <h2 id="trust-heading" className="border-t border-ink pt-6 text-3xl text-ink">
+      <h2 id="trust-heading" className="border-t border-ink pt-5 text-2xl text-ink">
         {t.heading}
       </h2>
-      <p className="mt-4 text-ink-2">{t.intro}</p>
-      <dl className="mt-6 border-t border-rule">
-        {t.rows.map(([question, answer]) => (
-          <div
-            key={question}
-            className="grid gap-x-8 gap-y-1 border-b border-rule py-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:items-baseline"
-          >
+      <p className="mt-2 text-ink-2">{t.intro}</p>
+      {/* Two columns of questions, each answer under its question, so the table stays short. */}
+      <dl className="mt-4 grid gap-x-8 border-t border-rule md:grid-cols-2">
+        {t.rows.map(([question, answer], i) => (
+          // An odd last row takes both columns rather than standing alone.
+          <div key={question} className={`border-b border-rule py-2.5 ${i === t.rows.length - 1 && t.rows.length % 2 === 1 ? "md:col-span-2" : ""}`}>
             <dt className="font-medium text-ink">{question}</dt>
-            <dd className="text-ink-2">{answer}</dd>
+            <dd className="mt-0.5 text-ink-2">{answer}</dd>
           </div>
         ))}
       </dl>

@@ -15,6 +15,7 @@ export function ToolCard({
   personal,
   wide = false,
   picture,
+  revealAction = false,
 }: {
   tool: Tool;
   action: keyof Messages["common"]["toolCard"];
@@ -23,19 +24,38 @@ export function ToolCard({
   wide?: boolean;
   /** An illustration set at the top of the card (the landing page's). */
   picture?: ReactNode;
+  /**
+   * With a picture: the whole card opens the tool, and the action shows over the
+   * picture only on hover or focus (always on touch screens). The landing page's.
+   */
+  revealAction?: boolean;
 }) {
   const t = getMessages();
   const label = t.common.toolCard[action];
   const copy = t.tools[tool.slug];
   const headingId = `tool-card-${tool.slug}`;
+  const reveal = revealAction && picture !== undefined;
+  // The link is the button, so its focus ring sits on the button.
+  const actionLink = (
+    <Link href={tool.href} aria-label={`${label}: ${copy.name}`} className={reveal ? "btn card-hover-action" : "btn btn-tool btn-lg"}>
+      {label}
+    </Link>
+  );
   return (
     <article
       aria-labelledby={headingId}
       data-testid="tool-card"
       data-tool={tool.slug}
-      className={`card flex h-full flex-col p-5 md:p-6 ${wide ? "md:grid md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:gap-x-10" : ""}`}
+      className={`card flex h-full flex-col p-5 md:p-6 ${reveal ? "card-hover relative" : ""} ${wide ? "md:grid md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:gap-x-10" : ""}`}
     >
-      {picture && <div className="-mx-1 -mt-1 mb-5 md:col-span-2">{picture}</div>}
+      {picture && (
+        <div className={`-mx-1 -mt-1 mb-5 md:col-span-2 ${reveal ? "card-hover-picture relative" : ""}`}>
+          {picture}
+          {reveal && actionLink}
+        </div>
+      )}
+      {/* The whole card is a target; the named link above is the one assistive tech reads. */}
+      {reveal && <Link href={tool.href} aria-hidden tabIndex={-1} className="card-cover" />}
       <div className="min-w-0">
         <span aria-hidden className="tool-rule mb-4" />
         <h4 id={headingId} className="text-sm font-medium text-ink-2">
@@ -56,12 +76,7 @@ export function ToolCard({
         {tool.status === "coming-soon" && (
           <span className="mt-3 self-start text-xs font-medium text-muted">{t.comingSoon.badge}</span>
         )}
-        {/* The link is the button, so its focus ring sits on the button. */}
-        <div className="mt-auto pt-5">
-          <Link href={tool.href} aria-label={`${label}: ${copy.name}`} className="btn btn-tool btn-lg">
-            {label}
-          </Link>
-        </div>
+        {!reveal && <div className="mt-auto pt-5">{actionLink}</div>}
       </div>
     </article>
   );

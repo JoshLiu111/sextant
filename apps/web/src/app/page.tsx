@@ -4,6 +4,8 @@ import { SignInLink } from "@/components/SignInLink";
 import { ToolCard } from "@/components/ToolCard";
 import { getMessages } from "@/i18n";
 import { TOOLS_BY_GROUP, type ToolGroup, type ToolSlug } from "@/lib/tools";
+import { FeatureBoards } from "./FeatureBoards";
+import { MarketTape } from "./MarketTape";
 import { TrustTable } from "./TrustTable";
 
 const ASSETS = "/landing/sextant-assets";
@@ -42,9 +44,14 @@ export default function Home() {
 
   return (
     <main className="w-full">
+      {/* Live readings from the Macro Dashboard's cards, cached for hours; absent when the service is down. */}
+      <div className="mt-3 md:mt-4">
+        <MarketTape />
+      </div>
+
       {/* Hero: what Sextant is and the two ways in. Short, so the tools start on the first screen. */}
       <section aria-labelledby="hero-heading">
-        <div className="mx-auto grid max-w-7xl items-center gap-x-16 gap-y-10 px-4 pb-14 pt-14 md:px-6 md:pt-20 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        <div className="mx-auto grid max-w-7xl items-center gap-x-16 gap-y-10 px-4 pb-14 pt-12 md:px-6 md:pt-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <div className="min-w-0">
             <h1 id="hero-heading" className="text-ink">
               {t.home.hero.heading}
@@ -59,8 +66,11 @@ export default function Home() {
               <SignInLink className="btn btn-lg" />
             </div>
           </div>
-          <div className="art-plate hidden justify-self-center lg:block">
-            <Image src={`${ASSETS}/illustrations/workspace.png`} width={800} height={740} alt="" priority sizes="22rem" className="block h-auto w-full max-w-[22rem]" />
+          {/* Every group's features in turn, the workspace illustration blurred behind them. */}
+          <div className="min-w-0">
+            <FeatureBoards
+              backdrop={<Image src={`${ASSETS}/illustrations/workspace.png`} width={800} height={740} alt="" priority sizes="40rem" />}
+            />
           </div>
         </div>
       </section>
@@ -91,6 +101,7 @@ export default function Home() {
                           <ToolCard
                             tool={tool}
                             action="openDemo"
+                            revealAction
                             picture={
                               <div className="art-plate grid h-32 place-items-center">
                                 <Image
@@ -116,15 +127,15 @@ export default function Home() {
       </section>
 
       {/* Signing in: what it adds, then what it keeps. */}
-      <div className="mx-auto mt-24 grid max-w-7xl gap-x-16 gap-y-16 px-4 md:mt-32 md:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div className="mx-auto mt-16 grid max-w-7xl gap-x-16 gap-y-12 px-4 md:mt-20 md:px-6 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
         <section aria-labelledby="unlocks-heading" className="min-w-0">
-          <h2 id="unlocks-heading" className="border-t border-ink pt-6 text-3xl text-ink">
+          <h2 id="unlocks-heading" className="border-t border-ink pt-5 text-2xl text-ink">
             {t.home.unlocks.heading}
           </h2>
-          <p className="mt-4 text-ink-2">{t.home.unlocks.intro}</p>
-          <ul className="mt-6 border-t border-rule">
+          <p className="mt-2 text-ink-2">{t.home.unlocks.intro}</p>
+          <ul className="mt-4 border-t border-rule">
             {t.home.unlocks.items.map((item) => (
-              <li key={item} className="border-b border-rule py-4 text-lg leading-snug text-ink">
+              <li key={item} className="border-b border-rule py-2.5 leading-snug text-ink">
                 {item}
               </li>
             ))}
@@ -134,7 +145,7 @@ export default function Home() {
       </div>
 
       {/* Close: what Sextant is not, one action back to the tools, and whether the compute service is up. */}
-      <section aria-labelledby="disclaimer-heading" className="mt-24 md:mt-32">
+      <section aria-labelledby="disclaimer-heading" className="mt-16 md:mt-24">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
           <div className="grid items-center gap-x-16 gap-y-10 border-t border-ink pt-10 pb-20 md:pb-28 lg:grid-cols-[minmax(0,6fr)_minmax(0,6fr)]">
             <div className="min-w-0">
