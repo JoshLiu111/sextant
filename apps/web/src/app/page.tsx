@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { ToolCardGroups } from "@/components/ToolCardGroups";
 import { getMessages } from "@/i18n";
 import { FeatureBoards } from "./FeatureBoards";
-import { MarketTape } from "./MarketTape";
+import { MarketTape, TapeFallback } from "./MarketTape";
 import { TrustTable } from "./TrustTable";
 
 const ASSETS = "/landing/sextant-assets";
@@ -33,7 +33,7 @@ export default function Home() {
       {/* Live readings from the Macro Dashboard's cards, cached for hours; absent when the service is down.
           Streams in when it isn't in the prerendered page (any reading failed, as at build time). */}
       <div className="mt-3 md:mt-4">
-        <Suspense fallback={null}>
+        <Suspense fallback={<TapeFallback />}>
           <MarketTape />
         </Suspense>
       </div>

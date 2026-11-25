@@ -83,7 +83,8 @@ function StatusItem<T>({
       <h2 id={`status-${id}`} className="font-sans text-sm tracking-normal text-muted sm:pt-0.5">
         {heading}
       </h2>
-      <div className="flex min-w-0 flex-col gap-1">
+      {/* Two lines' room in every state, so the rows keep their height as each item loads. */}
+      <div className="flex min-h-15 min-w-0 flex-col gap-1">
         {item.kind === "loading" && <p className="text-muted">{t.loading}</p>}
         {item.kind === "unavailable" && <p className="text-ink-2">{t.unavailable}</p>}
         {item.kind === "ok" && children(item.value)}

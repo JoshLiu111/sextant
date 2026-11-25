@@ -6,7 +6,7 @@ import { ToolCardGroups } from "@/components/ToolCardGroups";
 import { getMessages } from "@/i18n";
 import { getCurrentUser } from "@/lib/auth/session";
 import { FeatureBoards } from "../FeatureBoards";
-import { MarketTape } from "../MarketTape";
+import { MarketTape, TapeFallback } from "../MarketTape";
 import { DashboardDataProvider, SavedPortfolioCount, StatusStrip } from "./DashboardStatus";
 
 // The signed-in user's home, built from the landing page's parts: the tape, a
@@ -19,14 +19,11 @@ const t = getMessages();
 
 export const metadata: Metadata = { title: t.dashboard.title };
 
-async function Greeting() {
+/** The user's name (or email), which needs the session, so it streams in and fades up. */
+async function GreetingName() {
   const user = await getCurrentUser();
   if (!user) redirect("/");
-  return (
-    <h1 id="dashboard-heading" className="text-display-s text-ink">
-      {t.dashboard.greeting(user.name || user.email)}
-    </h1>
-  );
+  return <span className="fade-in">{user.name || user.email}</span>;
 }
 
 export default function DashboardPage() {
@@ -34,7 +31,7 @@ export default function DashboardPage() {
     <main className="w-full pb-20 md:pb-28">
       {/* The landing's live readings from the Macro Dashboard's cards. */}
       <div className="mt-3 md:mt-4">
-        <Suspense fallback={null}>
+        <Suspense fallback={<TapeFallback />}>
           <MarketTape />
         </Suspense>
       </div>
@@ -43,9 +40,14 @@ export default function DashboardPage() {
         <section aria-labelledby="dashboard-heading">
           <div className="mx-auto grid max-w-7xl items-center gap-x-16 gap-y-10 px-4 pb-14 pt-12 md:px-6 md:pt-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
             <div className="min-w-0">
-              <Suspense fallback={<div className="h-24" aria-hidden />}>
-                <Greeting />
-              </Suspense>
+              {/* "Welcome," is in the first paint; the name follows. The heading keeps two
+                  lines' room from the start, so the name never pushes the page down. */}
+              <h1 id="dashboard-heading" className="min-h-[2.1em] text-display-s text-ink">
+                {t.dashboard.greeting}{" "}
+                <Suspense fallback={null}>
+                  <GreetingName />
+                </Suspense>
+              </h1>
               <p className="lead mt-6 text-ink-2">{t.dashboard.lead}</p>
               <div className="mt-8">
                 <StatusStrip />
