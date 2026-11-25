@@ -4,7 +4,7 @@ The locked system. Every Hallmark run reads this first and pages share it. Chang
 
 ## System
 - Genre: editorial
-- Shape of the first page: Index-First: a short hero, every tool on one four-column grid, account and privacy side by side, a disclaimer close (`/`); every tool, the dashboard, settings, account and operator are app screens
+- Shape of the first page: Index-First: a short hero, every tool on one four-column grid, account and privacy side by side, a disclaimer close (`/`); the dashboard (`/dashboard`) is built from the landing's parts: the tape, a split hero (the greeting at `display-s` over the account's status rows, beside the feature boards) and the same illustrated tool grid (`ToolCardGroups`), each card's action reading Open; every tool, settings, account and operator are app screens
 - Theme: Studio (dealt 1/3, seed `free-finance-tools-everyday-e225·89730c67·2026-11-24·r0`)
 - Axes: light/roman-serif/warm · posture: restrained · modes: light+dark (`prefers-color-scheme`)
 
@@ -47,7 +47,7 @@ The spacing scale, the type scale, the easings and the durations are the scaffol
 ## Landing
 - No screenshots: the page is an index of the tools, readable in one sweep.
 - Two moving parts, by the user's request (2026-11-24), both pausable and both still under reduced motion: the **tape** under the nav (the Macro Dashboard's live readings from FRED, Treasury and the ECB, cached for hours; name muted, reading ink 600, change green up / red down; each a link to its card on /macro) and the hero's **boards** (each tool group's nine features as a 3 x 3 grid of links, `src/app/featureBoardData.ts`, turning every 7s, timed by the orange line under the open group; the open board slides out to the left as the next slides in from the right; each cell wears a pale wash of one chart hue, dealt at random per board, 11% into `paper-hi` in light and 20% in dark).
-- Tool cards: the whole card opens the tool; "Open demo" shows over the picture on hover or focus only (always on touch screens and with scripting off), as a frosted paper chip (80% `paper-hi` with a backdrop blur, ink label, a hairline in the tool colour) that turns ink on hover, so it sits on the pastel art instead of stamping a solid fill on it.
+- Tool cards (landing and dashboard): the whole card opens the tool; "Open demo" shows over the picture on hover or focus only (always on touch screens and with scripting off), as a frosted paper chip (80% `paper-hi` with a backdrop blur, ink label, a hairline in the tool colour) that turns ink on hover, so it sits on the pastel art instead of stamping a solid fill on it.
 - Pictures are the user's own (`public/landing/sextant-assets`): one feature illustration per tool card, the workspace blurred behind the hero's boards, the waves at the close, the sextant mark in the nav and as the favicon, `og-image` as the share card; on app screens, art only in states: the 404 page, the page error boundary and the empty saved-portfolios list (never on a working screen). They are white-ground rasters, so each sits on `.art-plate` (`--color-plate`, multiplied), which keeps them right in dark mode.
 - Never a user count, testimonial or logo. The privacy table states only what the code does; change it when the data model changes.
 

@@ -148,6 +148,7 @@ export const en = {
   dashboard: {
     title: "Dashboard",
     greeting: (who: string) => `Welcome, ${who}`,
+    lead: "Your account at a glance, and every tool one click away.",
     statusLabel: "Your account",
     loading: "Loading…",
     unavailable: "Unavailable right now.",
@@ -170,6 +171,7 @@ export const en = {
     },
     tools: {
       heading: "Your tools",
+      intro: "Market data tools run on your key when one is saved, on demo data when not.",
     },
   },
   /** Tool group names (`ToolGroup` in lib/tools.ts): the nav menus and the card sections. */
