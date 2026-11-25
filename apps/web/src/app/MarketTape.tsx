@@ -59,7 +59,12 @@ async function fetchEnvelope(path: `/${string}`): Promise<ResultEnvelope<string,
   }
 }
 
-/** Every reading the compute service returned, cached for hours (minutes when a call failed). */
+/**
+ * Every reading the compute service returned, cached for hours. When any call
+ * failed (always so at build time, when the service isn't reachable), the result
+ * is cached for seconds: Next.js then leaves the tape out of the prerendered
+ * landing page and fetches it per request, instead of shipping an empty tape.
+ */
 async function getTape(): Promise<TapeItem[]> {
   "use cache";
   const labels = getMessages().home.tape.items;
@@ -80,7 +85,7 @@ async function getTape(): Promise<TapeItem[]> {
     }
   });
   if (envelopes.every(Boolean)) cacheLife("hours");
-  else cacheLife("minutes");
+  else cacheLife("seconds");
   return items;
 }
 
