@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Suspense } from "react";
 import { ComputeStatus } from "@/components/ComputeStatus";
 import { SignInLink } from "@/components/SignInLink";
 import { ToolCard } from "@/components/ToolCard";
@@ -44,9 +45,12 @@ export default function Home() {
 
   return (
     <main className="w-full">
-      {/* Live readings from the Macro Dashboard's cards, cached for hours; absent when the service is down. */}
+      {/* Live readings from the Macro Dashboard's cards, cached for hours; absent when the service is down.
+          Streams in when it isn't in the prerendered page (any reading failed, as at build time). */}
       <div className="mt-3 md:mt-4">
-        <MarketTape />
+        <Suspense fallback={null}>
+          <MarketTape />
+        </Suspense>
       </div>
 
       {/* Hero: what Sextant is and the two ways in. Short, so the tools start on the first screen. */}
