@@ -331,6 +331,9 @@
   }
   .tape-link:hover { background: var(--color-wash); }
   .tape-link:focus-visible { outline-offset: -2px; }
+  /* Streamed text (the dashboard greeting's name) fades up instead of popping in. */
+  .fade-in { animation: fade-in var(--dur-short) var(--ease-out); }
+  .tape-placeholder { min-height: calc(2.75rem + 2 * var(--rule-hair)); }
   .tape-label { color: var(--color-muted); }
   .tape-value { color: var(--color-ink); font-weight: 600; }
   .tape-change { font-weight: 500; }
@@ -431,6 +434,7 @@
   }
 }
 
+@keyframes fade-in { from { opacity: 0; } }
 @keyframes tape-drift { to { transform: translateX(-50%); } }
 @keyframes board-time { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes board-in { from { opacity: 0; transform: translateX(40%); } }

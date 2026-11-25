@@ -147,7 +147,8 @@ export const en = {
   },
   dashboard: {
     title: "Dashboard",
-    greeting: (who: string) => `Welcome, ${who}`,
+    /** The greeting's fixed part; the name streams in after it. */
+    greeting: "Welcome,",
     lead: "Your account at a glance, and every tool one click away.",
     statusLabel: "Your account",
     loading: "Loading…",

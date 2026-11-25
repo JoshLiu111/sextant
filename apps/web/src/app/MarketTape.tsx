@@ -95,3 +95,8 @@ export async function MarketTape() {
   if (items.length === 0) return null;
   return <TapeTrack items={items} />;
 }
+
+/** The tape's empty band, holding its place while the readings stream in. */
+export function TapeFallback() {
+  return <div aria-hidden className="tape tape-placeholder" />;
+}
