@@ -53,6 +53,16 @@ test("sign-in returns the user to the page they started from", async ({ page }) 
   await expect(page.getByRole("banner").getByTestId("signed-in-user")).toBeVisible();
 });
 
+test("a sign-in link followed while signed in goes straight back, without the provider", async ({ page }) => {
+  await signIn(page, uniqueEmail("again"), "Already In");
+
+  await page.goto("/auth/signin?returnTo=%2Fvaluation");
+
+  await expect(page).toHaveURL(/\/valuation$/);
+  await expect(page.getByLabel("Email")).toHaveCount(0);
+  await expect(page.getByRole("banner").getByTestId("signed-in-user")).toHaveText("Already In");
+});
+
 test("deleting the account asks for confirmation, then removes it and signs out", async ({ page }) => {
   const email = uniqueEmail("delete");
   await signIn(page, email, "Grace Hopper");

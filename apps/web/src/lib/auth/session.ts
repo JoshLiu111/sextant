@@ -32,11 +32,12 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 });
 
 /**
- * True when `token` is a live session. For the proxy, which has the cookie but
- * no React request scope. Any failure counts as "no".
+ * True when `token` is a live session. For code that has the cookie but no
+ * React request scope (the proxy, route handlers). Any failure counts as "no".
+ * `base`: where compute is reached, as for computeFetch.
  */
-export function isSignedIn(token: string | null): Promise<boolean> {
-  return answersAsUser(token, "/me", (res) => res.ok);
+export function isSignedIn(token: string | null, base?: string): Promise<boolean> {
+  return answersAsUser(token, "/me", (res) => res.ok, base);
 }
 
 /**
@@ -47,10 +48,11 @@ export async function answersAsUser(
   token: string | null,
   path: `/${string}`,
   accepted: (res: Response) => boolean,
+  base?: string,
 ): Promise<boolean> {
   if (!token) return false;
   try {
-    return accepted(await computeFetchAsUser(token, path, { signal: AbortSignal.timeout(5000) }));
+    return accepted(await computeFetchAsUser(token, path, { signal: AbortSignal.timeout(5000) }, base));
   } catch {
     return false;
   }
@@ -61,8 +63,9 @@ export function computeFetchAsUser(
   token: string,
   path: `/${string}`,
   init: RequestInit = {},
+  base?: string,
 ): Promise<Response> {
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${token}`);
-  return computeFetch(path, { cache: "no-store", ...init, headers });
+  return computeFetch(path, { cache: "no-store", ...init, headers }, base);
 }

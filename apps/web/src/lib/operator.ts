@@ -29,9 +29,9 @@ export type AiUsageReport = {
   days: DayUsage[];
 };
 
-/** True when `token` belongs to an operator. Any failure counts as "no". */
-export function isOperator(token: string | null): Promise<boolean> {
-  return answersAsUser(token, "/operator/access", (res) => res.status === 204);
+/** True when `token` belongs to an operator. Any failure counts as "no". `base` as for computeFetch. */
+export function isOperator(token: string | null, base?: string): Promise<boolean> {
+  return answersAsUser(token, "/operator/access", (res) => res.status === 204, base);
 }
 
 export type OperatorResult<T> = { kind: "ok"; report: T } | { kind: "not_found" } | { kind: "failed" };
