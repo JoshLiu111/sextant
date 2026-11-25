@@ -19,9 +19,12 @@ export function computeBaseUrl(): string {
   return process.env.COMPUTE_INTERNAL_URL || process.env.COMPUTE_URL || LOCAL_COMPUTE_URL;
 }
 
-/** Server-only fetch against the compute service. */
-export function computeFetch(path: `/${string}`, init?: RequestInit): Promise<Response> {
-  return fetch(new URL(computePath(path), computeBaseUrl()), init);
+/**
+ * Server-only fetch against the compute service. `base` overrides where it is
+ * reached: the proxy passes the site's own origin (see src/proxy.ts).
+ */
+export function computeFetch(path: `/${string}`, init?: RequestInit, base: string = computeBaseUrl()): Promise<Response> {
+  return fetch(new URL(computePath(path), base), init);
 }
 
 export type ComputeHealth = { status: "ok"; service: string; version: string };

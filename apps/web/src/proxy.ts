@@ -15,19 +15,25 @@ import { isOperator } from "@/lib/operator";
 // - `/operator`: must answer a real HTTP 404 to everyone but operators. With
 //   cacheComponents the page streams a 200 before it can call notFound(), so
 //   the check happens here. The page checks again on its own.
+//
+// Compute is reached through this site's own /api/compute/* (vercel.json
+// rewrites it to the compute service; next.config.ts locally), not the service
+// binding (COMPUTE_INTERNAL_URL): on Vercel the proxy runs outside the web
+// service's functions, and its calls that way all failed, so signed-in users
+// stayed on the landing page and operators got /operator's 404.
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value ?? null;
-  const { pathname } = request.nextUrl;
+  const { pathname, origin } = request.nextUrl;
 
   if (pathname === "/") {
-    if (token && (await isSignedIn(token))) return redirectTo(request, "/dashboard");
+    if (token && (await isSignedIn(token, origin))) return redirectTo(request, "/dashboard");
     return NextResponse.next();
   }
   if (pathname === "/dashboard") {
     return token ? NextResponse.next() : redirectTo(request, "/");
   }
 
-  if (await isOperator(token)) return NextResponse.next();
+  if (await isOperator(token, origin)) return NextResponse.next();
   // No route lives here, so Next renders the not-found page with status 404.
   return NextResponse.rewrite(new URL("/_operator-not-found", request.url));
 }

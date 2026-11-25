@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Suspense } from "react";
 import { ComputeStatus } from "@/components/ComputeStatus";
 import { SignInLink } from "@/components/SignInLink";
+import { getCurrentUser } from "@/lib/auth/session";
 import { ToolCard } from "@/components/ToolCard";
 import { getMessages } from "@/i18n";
 import { TOOLS_BY_GROUP, type ToolGroup, type ToolSlug } from "@/lib/tools";
@@ -38,8 +39,20 @@ const COLS: Record<ToolGroup, string> = {
   "ai-analyst": "md:grid-cols-2 lg:grid-cols-1",
 };
 
-// The landing page. It never reads the session, so it stays static and
-// cacheable; signing in from here starts at /auth/signin and returns to /.
+/**
+ * The hero's Sign in button, for visitors only. src/proxy.ts sends signed-in
+ * users to /dashboard, but when its session check fails (a cold compute
+ * service) they land here: the button then follows the same session read as
+ * the nav's account menu, so the two always agree.
+ */
+async function HeroSignIn() {
+  if (await getCurrentUser()) return null;
+  return <SignInLink className="btn btn-lg" />;
+}
+
+// The landing page. Only the hero's Sign in button reads the session, behind
+// Suspense, so the rest stays in the static, cacheable shell; signing in from
+// here starts at /auth/signin and returns to /.
 export default function Home() {
   const t = getMessages();
 
@@ -67,7 +80,9 @@ export default function Home() {
               <a href="#tools" className="btn btn-primary btn-lg">
                 {t.home.hero.tryTool}
               </a>
-              <SignInLink className="btn btn-lg" />
+              <Suspense fallback={null}>
+                <HeroSignIn />
+              </Suspense>
             </div>
           </div>
           {/* Every group's features in turn, the workspace illustration blurred behind them. */}
