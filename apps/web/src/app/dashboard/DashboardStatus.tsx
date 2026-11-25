@@ -78,12 +78,12 @@ function StatusItem<T>({
     <section
       aria-labelledby={`status-${id}`}
       aria-busy={item.kind === "loading"}
-      className="min-w-0 py-4 text-sm sm:px-5 sm:first:pl-0"
+      className="grid min-w-0 gap-x-6 gap-y-1 py-4 text-sm sm:grid-cols-[9rem_minmax(0,1fr)]"
     >
-      <h2 id={`status-${id}`} className="font-sans text-sm tracking-normal text-muted">
+      <h2 id={`status-${id}`} className="font-sans text-sm tracking-normal text-muted sm:pt-0.5">
         {heading}
       </h2>
-      <div className="mt-2 flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         {item.kind === "loading" && <p className="text-muted">{t.loading}</p>}
         {item.kind === "unavailable" && <p className="text-ink-2">{t.unavailable}</p>}
         {item.kind === "ok" && children(item.value)}
@@ -95,7 +95,7 @@ function StatusItem<T>({
 export function StatusStrip() {
   const { keys, quota, portfolios } = useContext(DashboardContext);
   return (
-    <div aria-label={t.statusLabel} role="group" className="grid grid-cols-1 divide-y divide-rule border-y border-ink sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+    <div aria-label={t.statusLabel} role="group" className="flex flex-col divide-y divide-rule border-y border-ink">
       <StatusItem id="key" heading={t.key.heading} item={keys}>
         {(providers) =>
           providers.length === 0 ? (

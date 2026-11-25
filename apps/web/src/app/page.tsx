@@ -3,41 +3,13 @@ import { Suspense } from "react";
 import { ComputeStatus } from "@/components/ComputeStatus";
 import { SignInLink } from "@/components/SignInLink";
 import { getCurrentUser } from "@/lib/auth/session";
-import { ToolCard } from "@/components/ToolCard";
+import { ToolCardGroups } from "@/components/ToolCardGroups";
 import { getMessages } from "@/i18n";
-import { TOOLS_BY_GROUP, type ToolGroup, type ToolSlug } from "@/lib/tools";
 import { FeatureBoards } from "./FeatureBoards";
 import { MarketTape } from "./MarketTape";
 import { TrustTable } from "./TrustTable";
 
 const ASSETS = "/landing/sextant-assets";
-
-// Each tool's illustration (public/landing/sextant-assets/features), all 480 x 300.
-const ART: Record<ToolSlug, { file: string; width: number; height: number }> = {
-  macro: { file: "macro-dashboard", width: 480, height: 300 },
-  screener: { file: "screener-calendar", width: 480, height: 300 },
-  company: { file: "company-health-check", width: 480, height: 300 },
-  valuation: { file: "valuation-calculator", width: 480, height: 300 },
-  portfolio: { file: "my-portfolio", width: 480, height: 300 },
-  risk: { file: "risk-performance", width: 480, height: 300 },
-  options: { file: "options-calculator", width: 480, height: 300 },
-  "ai-analyst": { file: "ai-analyst", width: 480, height: 300 },
-};
-
-// The four groups share one four-column grid: Markets and Companies take two columns
-// each, then Portfolio & Risk three and AI Analyst one, so all eight cards are one size.
-const SPAN: Record<ToolGroup, string> = {
-  markets: "lg:col-span-2",
-  companies: "lg:col-span-2",
-  "portfolio-risk": "lg:col-span-3",
-  "ai-analyst": "lg:col-span-1",
-};
-const COLS: Record<ToolGroup, string> = {
-  markets: "md:grid-cols-2",
-  companies: "md:grid-cols-2",
-  "portfolio-risk": "md:grid-cols-2 lg:grid-cols-3",
-  "ai-analyst": "md:grid-cols-2 lg:grid-cols-1",
-};
 
 /**
  * The hero's Sign in button, for visitors only. src/proxy.ts sends signed-in
@@ -104,43 +76,8 @@ export default function Home() {
             <p className="text-ink-2">{t.home.tools.intro}</p>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-12 md:grid-cols-2 lg:grid-cols-4">
-            {TOOLS_BY_GROUP.map(({ group, tools }) => {
-              const headingId = `tool-group-${group}`;
-              return (
-                <section key={group} aria-labelledby={headingId} data-group={group} className={`flex min-w-0 flex-col md:col-span-2 ${SPAN[group]}`}>
-                  <h3 id={headingId} className="border-b border-rule pb-3 text-xl text-ink">
-                    {t.toolGroups[group]}
-                  </h3>
-                  <ul className={`mt-5 grid grow grid-cols-1 gap-6 ${COLS[group]}`}>
-                    {tools.map((tool) => {
-                      const art = ART[tool.slug];
-                      return (
-                        <li key={tool.slug} className="min-w-0">
-                          <ToolCard
-                            tool={tool}
-                            action="openDemo"
-                            revealAction
-                            picture={
-                              <div className="art-plate grid h-32 place-items-center">
-                                <Image
-                                  src={`${ASSETS}/features/${art.file}.png`}
-                                  width={art.width}
-                                  height={art.height}
-                                  alt=""
-                                  sizes="13rem"
-                                  className="block h-full w-auto max-w-full object-contain"
-                                />
-                              </div>
-                            }
-                          />
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              );
-            })}
+          <div className="mt-10">
+            <ToolCardGroups action="openDemo" />
           </div>
         </div>
       </section>
